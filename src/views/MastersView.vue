@@ -152,6 +152,9 @@ watch(
         <p v-if="dependencyPlan.load_order.length" class="muted">
           Urutan pemuatan: {{ dependencyPlan.load_order.join(' → ') }}
         </p>
+        <ul v-if="dependencyPlan.correction_actions.length" class="error">
+          <li v-for="action in dependencyPlan.correction_actions" :key="action">{{ action }}</li>
+        </ul>
         <DataTable :rows="dependencyRows" />
       </template>
       <template v-if="orphanResult">

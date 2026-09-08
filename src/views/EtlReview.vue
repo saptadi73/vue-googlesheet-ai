@@ -4,7 +4,7 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vu
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
-import { classificationEvidenceMatches, ensureSourceReady } from '@/lib/classification'
+import { classificationEvidenceMatches } from '@/lib/classification'
 import { downloadFile, getApiErrorMessage } from '@/lib/api'
 import {
   call,
@@ -28,7 +28,13 @@ const route = useRoute(),
   router = useRouter()
 const details = ref<Review | null>(null),
   draft = ref<ETL | null>(null),
-  preview = ref<Preview | null>(null)
+  preview = ref<Preview | null>(null),
+  parameterCatalog = ref<{
+    schema_version: string
+    parameters: Array<Record<string, unknown>>
+    operations: Array<Record<string, unknown>>
+    capabilities: Record<string, unknown>
+  } | null>(null)
 const error = ref(''),
   notice = ref(''),
   busy = ref(false),
@@ -100,9 +106,13 @@ async function run(action: () => Promise<void>) {
 }
 async function load() {
   const epoch = generation
-  const result = await call<Review>('GET', `${base.value}/review`)
+  const [result, catalog] = await Promise.all([
+    call<Review>('GET', `${base.value}/review`),
+    call<typeof parameterCatalog.value>('GET', '/configurations/parameter-catalog'),
+  ])
   if (epoch !== generation) return
   details.value = result
+  parameterCatalog.value = catalog
   draft.value = copy(result.configuration.configuration_json)
   answers.value = {}
   resolved.value = []
@@ -186,11 +196,19 @@ async function poll(id: string, epoch: number) {
   }
 }
 async function queue(path: string) {
-  if (path.endsWith('/sync') && record.value) await ensureSourceReady(record.value.source_id)
   const result = await call<{ job_id: string }>('POST', path)
   clearTimeout(timer)
   pollDeadline = Date.now() + 120_000
   await poll(result.job_id, generation)
+}
+async function syncReview() {
+  if (!record.value) return
+  const result = await call<{ reviews: unknown[] }>(
+    'POST',
+    `/sources/${record.value.source_id}/sync-review`,
+  )
+  notice.value = `Batch review dibuat untuk ${result.reviews.length} tab. Lanjutkan dari halaman batch import.`
+  await router.push('/import-reviews')
 }
 async function download() {
   if (dirty.value) throw new Error('Simpan draft sebelum mengunduh Excel.')
@@ -332,6 +350,13 @@ onBeforeRouteUpdate(confirmLeave)
     <RouterLink to="/workspace">← Daftar sumber</RouterLink>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
+    <details v-if="parameterCatalog" class="panel">
+      <summary>Parameter runtime dan capability (BE12)</summary>
+      <p class="muted">
+        Parameter bertanda supported=false hanya didokumentasikan dan tidak dikirim oleh editor.
+      </p>
+      <pre>{{ JSON.stringify(parameterCatalog, null, 2) }}</pre>
+    </details>
     <p v-if="busy" aria-live="polite">Memproses…</p>
     <template v-if="details && draft && record">
       <p class="eyebrow">{{ details.source.name }} / {{ details.sheet.sheet_name }}</p>
@@ -909,9 +934,9 @@ onBeforeRouteUpdate(confirmLeave)
           v-if="editor && record.status === 'ACTIVE'"
           class="primary"
           :disabled="busy"
-          @click="run(() => queue(`/sources/${record?.source_id}/sync`))"
+          @click="run(syncReview)"
         >
-          Jalankan sinkronisasi
+          Buat batch sync review
         </button>
       </div>
     </template>

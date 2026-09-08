@@ -91,6 +91,14 @@ export interface ColumnBinding {
   approved_by: string | null
   approved_at: string | null
 }
+export interface ColumnBindingRecommendation {
+  source_column: string
+  candidates: Array<{ master_definition_id: string; master_field: string; score: number }>
+}
+export interface ColumnBindingRecommendations {
+  items: ColumnBindingRecommendation[]
+  requires_confirmation: boolean
+}
 export interface MasterDependencyPlan {
   nodes: string[]
   load_order: string[]
@@ -104,6 +112,7 @@ export interface MasterDependencyPlan {
     target_column: string
   }>
   has_cycle: boolean
+  correction_actions: string[]
   execution_ready: boolean
   blocking_reason?: string
 }

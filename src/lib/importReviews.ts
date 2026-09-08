@@ -138,7 +138,7 @@ export interface ImportReviewApplyResult {
 }
 
 export interface ImportReferenceResolveResult {
-  status: 'EXACT' | 'CANDIDATE' | 'AMBIGUOUS' | 'NOT_FOUND'
+  status: 'ALIAS' | 'EXACT' | 'CANDIDATE' | 'AMBIGUOUS' | 'NOT_FOUND'
   master_id: string
   record?: Record<string, unknown>
   candidates?: Record<string, unknown>[]

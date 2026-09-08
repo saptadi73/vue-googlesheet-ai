@@ -22,6 +22,7 @@ const sources = ref<Source[]>([]),
 const sourceId = ref(''),
   sheetId = ref(''),
   error = ref(''),
+  notice = ref(''),
   busy = ref(false),
   job = ref<Job | null>(null)
 const offset = ref(0)
@@ -34,6 +35,8 @@ const registration = ref({
   sync_schedule: '',
 })
 const profiles = ref<Profile[]>([])
+const syncReviews = ref<unknown[] | null>(null)
+const migrationPreview = ref<Record<string, unknown> | null>(null)
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value))
 const currentProfile = computed(
   () =>
@@ -60,6 +63,7 @@ let pollDeadline = 0
 async function run(action: () => Promise<void>) {
   busy.value = true
   error.value = ''
+  notice.value = ''
   try {
     await action()
   } catch (e) {
@@ -98,6 +102,22 @@ async function updateSheet() {
   await call('PATCH', `/source-sheets/${sheetId.value}`, sheetSettings.value)
   sheets.value = await call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`)
   profiles.value = []
+}
+async function syncReview() {
+  const result = await call<{ reviews: unknown[] }>(
+    'POST',
+    `/sources/${sourceId.value}/sync-review`,
+  )
+  syncReviews.value = result.reviews
+  notice.value =
+    'Batch review dibuat untuk tab yang siap. Periksa item BLOCKED sebelum melanjutkan.'
+}
+async function loadMigrationPreview() {
+  migrationPreview.value = await call<Record<string, unknown>>(
+    'GET',
+    `/sources/${sourceId.value}/master-migration-preview`,
+  )
+  notice.value = 'Preview migrasi master dimuat. Tidak ada perubahan data yang dilakukan.'
 }
 async function poll(id: string, epoch: number) {
   if (epoch !== generation || !user.value) return
@@ -142,6 +162,8 @@ watch(
     sheetId.value = ''
     job.value = null
     profiles.value = []
+    syncReviews.value = null
+    migrationPreview.value = null
     offset.value = 0
     if (canRead.value) void run(load)
   },
@@ -161,6 +183,7 @@ onBeforeUnmount(() => {
       menjalankan ETL.
     </p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
+    <p v-if="notice" role="status" class="success">{{ notice }}</p>
     <details v-if="canEdit" class="panel">
       <summary>Hubungkan Google Sheet baru</summary>
       <form
@@ -258,6 +281,17 @@ onBeforeUnmount(() => {
         <button
           v-if="canEdit"
           class="primary"
+          :disabled="busy || !sourceId"
+          @click="run(syncReview)"
+        >
+          Buat batch sync review
+        </button>
+        <button v-if="sourceId" :disabled="busy" @click="run(loadMigrationPreview)">
+          Preview migrasi master
+        </button>
+        <button
+          v-if="canEdit"
+          class="primary"
           :disabled="busy || !sheetId || !selectedSheet?.last_fingerprint || !selectedSheet.enabled"
           @click="
             run(() =>
@@ -276,6 +310,17 @@ onBeforeUnmount(() => {
         Semua tab enabled telah dikonfirmasi NON_MASTER. Prasyarat data/approval tetap diperiksa
         server.
       </p>
+    </section>
+    <section v-if="syncReviews || migrationPreview" class="panel">
+      <h2>Hasil batch dan migrasi</h2>
+      <details v-if="syncReviews" open>
+        <summary>Batch sync review</summary>
+        <pre>{{ JSON.stringify(syncReviews, null, 2) }}</pre>
+      </details>
+      <details v-if="migrationPreview" open>
+        <summary>Preview migrasi MASTER</summary>
+        <pre>{{ JSON.stringify(migrationPreview, null, 2) }}</pre>
+      </details>
     </section>
     <SheetClassification
       v-if="selectedSheet"

@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import { call, editRoles, reviewRoles, user, type Profile, type Sheet } from '@/lib/etl'
-import { type ColumnBinding, type Master } from '@/lib/masters'
+import { type ColumnBinding, type ColumnBindingRecommendations, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 
 const route = useRoute()
@@ -13,6 +13,7 @@ const sheetId = computed(() => String(route.params.sheetId))
 const sheet = ref<Sheet | null>(null)
 const profile = ref<Profile | null>(null)
 const bindings = ref<ColumnBinding[]>([])
+const recommendations = ref<ColumnBindingRecommendations | null>(null)
 const masters = ref<Master[]>([])
 const master = ref<Master | null>(null)
 const sourceColumn = ref('')
@@ -53,6 +54,13 @@ function resetForm() {
 
 async function loadMasters() {
   masters.value = await call<Master[]>('GET', '/master-definitions?offset=0&limit=100')
+}
+async function loadRecommendations() {
+  recommendations.value = await call<ColumnBindingRecommendations>(
+    'GET',
+    `/source-sheets/${sheetId.value}/column-bindings/recommendations`,
+  )
+  notice.value = 'Kandidat binding dimuat. Pilih kandidat lalu tinjau sebelum menyimpan draft.'
 }
 
 async function selectMaster() {
@@ -95,6 +103,15 @@ async function edit(binding: ColumnBinding) {
   await selectMaster()
   if (masterId.value === binding.master_definition_id) masterField.value = binding.master_field
 }
+async function useRecommendation(
+  source: string,
+  candidate: ColumnBindingRecommendations['items'][number]['candidates'][number],
+) {
+  sourceColumn.value = source
+  masterId.value = candidate.master_definition_id
+  await selectMaster()
+  masterField.value = candidate.master_field
+}
 
 async function save() {
   if (!headers.value.includes(sourceColumn.value))
@@ -130,6 +147,7 @@ watch(
     sheet.value = null
     profile.value = null
     bindings.value = []
+    recommendations.value = null
     masters.value = []
     resetForm()
     comment.value = ''
@@ -150,6 +168,39 @@ watch(
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
+
+    <section class="panel">
+      <h2>Rekomendasi binding</h2>
+      <p class="muted">
+        Kandidat dihitung dari kemiripan nama kolom. Tidak ada kandidat yang disimpan otomatis.
+      </p>
+      <button :disabled="busy || !profile" @click="run(loadRecommendations)">
+        Muat rekomendasi
+      </button>
+      <template v-if="recommendations">
+        <p v-if="recommendations.requires_confirmation" class="notice">
+          Konfirmasi dan tinjau master tujuan sebelum menyimpan draft.
+        </p>
+        <article v-for="item in recommendations.items" :key="item.source_column" class="card-row">
+          <h3>{{ item.source_column }}</h3>
+          <p v-if="!item.candidates.length" class="muted">Tidak ada kandidat yang cukup cocok.</p>
+          <div
+            v-for="candidate in item.candidates"
+            :key="`${candidate.master_definition_id}-${candidate.master_field}`"
+            class="toolbar"
+          >
+            <span>{{ candidate.master_field }} · skor {{ candidate.score }}</span>
+            <button
+              v-if="editor"
+              :disabled="busy"
+              @click="run(() => useRecommendation(item.source_column, candidate))"
+            >
+              Gunakan untuk ditinjau
+            </button>
+          </div>
+        </article>
+      </template>
+    </section>
 
     <section class="panel">
       <h2>Binding tersimpan</h2>

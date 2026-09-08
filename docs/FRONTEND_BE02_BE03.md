@@ -71,6 +71,10 @@ komposit tenant+record setelah pemeriksaan orphan siap dan tidak ada siklus. UI 
 konfirmasi eksplisit sebelum POST deploy; respons mencantumkan constraint baru atau
 constraint yang dipakai ulang.
 
+Rekomendasi binding kolom tersedia per tab. Kandidat hanya mengisi form untuk ditinjau;
+editor tetap memilih dan menyimpan draft secara eksplisit. Rencana dependency juga
+menampilkan tindakan koreksi jika backend mendeteksi siklus.
+
 ## Verifikasi dan rollout
 
 - 16 unit test: sesi/API, blocker klasifikasi, kecocokan evidence dan mapping master.

@@ -18,6 +18,10 @@ dan blocker runtime sebelum reviewer memutuskan deploy foreign key.
 Reviewer dapat memasang foreign key setelah pemeriksaan orphan sukses dan tidak ada
 siklus dependency. Konfirmasi eksplisit di UI diperlukan sebelum request deploy.
 
+Workspace menyediakan batch sync review per sumber dan preview migrasi MASTER yang
+read-only. Editor konfigurasi memuat katalog parameter BE12 dan hanya mengirim
+parameter yang ditandai backend sebagai supported.
+
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).
 Pertanyaan terstruktur, koreksi staging, dan proposal master awal pada batch diimplementasikan
