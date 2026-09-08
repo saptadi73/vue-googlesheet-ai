@@ -148,7 +148,13 @@ export function getApiErrorMessage(error: unknown): string {
       CLASSIFICATION_REVIEW_STALE:
         'Periksa klasifikasi terbaru. Ajukan ulang draft; clone konfigurasi immutable.',
       MASTER_RUNTIME_PENDING:
-        'Registry/binding hanya menyiapkan metadata. Pemuatan master belum tersedia.',
+        'Metadata dan storage dapat disiapkan. Review/apply import master belum tersedia.',
+      MASTER_NOT_APPROVED: 'Master harus aktif dan memiliki versi approved.',
+      MASTER_STORAGE_REQUIRED:
+        'Reviewer perlu menyiapkan storage melalui halaman Storage & Record.',
+      MASTER_STORAGE_STALE: 'Muat ulang rencana lalu deploy storage untuk versi approved terbaru.',
+      MASTER_SCHEMA_MIGRATION_REQUIRED:
+        'Perubahan schema memerlukan migrasi khusus dari backend. Jangan hapus atau buat ulang tabel.',
       MASTER_BINDING_REQUIRED: 'Buka binding master pada tab yang sudah dikonfirmasi MASTER.',
       MASTER_DUPLICATE_REVIEW_REQUIRED:
         'Preview kandidat dan tinjau semuanya, atau gunakan master yang sudah ada.',

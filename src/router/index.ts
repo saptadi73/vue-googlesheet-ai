@@ -28,6 +28,11 @@ const router = createRouter({
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD'] },
     },
     {
+      path: '/masters/:id/storage',
+      component: () => import('@/views/MasterStorageView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
       path: '/masters/:id',
       component: () => import('@/views/MasterDefinitionView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },

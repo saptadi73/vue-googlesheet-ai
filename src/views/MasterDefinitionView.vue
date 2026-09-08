@@ -157,6 +157,12 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 <template>
   <EtlShell
     ><RouterLink to="/masters">← Registry master</RouterLink>
+    <RouterLink
+      v-if="record?.is_active && record.approved_version > 0"
+      class="button"
+      :to="`/masters/${record.id}/storage`"
+      >Storage &amp; record</RouterLink
+    >
     <h1>{{ record ? 'Review definisi master' : 'Definisi master baru' }}</h1>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>

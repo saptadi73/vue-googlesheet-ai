@@ -34,8 +34,8 @@ watch(
     ><p class="eyebrow">REGISTRY MASTER</p>
     <h1>Definisi master</h1>
     <p class="notice">
-      Registry menyimpan definisi dan binding. Penyimpanan serta pemuatan record master kanonis
-      belum tersedia.
+      Registry menyimpan definisi dan binding. Storage dan pencarian record tersedia; review/apply
+      import master belum tersedia.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section class="panel">
@@ -59,6 +59,12 @@ watch(
         </p>
         <RouterLink class="button" :to="`/masters/${master.id}`"
           >Buka definisi {{ master.code }}</RouterLink
+        >
+        <RouterLink
+          v-if="master.is_active && master.approved_version > 0"
+          class="button"
+          :to="`/masters/${master.id}/storage`"
+          >Storage &amp; record {{ master.code }}</RouterLink
         >
       </article>
       <div class="toolbar">

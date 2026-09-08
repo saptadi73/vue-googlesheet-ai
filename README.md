@@ -33,6 +33,7 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | Route                                               | Fitur                                                                                                                 |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `/masters`                                          | Registry master, kandidat duplikat, draft, submission dan approval                                                    |
+| `/masters/:id/storage`                              | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                |
 | `/masters/new`                                      | Definisi master baru dengan policy eksplisit                                                                          |
 | `/masters/:id`                                      | Edit definisi, review dan snapshot approved                                                                           |
 | `/sources/:sourceId/sheets/:sheetId/master-binding` | Mapping master dari profil, dry-run dan approval binding                                                              |
@@ -90,7 +91,9 @@ Grafik halaman utama tetap demonstrasi berlabel. Grafik `/dashboard` menggunakan
 Form query tidak mengirim SQL bebas. Ekspor mengikuti limit/offset/scope dari query yang ditampilkan,
 bukan seluruh dataset. Tidak ada retry otomatis mutation timeout atau query AI.
 
-Implementasi terbaru: [Klasifikasi dan registry master BE02/BE03](docs/FRONTEND_BE02_BE03.md).
+Storage BE04: [Frontend storage master](docs/FRONTEND_BE04.md).
+
+Implementasi BE02/BE03: [Klasifikasi dan registry master BE02/BE03](docs/FRONTEND_BE02_BE03.md).
 
 Panduan cakupan, batasan, dan rollout: [Implementasi frontend](docs/IMPLEMENTASI_FRONTEND.md).
 

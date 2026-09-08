@@ -3,7 +3,8 @@
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
 Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; lihat
-[implementasi BE02/BE03](FRONTEND_BE02_BE03.md). Eksekusi data master dan relasi FK otomatis
+[implementasi BE02/BE03](FRONTEND_BE02_BE03.md). Storage dan pencarian record BE04 tersedia melalui `/masters/:id/storage`; lihat
+[frontend BE04](FRONTEND_BE04.md). Import data master dan relasi FK otomatis
 belum tersedia pada runtime backend saat ini.
 
 ## Perilaku penting
