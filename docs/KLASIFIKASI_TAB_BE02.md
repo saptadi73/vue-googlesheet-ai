@@ -2,6 +2,8 @@
 
 Status: implementasi backend tersedia. Policy mengikuti keputusan [BE-01](KEBIJAKAN_DATA_BE01.md): klasifikasi per tab dan kode master baru diusulkan untuk ditambahkan dengan persetujuan. BE-02 menyimpan jenis tab dan menegakkan gate eksekusi. Registry, binding, serta pemuatan master kanonis baru dilanjutkan pada BE-03 dan seterusnya.
 
+Pembaruan setelah BE-03: registry/binding metadata sudah tersedia. Blocker eksekusi MASTER kini `MASTER_RUNTIME_PENDING`; `MASTER_BINDING_REQUIRED` hanya dipakai pada GET binding yang belum ada. GET klasifikasi MASTER menambah ringkasan master_binding. Detail terbaru ada di [Registry master BE-03](REGISTRY_MASTER_BE03.md). Penjelasan implementasi awal BE-02 di bawah tetap menjadi riwayat tahap tersebut.
+
 ## Perilaku
 
 - Tab hasil discovery dan tab lama dari migrasi dimulai dengan `dataset_kind: null`, `classification_status: CLASSIFICATION_REQUIRED`, dan `classification_revision: 1`.

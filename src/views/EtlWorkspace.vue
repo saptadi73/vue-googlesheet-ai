@@ -13,6 +13,8 @@ import {
   type Profile,
 } from '@/lib/etl'
 import ManualDraft from '@/components/ManualDraft.vue'
+import SheetClassification from '@/components/SheetClassification.vue'
+import { sourceBlockers } from '@/lib/classification'
 import { getApiErrorMessage } from '@/lib/api'
 const sources = ref<Source[]>([]),
   sheets = ref<Sheet[]>([]),
@@ -50,6 +52,7 @@ watch(selectedSheet, (sheet) => {
     }
 })
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
+const blockers = computed(() => (sourceId.value ? sourceBlockers(sheets.value) : []))
 const canEdit = computed(() => !!user.value && editRoles.includes(user.value.role))
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
@@ -266,6 +269,28 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </section>
+    <section v-if="sourceId" class="panel">
+      <h2>Kesiapan klasifikasi sumber</h2>
+      <p v-for="blocker in blockers" :key="blocker" class="notice">{{ blocker }}</p>
+      <p v-if="!blockers.length" class="success">
+        Semua tab enabled telah dikonfirmasi NON_MASTER. Prasyarat data/approval tetap diperiksa
+        server.
+      </p>
+    </section>
+    <SheetClassification
+      v-if="selectedSheet"
+      :key="sheetId"
+      :sheet-id="sheetId"
+      :source-id="sourceId"
+      :active="!!selectedSheet.active_configuration_id"
+      :disabled="busy"
+      @changed="
+        run(async () => {
+          sheets = await call<Sheet[]>('GET', `/sources/${sourceId}/sheets`)
+          await loadConfigs()
+        })
+      "
+    />
     <section v-if="selectedSheet" class="panel">
       <h2>Profil &amp; pengaturan tab</h2>
       <p v-if="!selectedSheet.last_fingerprint" class="notice">

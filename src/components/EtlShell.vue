@@ -40,6 +40,9 @@ async function signOut() {
         >Workspace ETL</RouterLink
       >
       <RouterLink v-if="user" to="/dashboard">Dashboard</RouterLink>
+      <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/masters"
+        >Registry master</RouterLink
+      >
       <RouterLink v-if="user" to="/chat">Chat data</RouterLink>
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/jobs"
         >Job &amp; ETL</RouterLink

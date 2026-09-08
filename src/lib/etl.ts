@@ -104,6 +104,8 @@ export interface Config {
   review_state: {
     submitted_revision?: number
     submitted_by?: string
+    classification_revision?: number
+    dataset_kind?: 'MASTER' | 'NON_MASTER'
     answers?: Record<string, { answer: string }>
   }
 }
@@ -122,6 +124,11 @@ export interface Sheet {
   data_start_row: number
   enabled: boolean
   active_configuration_id: string | null
+  dataset_kind: 'MASTER' | 'NON_MASTER' | null
+  classification_status: 'CLASSIFICATION_REQUIRED' | 'CONFIRMED'
+  classification_revision: number
+  classification_confirmed_by: string | null
+  classification_confirmed_at: string | null
 }
 export interface Profile {
   id: string
@@ -143,6 +150,8 @@ export interface Profile {
 }
 export interface Validation {
   valid: boolean
+  ready_for_review: boolean
+  classification?: SheetClassification
   snapshot_hash?: string
   sample_rows_valid?: number
   sample_rows_invalid?: number
@@ -161,6 +170,7 @@ export interface Review {
   source: Source
   sheet: Sheet
   validation: Validation
+  classification: SheetClassification
   profile: {
     columns: { source_column: string; inferred_type?: string; pii_suspected?: boolean }[]
   } | null
@@ -175,6 +185,19 @@ export interface Preview {
   diff: Record<string, { before: unknown; after: unknown }>
   errors: { location: string; message: string }[]
   validation?: Validation
+}
+export interface SheetClassification {
+  schema_version: string
+  classification_scope: 'SHEET'
+  source_sheet_id: string
+  dataset_kind: 'MASTER' | 'NON_MASTER' | null
+  status: 'CLASSIFICATION_REQUIRED' | 'CONFIRMED'
+  revision_no: number
+  confirmed_by: string | null
+  confirmed_at: string | null
+  execution_ready: boolean
+  blocking_reason: { code: string; message: string } | null
+  master_binding?: unknown
 }
 export interface Job {
   id: string

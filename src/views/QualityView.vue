@@ -5,6 +5,7 @@ import DataTable from '@/components/DataTable.vue'
 import { call, user, type Source } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type { Row } from '@/lib/catalog'
+import { ensureSourceReady } from '@/lib/classification'
 const { busy, error, notice, run } = useTask()
 const allowed = computed(() => ['PLATFORM_ADMIN', 'DATA_STEWARD'].includes(user.value?.role || ''))
 const issues = ref<Row[]>([]),
@@ -151,6 +152,7 @@ watch(
         :disabled="busy || !sourceId"
         @click="
           run(async () => {
+            await ensureSourceReady(sourceId)
             const result = await call<{ job_id: string }>(
               'POST',
               `/quarantine/${sourceId}/reprocess`,

@@ -6,6 +6,7 @@ import DataTable from '@/components/DataTable.vue'
 import { call, user, editRoles, reviewRoles, type Job } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type { Row } from '@/lib/catalog'
+import { ensureSourceReady } from '@/lib/classification'
 const { busy, error, notice, run } = useTask()
 const route = useRoute(),
   router = useRouter()
@@ -86,6 +87,10 @@ async function monitor(id: string) {
   await poll()
 }
 async function enqueue(path: string) {
+  if (path.startsWith('/etl-jobs/') && path.endsWith('/run'))
+    await ensureSourceReady(path.split('/')[2]!)
+  if (path.endsWith('/retry') && selected.value?.kind === 'ETL' && selected.value.source_id)
+    await ensureSourceReady(selected.value.source_id)
   const result = await call<{ job_id: string }>('POST', path)
   await monitor(result.job_id)
 }

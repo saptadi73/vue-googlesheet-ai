@@ -114,9 +114,11 @@ BE-01 selesai pada tingkat kontrak dasar:
 - [Guard lifecycle](../app/domain/import_workflow.py) memvalidasi transisi status batch dan role; pemeriksaan tenant, evidence, approval terpisah, dan transaksi tetap harus ditambahkan pada service tahap berikutnya.
 - Pengujian terarah policy/lifecycle dan kontrak API: 11 tes lulus; Ruff serta pemeriksaan API Reference lulus.
 
-BE-01 tidak menambahkan endpoint atau migrasi database. BE-02 kini menyimpan klasifikasi tab, menyediakan GET/PUT klasifikasi, serta menegakkan gate pada submit/approval/deployment/sync dan worker. Bukti review konfigurasi juga mengacu pada revision klasifikasi. Tab MASTER tetap tertahan karena registry/binding master belum tersedia. Registry master dan review setiap batch mengikuti BE-03–BE-11.
+BE-01 tidak menambahkan endpoint atau migrasi database. BE-02 menyimpan klasifikasi tab dan menegakkan gate eksekusi; bukti review konfigurasi mengacu pada revision klasifikasi. BE-03 menyediakan registry definisi master, kandidat duplikat, lifecycle approval berversi, serta binding sumber approved dengan dry-run. BE-04 menyediakan storage kanonis bertipe dan pencarian record. Tab MASTER tetap tertahan sampai alur review/apply import tersedia pada BE-05–BE-11.
 
-Migrasi `b762af03e219` menetapkan tab lama ke CLASSIFICATION_REQUIRED tanpa menebak jenisnya atau menghapus konfigurasi aktif. Migrasi baru diterapkan pada database test; rollout aplikasi perlu konfirmasi klasifikasi melalui API/Swagger karena frontend klasifikasi belum ditambahkan. Detail payload, respons, error, dan kompatibilitas tersedia di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md).
+Detail BE-03, 13 endpoint baru, dan migrasi `d83a5f12c906` ada di [Registry master dan binding sumber](REGISTRY_MASTER_BE03.md). BE-04 menambah tiga endpoint storage/record; kontraknya ada di [Storage master BE-04](STORAGE_MASTER_BE04.md). API Reference kini mencakup 107 operasi. Pengguna melaporkan migrasi sebelumnya sudah dijalankan; sesi BE-04 tidak memigrasikan database aplikasi. Frontend katalog/binding/storage belum ditambahkan.
+
+Migrasi `b762af03e219` menetapkan tab lama ke CLASSIFICATION_REQUIRED tanpa menebak jenisnya atau menghapus konfigurasi aktif. Pengujian backend memakai database test terpisah; rollout tetap perlu konfirmasi klasifikasi melalui API/Swagger karena frontend klasifikasi belum ditambahkan. Detail payload, respons, error, dan kompatibilitas tersedia di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md).
 
 
 ## API Reference frontend

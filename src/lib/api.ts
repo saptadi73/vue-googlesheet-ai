@@ -141,6 +141,29 @@ export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
     const issue = error.response?.data?.errors?.[0]
     const recovery: Record<string, string> = {
+      CLASSIFICATION_REQUIRED: 'Konfirmasi jenis tab melalui Workspace ETL.',
+      CLASSIFICATION_CONFLICT:
+        'Muat ulang klasifikasi dan tinjau revisinya; jangan kirim ulang revision lama.',
+      CLASSIFICATION_ACTIVE_CONFLICT: 'Perubahan target aktif ke MASTER memerlukan migrasi.',
+      CLASSIFICATION_REVIEW_STALE:
+        'Periksa klasifikasi terbaru. Ajukan ulang draft; clone konfigurasi immutable.',
+      MASTER_RUNTIME_PENDING:
+        'Registry/binding hanya menyiapkan metadata. Pemuatan master belum tersedia.',
+      MASTER_BINDING_REQUIRED: 'Buka binding master pada tab yang sudah dikonfirmasi MASTER.',
+      MASTER_DUPLICATE_REVIEW_REQUIRED:
+        'Preview kandidat dan tinjau semuanya, atau gunakan master yang sudah ada.',
+      MASTER_CANDIDATES_CHANGED: 'Jalankan preview ulang; kandidat sebelumnya tidak berlaku.',
+      MASTER_REVISION_CONFLICT:
+        'Muat ulang definisi master sebelum menyimpan atau memberi keputusan.',
+      MASTER_STATE_CONFLICT: 'Muat ulang status master dan periksa aksi yang tersedia.',
+      MASTER_VERSION_UNAVAILABLE: 'Pilih versi approved aktif terbaru dan review ulang mapping.',
+      MASTER_BINDING_CONFLICT: 'Muat ulang binding; periksa revisi dan status terbaru.',
+      MASTER_BINDING_STALE: 'Muat ulang snapshot/binding, simpan draft dan lakukan review ulang.',
+      MASTER_AUTHORITY_INVALID:
+        'Sumber otoritatif harus tab MASTER terkonfirmasi dalam tenant ini.',
+      MASTER_MAPPING_INVALID:
+        'Mapping tipe, nullability, PII dan key harus mengikuti snapshot master approved.',
+      MASTER_BINDING_INVALID: 'Perbaiki error dry-run sebelum approval binding.',
       CONFIGURATION_CONFLICT: 'Muat ulang revisi terbaru sebelum menyimpan kembali.',
       WORKBOOK_STALE: 'Unduh workbook dari draft terbaru.',
       WORKBOOK_PREVIEW_STALE: 'Lakukan preview ulang sebelum menerapkan Excel.',

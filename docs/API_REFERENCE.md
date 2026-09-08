@@ -2,7 +2,7 @@
 
 Versi backend **0.1.0** · berdasarkan implementasi yang diperiksa pada **8 September 2026**.
 
-Dokumen ini menjelaskan **91 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
+Dokumen ini menjelaskan **107 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
 
 ## Navigasi
 
@@ -342,9 +342,42 @@ AIConfigurationRequest:
 
 Setelah job AI_CONFIG sukses, `result` berisi `{configuration_id, status: "AI_DRAFT"}`; ambil konfigurasi lewat GET. AI memakai metadata/profile, belum memeriksa typo semua nilai sel atau membentuk referensi master.
 
+
+## Storage master kanonis (BE-04)
+
+Kontrak lengkap dan mekanisme deployment: [Storage master BE-04](STORAGE_MASTER_BE04.md). S = editor/reviewer, R = reviewer. Seluruh endpoint berikut mengembalikan 200 dengan envelope standar. Tidak ada endpoint publik untuk menulis record atau melewati review import.
+
+| Method | Path | Role | Payload / parameter | Status | Data |
+|---|---|---|---|---|---|
+| GET | `/master-definitions/{master_id}/storage-plan` | S | UUID master | 200 | target, master_version, revision_no, ddl, schema_policy, execution_ready=false |
+| POST | `/master-definitions/{master_id}/deploy-storage` | R | MasterRevisionRequest | 200 | target, master_version, storage_ready=true, execution_ready=false |
+| GET | `/master-definitions/{master_id}/records` | S | search, offset, limit, active_only, record_id | 200 | items[], has_more, masked_fields[] |
+
+## Registry master dan binding sumber (BE-03)
+
+Metadata master dan binding kini tersedia; kontrak lengkap, payload, respons, versioning, dan error ada di [Registry master BE-03](REGISTRY_MASTER_BE03.md). Storage kanonis tersedia pada BE-04; pemuatan master masih menunggu review/apply import. Semua body baru tersedia di PAYLOADS.json dan SCHEMAS.md.
+
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| GET | `/master-definitions` | S | search, offset, limit | 200 | MasterDefinition[] |
+| POST | `/master-definitions/preview` | E | MasterDefinitionCreate; against opsional | 200 | candidates[], creates_master=false |
+| POST | `/master-definitions` | E | MasterDefinitionCreate | 201 | MasterDefinition draft |
+| GET | `/master-definitions/{master_id}` | S | UUID master | 200 | MasterDefinition |
+| PATCH | `/master-definitions/{master_id}` | E | MasterDefinitionPatch | 200 | MasterDefinition draft revisi baru |
+| POST | `/master-definitions/{master_id}/submit-review` | E | MasterRevisionRequest | 200 | MasterDefinition NEEDS_REVIEW |
+| POST | `/master-definitions/{master_id}/approve` | R | MasterRevisionRequest | 200 | MasterDefinition APPROVED, versi approved baru |
+| POST | `/master-definitions/{master_id}/reject` | R | MasterRevisionRequest | 200 | MasterDefinition REJECTED |
+| POST | `/master-definitions/{master_id}/deactivate` | R | MasterRevisionRequest | 200 | MasterDefinition INACTIVE |
+| GET | `/source-sheets/{sheet_id}/master-binding` | S | UUID tab | 200 | binding/null, validation, metadata_ready, execution_ready=false, blocking_reason |
+| PUT | `/source-sheets/{sheet_id}/master-binding` | E | MasterBindingUpdate | 200 | binding, validation, execution_ready=false |
+| POST | `/source-sheets/{sheet_id}/master-binding/approve` | R | MasterRevisionRequest | 200 | MasterSourceBinding APPROVED |
+| POST | `/source-sheets/{sheet_id}/master-binding/reject` | R | MasterRevisionRequest | 200 | MasterSourceBinding REJECTED |
+
+Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-binding yang belum mempunyai binding menggunakan MASTER_BINDING_REQUIRED. Binding metadata ready tidak memberi izin load. GET klasifikasi MASTER menambah ringkasan master_binding; field klasifikasi lainnya tetap seperti BE-02.
+
 ## 4. Konfigurasi ETL dan approval
 
-**Status BE-02:** klasifikasi per tab sudah aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`. Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`. Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tetap tidak menerima dataset_kind. Registry/binding master belum tersedia, sehingga MASTER yang dikonfirmasi tetap tertahan sebelum eksekusi. Kontrak respons, error, serta dampak rollout dijelaskan di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). Jumlah operasi aktif menjadi 91.
+**Status BE-02:** klasifikasi per tab sudah aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`. Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`. Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tetap tidak menerima dataset_kind. Registry/binding master tersedia pada BE-03; MASTER tetap tertahan sebelum review/apply import tersedia. Kontrak respons, error, serta dampak rollout dijelaskan di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). BE-04 menambah storage dan pencarian record sehingga jumlah operasi aktif menjadi 107.
 
 | Method | Path | Hak | Body / query | HTTP sukses | Data respons |
 |---|---|---|---|---|---|
@@ -1039,7 +1072,7 @@ Error Google seperti GOOGLE_NOT_CONFIGURED (503), SOURCE_ACCESS_DENIED (403), SO
 ### Keterbatasan yang perlu dipertahankan dalam UI
 
 1. Klasifikasi master/non-master per tab sudah tersedia pada BE-02. Master kanonis, FK antardataset, pertanyaan per sel, dan endpoint import-review **belum tersedia**. Lihat [spesifikasi master data](MASTER_DATA_DAN_VALIDASI_IMPORT.md) sebagai rancangan terpisah, bukan endpoint aktif.
-2. `dataset_kind` hanya diterima oleh SheetClassificationUpdate. Payload lain tetap menolak field tambahan yang tidak ada di schema; master_definition_id belum didukung.
+2. `dataset_kind` hanya diterima oleh SheetClassificationUpdate. Payload lain tetap menolak field tambahan yang tidak ada di schema; master_definition_id diterima pada MasterBindingUpdate, bukan pada payload klasifikasi.
 3. AI ETL membuat draft dari metadata/profile; seluruh sampel disamarkan. Tidak ada pemeriksaan typo semua data otomatis saat sync.
 4. Query dibatasi satu data product, tanpa SQL bebas atau join dinamis. Foreign key master yang direncanakan tidak boleh ditampilkan sebagai fitur yang sudah berjalan.
 5. Belum ada list seluruh NL2SQL request, edit/delete saved template, delete source/user, reset password user lain, atau endpoint daftar distinct dimensi.

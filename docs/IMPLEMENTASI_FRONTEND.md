@@ -1,9 +1,10 @@
 # Implementasi frontend — 8 September 2026
 
-Implementasi mengacu pada `API_REFERENCE.md` dan `PANDUAN_REVIEW_ETL.md` yang ada di folder ini.
-Referensi `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` belum disertakan di checkout frontend;
-schema tertentu dicocokkan langsung dengan kode backend lokal. Tidak ada endpoint master data/FK otomatis
-yang ditambahkan karena dokumentasi menyebutnya sebagai rancangan, belum runtime.
+Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
+Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
+Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; lihat
+[implementasi BE02/BE03](FRONTEND_BE02_BE03.md). Eksekusi data master dan relasi FK otomatis
+belum tersedia pada runtime backend saat ini.
 
 ## Perilaku penting
 
@@ -54,6 +55,9 @@ npm.cmd run build
 npm.cmd test
 npm.cmd run test:e2e
 ```
+
+Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
+melengkapi delapan skenario workflow sebelumnya.
 
 Unit test menguji race refresh, rotasi token, stale response saat akun berubah, kegagalan refresh,
 non-retry mutation, dan error download JSON. Tes browser menggunakan Edge headless dan mock API untuk

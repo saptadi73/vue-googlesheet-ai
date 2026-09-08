@@ -17,6 +17,26 @@ const router = createRouter({
       component: () => import('@/views/EtlReview.vue'),
     },
     { path: '/dashboard', component: () => import('@/views/DashboardView.vue') },
+    {
+      path: '/masters',
+      component: () => import('@/views/MastersView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
+      path: '/masters/new',
+      component: () => import('@/views/MasterDefinitionView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD'] },
+    },
+    {
+      path: '/masters/:id',
+      component: () => import('@/views/MasterDefinitionView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
+      path: '/sources/:sourceId/sheets/:sheetId/master-binding',
+      component: () => import('@/views/MasterBindingView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
     { path: '/chat', component: () => import('@/views/ChatView.vue') },
     {
       path: '/jobs',

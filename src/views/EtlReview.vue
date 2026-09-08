@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
+import SheetClassification from '@/components/SheetClassification.vue'
+import { classificationEvidenceMatches, ensureSourceReady } from '@/lib/classification'
 import { downloadFile, getApiErrorMessage } from '@/lib/api'
 import {
   call,
@@ -57,12 +59,18 @@ const dirty = computed(
       Object.values(answers.value).some(Boolean)),
 )
 const submitted = computed(
-  () => record.value?.review_state?.submitted_revision === record.value?.revision_no,
+  () =>
+    record.value?.review_state?.submitted_revision === record.value?.revision_no &&
+    evidenceReady.value,
+)
+const evidenceReady = computed(
+  () =>
+    !!record.value && classificationEvidenceMatches(record.value, details.value?.classification),
 )
 const ready = computed(
   () =>
     !dirty.value &&
-    details.value?.validation.valid &&
+    details.value?.validation.ready_for_review === true &&
     !!details.value.validation.snapshot_hash &&
     checkedColumns.value.length === draft.value?.columns.length &&
     checkedSections.value.length === sections.length,
@@ -178,6 +186,7 @@ async function poll(id: string, epoch: number) {
   }
 }
 async function queue(path: string) {
+  if (path.endsWith('/sync') && record.value) await ensureSourceReady(record.value.source_id)
   const result = await call<{ job_id: string }>('POST', path)
   clearTimeout(timer)
   pollDeadline = Date.now() + 120_000
@@ -345,6 +354,21 @@ onBeforeRouteUpdate(confirmLeave)
           pembuatan relasi otomatis belum dijalankan oleh alur ini.
         </p>
       </details>
+      <SheetClassification
+        :key="record.source_sheet_id"
+        :sheet-id="record.source_sheet_id"
+        :source-id="record.source_id"
+        :active="!!details.sheet.active_configuration_id"
+        :disabled="busy || dirty"
+        @changed="run(load)"
+      />
+      <p
+        v-if="!evidenceReady && ['NEEDS_REVIEW', 'APPROVED', 'SUPERSEDED'].includes(record.status)"
+        class="notice"
+      >
+        Bukti klasifikasi tidak sesuai revisi terbaru. Untuk draft, periksa ulang lalu ajukan
+        review. Untuk versi approved/superseded, clone ke draft sebelum review ulang.
+      </p>
       <nav class="steps" aria-label="Tahapan review">
         <button
           v-for="(label, i) in sectionLabels"
@@ -727,7 +751,7 @@ onBeforeRouteUpdate(confirmLeave)
                 busy ||
                 dirty ||
                 !submitted ||
-                !details.validation.valid ||
+                !details.validation.ready_for_review ||
                 record.created_by === user?.id
               "
               @click="run(() => decision('approve'))"
@@ -840,7 +864,7 @@ onBeforeRouteUpdate(confirmLeave)
           ><input v-model="rollbackAcknowledged" type="checkbox" :disabled="busy" />Saya sudah
           memeriksa versi yang akan diaktifkan kembali.</label
         ><button
-          :disabled="busy || !rollbackAcknowledged"
+          :disabled="busy || !rollbackAcknowledged || !evidenceReady"
           @click="run(() => queue(`${base}/rollback`))"
         >
           Antrekan rollback versi ini
@@ -876,7 +900,7 @@ onBeforeRouteUpdate(confirmLeave)
         <button
           v-if="reviewer && record.status === 'APPROVED'"
           class="primary"
-          :disabled="busy"
+          :disabled="busy || !evidenceReady"
           @click="run(() => queue(`${base}/deploy`))"
         >
           Deploy konfigurasi
