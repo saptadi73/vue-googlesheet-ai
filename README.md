@@ -30,23 +30,24 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 
 ## Halaman aplikasi
 
-| Route                                               | Fitur                                                                                                                 |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/masters`                                          | Registry master, kandidat duplikat, draft, submission dan approval                                                    |
-| `/masters/:id/storage`                              | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                |
-| `/import-reviews`                                   | Membuat dan menelusuri batch review import                                                                            |
-| `/import-reviews/:id`                               | Detail batch, pertanyaan, preview, approval, apply, cancel, revalidate, dan resume                                    |
-| `/masters/new`                                      | Definisi master baru dengan policy eksplisit                                                                          |
-| `/masters/:id`                                      | Edit definisi, review dan snapshot approved                                                                           |
-| `/sources/:sourceId/sheets/:sheetId/master-binding` | Mapping master dari profil, dry-run dan approval binding                                                              |
-| `/workspace`                                        | Registrasi sumber, klasifikasi MASTER/NON_MASTER per tab, jadwal UTC, profil dan draft manual/AI                      |
-| `/configurations/:id/review`                        | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback |
-| `/jobs?job=UUID`                                    | Polling terbatas dua menit dan dapat dilanjutkan, retry FAILED, jadwal sumber, ETL run, error dan lineage             |
-| `/quality`                                          | Daftar issue, resolve dengan catatan, karantina dan reprocess                                                         |
-| `/dashboard`                                        | Katalog, query dengan filter/pengurutan, grafik, CSV halaman hasil, laporan, template dan akses produk                |
-| `/chat`                                             | NL2SQL, klarifikasi lengkap, feedback, detail request dan promosi template                                            |
-| `/admin`                                            | Buat/atur pengguna dan row scope, audit, estimasi penggunaan AI                                                       |
-| `/account`                                          | Ubah password dan login ulang                                                                                         |
+| Route                                                | Fitur                                                                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `/masters`                                           | Registry master, kandidat duplikat, draft, submission dan approval                                                    |
+| `/masters/:id/storage`                               | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                |
+| `/import-reviews`                                    | Membuat dan menelusuri batch review import                                                                            |
+| `/import-reviews/:id`                                | Detail batch, pertanyaan, preview, approval, apply, cancel, revalidate, dan resume                                    |
+| `/masters/new`                                       | Definisi master baru dengan policy eksplisit                                                                          |
+| `/masters/:id`                                       | Edit definisi, review dan snapshot approved                                                                           |
+| `/sources/:sourceId/sheets/:sheetId/master-binding`  | Mapping master dari profil, dry-run dan approval binding                                                              |
+| `/sources/:sourceId/sheets/:sheetId/column-bindings` | Binding kolom sumber ke referensi master, review dan approval                                                         |
+| `/workspace`                                         | Registrasi sumber, klasifikasi MASTER/NON_MASTER per tab, jadwal UTC, profil dan draft manual/AI                      |
+| `/configurations/:id/review`                         | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback |
+| `/jobs?job=UUID`                                     | Polling terbatas dua menit dan dapat dilanjutkan, retry FAILED, jadwal sumber, ETL run, error dan lineage             |
+| `/quality`                                           | Daftar issue, resolve dengan catatan, karantina dan reprocess                                                         |
+| `/dashboard`                                         | Katalog, query dengan filter/pengurutan, grafik, CSV halaman hasil, laporan, template dan akses produk                |
+| `/chat`                                              | NL2SQL, klarifikasi lengkap, feedback, detail request dan promosi template                                            |
+| `/admin`                                             | Buat/atur pengguna dan row scope, audit, estimasi penggunaan AI                                                       |
+| `/account`                                           | Ubah password dan login ulang                                                                                         |
 
 Login tersedia di halaman yang memerlukan sesi. Menu dan pemuatan data mengikuti role;
 otorisasi akhir tetap diperiksa backend. Analyst/viewer dapat masuk langsung melalui `/dashboard`.

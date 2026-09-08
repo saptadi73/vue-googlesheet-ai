@@ -91,6 +91,33 @@ export interface ColumnBinding {
   approved_by: string | null
   approved_at: string | null
 }
+export interface MasterDependencyPlan {
+  nodes: string[]
+  edges: Array<{
+    source_sheet_id: string
+    master_definition_id: string
+    master_field: string
+    source_column: string
+    master_version: number
+    target_table: string | null
+    target_column: string
+  }>
+  has_cycle: boolean
+  execution_ready: boolean
+  blocking_reason?: string
+}
+export interface ReferenceOrphanResult {
+  items: Array<{
+    binding_id: string
+    status: 'VALID' | 'ORPHANS_FOUND' | 'BLOCKED'
+    orphan_count?: number
+    orphan_values?: string[]
+    reason?: string
+    target_type?: string
+    master_type?: string
+  }>
+  execution_ready: boolean
+}
 export function blankDefinition(): MasterDefinition {
   return {
     name: '',

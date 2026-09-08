@@ -61,6 +61,11 @@ pembuat binding yang sama. Konflik revisi dan field master yang sudah tidak vali
 menampilkan arahan untuk memuat ulang. Binding referensi hanya metadata dan tidak
 menulis data master atau sumber.
 
+Registry master dapat memuat rencana dependency dari binding yang sudah APPROVED dan
+pemeriksaan orphan. Tabel menampilkan target relasi, status setiap binding, alasan
+blocker, serta nilai orphan terbatas dari backend. Pemeriksaan ini read-only;
+`execution_ready=false` bukan kegagalan request.
+
 ## Verifikasi dan rollout
 
 - 16 unit test: sesi/API, blocker klasifikasi, kecocokan evidence dan mapping master.
