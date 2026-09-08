@@ -14,7 +14,7 @@ export type ImportStatus =
 
 export type ImportQuestionStatus = 'OPEN' | 'ANSWERED' | 'PENDING_APPROVAL' | 'CANCELLED'
 export type ImportQuestionCategory =
-  'DATA_QUALITY' | 'DUPLICATE_KEY' | 'DATA_QUALITY_WARNING' | 'CONFIGURATION'
+  'DATA_QUALITY' | 'DUPLICATE_KEY' | 'DATA_QUALITY_WARNING' | 'CONFIGURATION' | 'AI_REVIEW'
 export type ImportQuestionAction =
   'APPLY_CORRECTION' | 'CORRECT_SOURCE' | 'PROPOSE_MASTER' | 'KEEP_ORIGINAL' | 'SELECT_RECORD'
 
@@ -25,6 +25,9 @@ export interface ImportCheckpoint {
   warning_count?: number
   blocking_codes?: string[]
   ai_coverage?: string
+  ai_reviewed_rows?: number[]
+  ai_masked_fields?: string[]
+  ai_metadata?: Record<string, unknown>[]
   last_error_code?: string | null
 }
 
@@ -139,6 +142,7 @@ export interface ImportReferenceResolveResult {
   master_id: string
   record?: Record<string, unknown>
   candidates?: Record<string, unknown>[]
+  staging_updated?: boolean
 }
 
 export interface ImportList {
@@ -219,6 +223,8 @@ export async function resolveImportReference(
   revisionNo: number,
   masterDefinitionId: string,
   value: string,
+  stagingRowId?: string,
+  targetColumn?: string,
 ) {
   return call<ImportReferenceResolveResult>(
     'POST',
@@ -227,6 +233,9 @@ export async function resolveImportReference(
       revision_no: revisionNo,
       master_definition_id: masterDefinitionId,
       value,
+      ...(stagingRowId && targetColumn
+        ? { staging_row_id: stagingRowId, target_column: targetColumn }
+        : {}),
     },
   )
 }

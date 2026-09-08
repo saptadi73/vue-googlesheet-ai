@@ -40,6 +40,7 @@ const review = ref<ImportReview | null>(null),
   appliedRows = ref<number | null>(null),
   referenceMasterId = ref(''),
   referenceValue = ref(''),
+  referenceQuestionId = ref(''),
   referenceResult = ref<ImportReferenceResolveResult | null>(null)
 interface QuestionAnswerDraft {
   action: ImportQuestionAction | ''
@@ -58,6 +59,12 @@ const referenceRows = computed(() => {
   if (referenceResult.value.record) return [referenceResult.value.record]
   return referenceResult.value.candidates || []
 })
+const aiMetadata = computed(() => review.value?.checkpoint.ai_metadata || [])
+const referenceTargets = computed(() =>
+  questions.value.filter(
+    (question) => question.staging_row_id && question.target_column && question.status === 'OPEN',
+  ),
+)
 const questionItems = computed(() =>
   questions.value.map((question) => {
     initDraft(question)
@@ -102,6 +109,7 @@ const questionCategoryItems: Array<'' | ImportQuestionCategory> = [
   'DUPLICATE_KEY',
   'DATA_QUALITY_WARNING',
   'CONFIGURATION',
+  'AI_REVIEW',
 ]
 const terminal = ['NEEDS_INPUT', 'FAILED', 'STALE_REVIEW', 'CANCELLED', 'SUCCEEDED', 'APPROVED']
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -304,12 +312,23 @@ async function applyBatch() {
 }
 async function resolveReference() {
   if (!review.value) return
+  const target = referenceTargets.value.find(
+    (question) => question.id === referenceQuestionId.value,
+  )
   referenceResult.value = await resolveImportReference(
     id.value,
     review.value.revision_no,
     referenceMasterId.value.trim(),
     referenceValue.value.trim(),
+    target?.staging_row_id || undefined,
+    target?.target_column || undefined,
   )
+  if (referenceResult.value.staging_updated) {
+    preview.value = null
+    appliedRows.value = null
+    notice.value = 'Reference tepat ditemukan dan nilai staging telah diisi. Buat preview baru.'
+    await Promise.all([loadFindings(), loadQuestions(questionOffset.value)])
+  }
 }
 watch(
   [id, user],
@@ -320,6 +339,7 @@ watch(
     questionDrafts.value = {}
     preview.value = null
     appliedRows.value = null
+    referenceQuestionId.value = ''
     referenceResult.value = null
     if (user.value) void run(load)
   },
@@ -358,6 +378,20 @@ onBeforeUnmount(stop)
           {{ review.checkpoint.warning_count ?? 0 }} Â· AI
           {{ review.checkpoint.ai_coverage || 'â€”' }}
         </p>
+        <section v-if="review.checkpoint.ai_coverage" class="card-row">
+          <h3>Evidence review AI</h3>
+          <p>
+            Coverage {{ review.checkpoint.ai_coverage }} ·
+            {{ review.checkpoint.ai_reviewed_rows?.length || 0 }} baris direview
+          </p>
+          <p class="muted">
+            Field disamarkan: {{ review.checkpoint.ai_masked_fields?.join(', ') || 'tidak ada' }}
+          </p>
+          <details v-if="aiMetadata.length">
+            <summary>Metadata model dan prompt</summary>
+            <pre>{{ JSON.stringify(aiMetadata, null, 2) }}</pre>
+          </details>
+        </section>
         <p v-if="review.status === 'SUCCEEDED'" class="notice">
           Batch sudah selesai diaplikasikan ke target trusted.
           {{ appliedRows === null ? '' : `${appliedRows} baris diproses.` }}
@@ -422,10 +456,21 @@ onBeforeUnmount(stop)
               placeholder="Nilai business key"
               :disabled="busy"
           /></label>
+          <label
+            >Isi staging (opsional)<select v-model="referenceQuestionId" :disabled="busy">
+              <option value="">Hanya cari reference</option>
+              <option v-for="question in referenceTargets" :key="question.id" :value="question.id">
+                Baris {{ question.source_row || '?' }} · {{ question.target_column }}
+              </option>
+            </select></label
+          >
           <button :disabled="busy || !review">Resolve reference</button>
         </form>
         <template v-if="referenceResult">
           <p>Reference {{ referenceResult.status }} · master {{ referenceResult.master_id }}</p>
+          <p v-if="referenceResult.staging_updated" class="success">
+            Nilai staging diperbarui dari record master yang tepat.
+          </p>
           <DataTable :rows="referenceRows" />
         </template>
       </section>

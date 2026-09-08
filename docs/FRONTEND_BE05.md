@@ -17,6 +17,9 @@ Frontend menyediakan `/import-reviews` untuk membuat dan mencari batch, serta
 - `AI_REVIEW_NOT_IMPLEMENTED`, `IMPORT_INPUT_PENDING`, serta `execution_ready=false`
   ditampilkan sebagai batas capability tahap review. Setelah blocker selesai, frontend
   dapat menjalankan preview, approval reviewer, dan apply.
+- Evidence BE10 pada checkpoint menampilkan coverage, jumlah baris yang direview, daftar
+  field yang disamarkan, dan metadata model/prompt. Nilai field MEDIUM/HIGH tidak ditampilkan;
+  backend mengirimkannya ke AI sebagai `[REDACTED]`.
 - List memakai status, offset dan limit 50 dengan `has_more`; tidak menampilkan total
   fiktif. Akses mengikuti role E/S backend dan tenant scope.
 - Detail batch menampilkan pertanyaan dari BE06 untuk jawaban manual dan resolve proposal
@@ -27,7 +30,9 @@ Frontend menyediakan `/import-reviews` untuk membuat dan mencari batch, serta
   menyimpan `preview_token`; approval mengirim revision dan komentar reviewer; apply
   mengirim token preview yang sama serta revision batch terbaru.
 - Resolve reference memakai `master_definition_id` dan nilai business key untuk mencari
-  record kanonis tanpa mengubah batch.
+  record kanonis. Jika user memilih pertanyaan staging yang terbuka, hasil EXACT dapat
+  mengisi target column dengan record ID master; frontend kemudian membatalkan preview
+  sebelumnya dan meminta preview baru.
 
 Batch memakai snapshot yang sudah tersimpan. Profiling ulang atau perubahan dependency
 tidak mengubah batch lama secara diam-diam; buat batch baru bila diperlukan. Frontend

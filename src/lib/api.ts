@@ -167,6 +167,8 @@ export function getApiErrorMessage(error: unknown): string {
       IMPORT_PREVIEW_REQUIRED: 'Buat preview batch sebelum approval atau apply.',
       IMPORT_APPROVAL_REQUIRED: 'Minta reviewer menyetujui preview terbaru.',
       IMPORT_APPLY_CONFLICT: 'Apply tidak tersedia untuk status batch saat ini.',
+      IMPORT_PREVIEW_CONFLICT:
+        'Preview memiliki duplicate key atau insert master yang masih memerlukan usulan.',
       IMPORT_QUESTION_REVISION_CONFLICT: 'Pertanyaan berubah. Muat ulang pertanyaan batch.',
       IMPORT_QUESTION_ALREADY_ANSWERED:
         'Pertanyaan sudah dijawab. Muat ulang untuk melihat keputusan.',
@@ -199,6 +201,8 @@ export function getApiErrorMessage(error: unknown): string {
       MASTER_COLUMN_BINDING_CONFLICT:
         'Muat ulang binding kolom karena revisi atau statusnya sudah berubah.',
       MASTER_FIELD_INVALID: 'Pilih field yang tersedia pada definisi master approved.',
+      REFERENCE_VALIDATION_REQUIRED:
+        'Periksa dan selesaikan orphan atau ketidakcocokan tipe sebelum memasang foreign key.',
       MASTER_AUTHORITY_INVALID:
         'Sumber otoritatif harus tab MASTER terkonfirmasi dalam tenant ini.',
       MASTER_MAPPING_INVALID:

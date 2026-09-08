@@ -66,6 +66,11 @@ pemeriksaan orphan. Tabel menampilkan target relasi, status setiap binding, alas
 blocker, serta nilai orphan terbatas dari backend. Pemeriksaan ini read-only;
 `execution_ready=false` bukan kegagalan request.
 
+Rencana menampilkan urutan pemuatan topologis. Reviewer dapat memasang foreign key
+komposit tenant+record setelah pemeriksaan orphan siap dan tidak ada siklus. UI meminta
+konfirmasi eksplisit sebelum POST deploy; respons mencantumkan constraint baru atau
+constraint yang dipakai ulang.
+
 ## Verifikasi dan rollout
 
 - 16 unit test: sesi/API, blocker klasifikasi, kecocokan evidence dan mapping master.

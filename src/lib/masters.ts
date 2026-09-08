@@ -93,6 +93,7 @@ export interface ColumnBinding {
 }
 export interface MasterDependencyPlan {
   nodes: string[]
+  load_order: string[]
   edges: Array<{
     source_sheet_id: string
     master_definition_id: string
@@ -116,6 +117,10 @@ export interface ReferenceOrphanResult {
     target_type?: string
     master_type?: string
   }>
+  execution_ready: boolean
+}
+export interface ForeignKeyDeployment {
+  created: Array<{ binding_id: string; constraint: string; reused?: boolean }>
   execution_ready: boolean
 }
 export function blankDefinition(): MasterDefinition {

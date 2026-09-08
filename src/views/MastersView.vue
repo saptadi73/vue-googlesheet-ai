@@ -4,15 +4,30 @@ import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
 import { call, user, editRoles, reviewRoles } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
-import type { Master, MasterDependencyPlan, ReferenceOrphanResult } from '@/lib/masters'
+import type {
+  ForeignKeyDeployment,
+  Master,
+  MasterDependencyPlan,
+  ReferenceOrphanResult,
+} from '@/lib/masters'
 const { busy, error, notice, run } = useTask()
 const search = ref(''),
   offset = ref(0),
   masters = ref<Master[]>([]),
   dependencyPlan = ref<MasterDependencyPlan | null>(null),
-  orphanResult = ref<ReferenceOrphanResult | null>(null)
+  orphanResult = ref<ReferenceOrphanResult | null>(null),
+  foreignKeyDeployment = ref<ForeignKeyDeployment | null>(null),
+  foreignKeyConfirmed = ref(false)
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const canDeployForeignKeys = computed(
+  () =>
+    reviewer.value &&
+    foreignKeyConfirmed.value &&
+    orphanResult.value?.execution_ready === true &&
+    dependencyPlan.value?.has_cycle === false,
+)
 const dependencyRows = computed(
   () => (dependencyPlan.value?.edges || []) as Record<string, unknown>[],
 )
@@ -22,6 +37,9 @@ const orphanRows = computed(
       ...item,
       orphan_values: item.orphan_values?.join(', ') || '',
     })) as Record<string, unknown>[],
+)
+const deploymentRows = computed(
+  () => (foreignKeyDeployment.value?.created || []) as Record<string, unknown>[],
 )
 async function load(next = 0) {
   const result = await call<Master[]>(
@@ -38,7 +56,16 @@ async function loadReferenceChecks() {
   ])
   dependencyPlan.value = result[0]
   orphanResult.value = result[1]
+  foreignKeyDeployment.value = null
+  foreignKeyConfirmed.value = false
   notice.value = 'Rencana dependency dan pemeriksaan orphan telah dimuat.'
+}
+async function deployForeignKeys() {
+  foreignKeyDeployment.value = await call<ForeignKeyDeployment>(
+    'POST',
+    '/master-definitions/deploy-foreign-keys',
+  )
+  notice.value = 'Foreign key berhasil dipasang atau diverifikasi kembali.'
 }
 watch(
   user,
@@ -46,6 +73,8 @@ watch(
     masters.value = []
     dependencyPlan.value = null
     orphanResult.value = null
+    foreignKeyDeployment.value = null
+    foreignKeyConfirmed.value = false
     offset.value = 0
     search.value = ''
     if (canRead.value) void run(() => load())
@@ -120,6 +149,9 @@ watch(
           {{ dependencyPlan.blocking_reason ? ` · ${dependencyPlan.blocking_reason}` : '' }}
           {{ dependencyPlan.has_cycle ? ' · siklus terdeteksi' : '' }}
         </p>
+        <p v-if="dependencyPlan.load_order.length" class="muted">
+          Urutan pemuatan: {{ dependencyPlan.load_order.join(' → ') }}
+        </p>
         <DataTable :rows="dependencyRows" />
       </template>
       <template v-if="orphanResult">
@@ -131,6 +163,29 @@ watch(
           }}
         </p>
         <DataTable :rows="orphanRows" />
-      </template></section
-  ></EtlShell>
+      </template>
+    </section>
+    <section v-if="reviewer && orphanResult && dependencyPlan" class="panel">
+      <h2>Deploy foreign key</h2>
+      <p class="muted">
+        Aksi ini memasang constraint foreign key tenant+record pada target trusted. Constraint yang
+        sudah ada akan dilaporkan sebagai reused.
+      </p>
+      <p v-if="dependencyPlan.has_cycle" class="error">
+        Siklus dependency terdeteksi. Deploy foreign key dikunci sampai rencana diperbaiki.
+      </p>
+      <label class="check"
+        ><input v-model="foreignKeyConfirmed" type="checkbox" :disabled="busy" />Saya sudah meninjau
+        orphan dan dependency sebelum memasang constraint.</label
+      >
+      <button
+        class="primary"
+        :disabled="busy || !canDeployForeignKeys"
+        @click="run(deployForeignKeys)"
+      >
+        Deploy foreign key
+      </button>
+      <DataTable v-if="foreignKeyDeployment" :rows="deploymentRows" />
+    </section>
+  </EtlShell>
 </template>

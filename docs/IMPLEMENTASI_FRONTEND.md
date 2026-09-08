@@ -13,7 +13,10 @@ approved; reviewer menyetujui atau menolak draft dengan revision terbaru.
 
 Registry master menyediakan pemeriksaan read-only dependency dan orphan untuk binding
 referensi yang telah approved. Hasil menampilkan target relasi, nilai orphan terbatas,
-dan blocker runtime tanpa mencoba membuat foreign key dari browser.
+dan blocker runtime sebelum reviewer memutuskan deploy foreign key.
+
+Reviewer dapat memasang foreign key setelah pemeriksaan orphan sukses dan tidak ada
+siklus dependency. Konfirmasi eksplisit di UI diperlukan sebelum request deploy.
 
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).
@@ -22,6 +25,9 @@ di endpoint/detail batch sesuai [frontend BE06](FRONTEND_BE06.md).
 Preview/apply batch dari kontrak terbaru juga tersedia pada halaman detail batch:
 frontend membuat preview revision terbaru, reviewer menyetujui, lalu editor menjalankan
 apply dengan `preview_token` yang sama.
+
+Detail batch menampilkan evidence BE10 dari checkpoint: coverage review AI, jumlah baris
+direview, daftar field yang dimasking, dan metadata model/prompt tanpa menampilkan nilai PII.
 
 ## Perilaku penting
 
