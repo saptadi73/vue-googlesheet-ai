@@ -293,6 +293,12 @@ onBeforeUnmount(() => {
     />
     <section v-if="selectedSheet" class="panel">
       <h2>Profil &amp; pengaturan tab</h2>
+      <RouterLink
+        v-if="selectedSheet.enabled && selectedSheet.last_fingerprint"
+        class="button"
+        to="/import-reviews"
+        >Buat review batch import</RouterLink
+      >
       <p v-if="!selectedSheet.last_fingerprint" class="notice">
         Tab memerlukan profiling sebelum pembuatan draft.
       </p>

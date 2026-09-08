@@ -23,6 +23,16 @@ const router = createRouter({
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
     },
     {
+      path: '/import-reviews',
+      component: () => import('@/views/ImportReviewsView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
+      path: '/import-reviews/:id',
+      component: () => import('@/views/ImportReviewDetailView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
       path: '/masters/new',
       component: () => import('@/views/MasterDefinitionView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD'] },

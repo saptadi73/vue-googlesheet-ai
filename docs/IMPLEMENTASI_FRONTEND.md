@@ -7,6 +7,9 @@ Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; liha
 [frontend BE04](FRONTEND_BE04.md). Import data master dan relasi FK otomatis
 belum tersedia pada runtime backend saat ini.
 
+Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
+[frontend BE05](FRONTEND_BE05.md).
+
 ## Perilaku penting
 
 - **Sesi:** login JSON lalu `/auth/me`; access/refresh token dalam memori. Request 401 berbagi satu

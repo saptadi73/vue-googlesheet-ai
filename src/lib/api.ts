@@ -149,6 +149,22 @@ export function getApiErrorMessage(error: unknown): string {
         'Periksa klasifikasi terbaru. Ajukan ulang draft; clone konfigurasi immutable.',
       MASTER_RUNTIME_PENDING:
         'Metadata dan storage dapat disiapkan. Review/apply import master belum tersedia.',
+      IMPORT_SOURCE_UNAVAILABLE:
+        'Sumber dijeda atau tab tidak tersedia. Periksa sumber dan klasifikasi.',
+      IMPORT_CLASSIFICATION_REQUIRED:
+        'Konfirmasi klasifikasi dan profiling tab sebelum membuat batch.',
+      IMPORT_SNAPSHOT_INVALID:
+        'Snapshot tidak tersedia atau hash berubah. Profiling ulang lalu buat batch baru.',
+      IMPORT_CONFIGURATION_REQUIRED: 'Tab NON_MASTER memerlukan konfigurasi approved atau active.',
+      IMPORT_CONFIGURATION_INVALID: 'Konfigurasi tidak sesuai tab atau fingerprint snapshot.',
+      IMPORT_MAPPING_INVALID:
+        'Mapping ETL tidak sesuai snapshot. Periksa konfigurasi dan profil terbaru.',
+      IMPORT_BINDING_REQUIRED: 'Tab MASTER memerlukan binding approved yang sesuai.',
+      IMPORT_MASTER_STALE: 'Versi master berubah. Tinjau binding dan buat batch baru.',
+      IMPORT_REVISION_CONFLICT: 'Muat ulang detail batch sebelum melakukan aksi.',
+      IMPORT_STATE_CONFLICT: 'Aksi tidak tersedia untuk status batch saat ini.',
+      IMPORT_INPUT_PENDING: 'Blocker batch belum dapat dilanjutkan; jangan retry otomatis.',
+      IMPORT_REVALIDATE_REQUIRED: 'Gunakan revalidate batch, bukan retry job import review.',
       MASTER_NOT_APPROVED: 'Master harus aktif dan memiliki versi approved.',
       MASTER_STORAGE_REQUIRED:
         'Reviewer perlu menyiapkan storage melalui halaman Storage & Record.',
