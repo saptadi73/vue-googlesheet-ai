@@ -34,6 +34,7 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `/masters`                                           | Registry master, kandidat duplikat, draft, submission dan approval                                                    |
 | `/masters/:id/storage`                               | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                |
+| `/taxonomies`                                        | Registry taxonomy, term hierarkis, dan approval versi                                                                 |
 | `/import-reviews`                                    | Membuat dan menelusuri batch review import                                                                            |
 | `/import-reviews/:id`                                | Detail batch, pertanyaan, preview, approval, apply, cancel, revalidate, dan resume                                    |
 | `/masters/new`                                       | Definisi master baru dengan policy eksplisit                                                                          |

@@ -43,6 +43,9 @@ async function signOut() {
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/masters"
         >Registry master</RouterLink
       >
+      <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/taxonomies"
+        >Taxonomy</RouterLink
+      >
       <RouterLink
         v-if="user && [...editRoles, ...reviewRoles].includes(user.role)"
         to="/import-reviews"

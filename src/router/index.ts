@@ -23,6 +23,11 @@ const router = createRouter({
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
     },
     {
+      path: '/taxonomies',
+      component: () => import('@/views/TaxonomiesView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
       path: '/import-reviews',
       component: () => import('@/views/ImportReviewsView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },

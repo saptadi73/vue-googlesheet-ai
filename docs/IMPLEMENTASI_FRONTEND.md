@@ -22,6 +22,11 @@ Workspace menyediakan batch sync review per sumber dan preview migrasi MASTER ya
 read-only. Editor konfigurasi memuat katalog parameter BE12 dan hanya mengirim
 parameter yang ditandai backend sebagai supported.
 
+Halaman `/taxonomies` mengelola registry taxonomy BE13: editor dapat membuat draft
+dan menambahkan term bertingkat, sedangkan reviewer dapat menyetujui taxonomy dan
+menerbitkan versi baru. Binding domain, mapping otomatis, dan validasi DQ taxonomy
+belum diekspos karena endpoint backend-nya belum tersedia.
+
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).
 Pertanyaan terstruktur, koreksi staging, dan proposal master awal pada batch diimplementasikan
