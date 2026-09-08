@@ -299,6 +299,12 @@ onBeforeUnmount(() => {
         to="/import-reviews"
         >Buat review batch import</RouterLink
       >
+      <RouterLink
+        v-if="selectedSheet.enabled && selectedSheet.last_fingerprint"
+        class="button"
+        :to="`/sources/${sourceId}/sheets/${selectedSheet.id}/column-bindings`"
+        >Atur referensi master</RouterLink
+      >
       <p v-if="!selectedSheet.last_fingerprint" class="notice">
         Tab memerlukan profiling sebelum pembuatan draft.
       </p>

@@ -52,6 +52,11 @@ const router = createRouter({
       component: () => import('@/views/MasterBindingView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
     },
+    {
+      path: '/sources/:sourceId/sheets/:sheetId/column-bindings',
+      component: () => import('@/views/ColumnBindingsView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
     { path: '/chat', component: () => import('@/views/ChatView.vue') },
     {
       path: '/jobs',

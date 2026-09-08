@@ -75,6 +75,22 @@ export interface BindingDetail {
   execution_ready: boolean
   blocking_reason?: string
 }
+export interface ColumnBinding {
+  id: string
+  source_sheet_id: string
+  source_column: string
+  master_definition_id: string
+  master_field: string
+  master_version: number
+  required: boolean
+  normalization: string
+  cardinality: 'MANY_TO_ONE' | 'ONE_TO_ONE'
+  revision_no: number
+  status: 'DRAFT' | 'APPROVED' | 'REJECTED'
+  created_by: string
+  approved_by: string | null
+  approved_at: string | null
+}
 export function blankDefinition(): MasterDefinition {
   return {
     name: '',

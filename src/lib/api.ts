@@ -196,6 +196,9 @@ export function getApiErrorMessage(error: unknown): string {
       MASTER_VERSION_UNAVAILABLE: 'Pilih versi approved aktif terbaru dan review ulang mapping.',
       MASTER_BINDING_CONFLICT: 'Muat ulang binding; periksa revisi dan status terbaru.',
       MASTER_BINDING_STALE: 'Muat ulang snapshot/binding, simpan draft dan lakukan review ulang.',
+      MASTER_COLUMN_BINDING_CONFLICT:
+        'Muat ulang binding kolom karena revisi atau statusnya sudah berubah.',
+      MASTER_FIELD_INVALID: 'Pilih field yang tersedia pada definisi master approved.',
       MASTER_AUTHORITY_INVALID:
         'Sumber otoritatif harus tab MASTER terkonfirmasi dalam tenant ini.',
       MASTER_MAPPING_INVALID:

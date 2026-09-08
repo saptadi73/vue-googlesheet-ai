@@ -47,6 +47,20 @@ Versi approved baru harus dipilih eksplisit untuk review ulang binding lama.
 mengaktifkan load master: `MASTER_RUNTIME_PENDING` tetap memblokir eksekusi sampai
 backend menyediakan runtime tahap berikutnya.
 
+## Binding kolom referensi
+
+Workspace ETL menyediakan tautan **Atur referensi master** untuk setiap tab yang
+sudah diprofilkan. Halaman `/sources/:sourceId/sheets/:sheetId/column-bindings`
+memuat binding yang ada dan membuat atau memperbarui satu binding per header sumber.
+Editor memilih header hasil profil, master yang aktif dan APPROVED, field dari snapshot
+approved, apakah referensi wajib, normalisasi `TRIM_CASEFOLD`, dan kardinalitas.
+
+Penyimpanan memakai `revision_no` binding yang sedang diedit (atau 0 saat membuat).
+Reviewer dapat menyetujui atau menolak draft; tombol approval dinonaktifkan untuk
+pembuat binding yang sama. Konflik revisi dan field master yang sudah tidak valid
+menampilkan arahan untuk memuat ulang. Binding referensi hanya metadata dan tidak
+menulis data master atau sumber.
+
 ## Verifikasi dan rollout
 
 - 16 unit test: sesi/API, blocker klasifikasi, kecocokan evidence dan mapping master.

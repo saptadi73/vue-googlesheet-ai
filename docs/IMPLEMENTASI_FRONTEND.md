@@ -7,6 +7,10 @@ Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; liha
 [frontend BE04](FRONTEND_BE04.md). Import data master dan relasi FK otomatis
 belum tersedia pada runtime backend saat ini.
 
+Binding kolom referensi master tersedia dari Workspace ETL melalui tautan **Atur
+referensi master**. Editor membuat draft per header sumber terhadap field master
+approved; reviewer menyetujui atau menolak draft dengan revision terbaru.
+
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).
 Pertanyaan terstruktur, koreksi staging, dan proposal master awal pada batch diimplementasikan
