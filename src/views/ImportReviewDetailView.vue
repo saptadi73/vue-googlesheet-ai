@@ -6,6 +6,8 @@ import DataTable from '@/components/DataTable.vue'
 import { call, editRoles, reviewRoles, user } from '@/lib/etl'
 import {
   answerImportReviewQuestion,
+  applyImportReview,
+  approveImportReview,
   type Finding,
   type ImportQuestion,
   type ImportQuestionAction,
@@ -13,7 +15,9 @@ import {
   type ImportQuestionCategory,
   type ImportQuestionDecision,
   type ImportQuestionResolve,
+  type ImportReviewPreview,
   listImportReviewQuestions,
+  previewImportReview,
   resolveImportReviewMasterProposal,
   type ImportReview,
 } from '@/lib/importReviews'
@@ -29,7 +33,9 @@ const review = ref<ImportReview | null>(null),
   questionsMore = ref(false),
   questionOffset = ref(0),
   questionStatus = ref(''),
-  questionCategory = ref('')
+  questionCategory = ref(''),
+  preview = ref<ImportReviewPreview | null>(null),
+  appliedRows = ref<number | null>(null)
 interface QuestionAnswerDraft {
   action: ImportQuestionAction | ''
   correctedValue: string
@@ -41,8 +47,32 @@ interface QuestionAnswerDraft {
 const comment = ref(''),
   questionDrafts = ref<Record<string, QuestionAnswerDraft>>({})
 const findingRows = computed(() => findings.value as Record<string, unknown>[])
+const previewRows = computed(() => (preview.value?.changes || []) as Record<string, unknown>[])
 const canEdit = computed(() => editRoles.includes(user.value?.role || ''))
 const canReview = computed(() => reviewRoles.includes(user.value?.role || ''))
+const canPreview = computed(
+  () =>
+    canEdit.value &&
+    !!review.value &&
+    ['NEEDS_INPUT', 'READY_FOR_APPROVAL', 'APPROVED'].includes(review.value.status) &&
+    !(review.value.checkpoint.blocking_codes || []).length &&
+    review.value.dependencies_current !== false,
+)
+const canApprove = computed(
+  () =>
+    canReview.value &&
+    !!review.value &&
+    !!preview.value?.preview_token &&
+    preview.value.can_approve &&
+    review.value.status === 'READY_FOR_APPROVAL',
+)
+const canApply = computed(
+  () =>
+    canEdit.value &&
+    !!review.value &&
+    !!preview.value?.preview_token &&
+    review.value.status === 'APPROVED',
+)
 const questionStatusItems: Array<'' | ImportQuestion['status']> = [
   '',
   'OPEN',
@@ -117,6 +147,9 @@ function normalizeCorrectionValue(raw: string) {
 function requiresReason(action: ImportQuestionAction | '') {
   return action === 'CORRECT_SOURCE' || action === 'PROPOSE_MASTER'
 }
+function candidateLabel(candidate: Record<string, unknown>) {
+  return typeof candidate.label === 'string' && candidate.label ? candidate.label : String(candidate.id)
+}
 function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
   const draft = questionDrafts.value[question.id]
   if (!draft || !draft.action) throw new Error('Pilih tindakan dahulu.')
@@ -147,6 +180,8 @@ function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
 }
 function applyQuestionResponse(response: ImportQuestionActionResponse) {
   review.value = response.review
+  preview.value = null
+  appliedRows.value = null
   if (response.question) {
     const index = questions.value.findIndex((item) => item.id === response.question.id)
     if (index >= 0) questions.value[index] = response.question
@@ -190,6 +225,8 @@ async function load() {
   const result = await call<ImportReview>('GET', `/import-reviews/${id.value}`)
   if (epoch !== generation) return
   review.value = result
+  preview.value = null
+  appliedRows.value = null
   await Promise.all([loadFindings(), loadQuestions()])
   if (epoch === generation && !terminal.includes(result.status))
     timer = setTimeout(() => void poll(epoch), 3000)
@@ -212,7 +249,32 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
     comment: comment.value.trim(),
   })
   review.value = result
+  preview.value = null
+  appliedRows.value = null
   notice.value = `Aksi ${kind} diterima. Periksa status batch terbaru.`
+  await Promise.all([loadFindings(), loadQuestions()])
+}
+async function previewBatch() {
+  if (!review.value) return
+  preview.value = await previewImportReview(id.value, review.value.revision_no)
+  appliedRows.value = null
+  notice.value = 'Preview batch siap ditinjau.'
+}
+async function approveBatch() {
+  if (!review.value || !preview.value) return
+  review.value = await approveImportReview(
+    id.value,
+    review.value.revision_no,
+    comment.value,
+  )
+  notice.value = 'Preview batch disetujui. Editor dapat menjalankan apply dengan token yang sama.'
+}
+async function applyBatch() {
+  if (!review.value || !preview.value) return
+  const result = await applyImportReview(id.value, review.value.revision_no, preview.value.preview_token)
+  review.value = result.review
+  appliedRows.value = result.rows_applied
+  notice.value = `Apply selesai. ${result.rows_applied} baris diproses.`
   await Promise.all([loadFindings(), loadQuestions()])
 }
 watch(
@@ -222,6 +284,8 @@ watch(
     findings.value = []
     questions.value = []
     questionDrafts.value = {}
+    preview.value = null
+    appliedRows.value = null
     if (user.value) void run(load)
   },
   { immediate: true },
@@ -258,7 +322,8 @@ onBeforeUnmount(stop)
           {{ review.checkpoint.ai_coverage || 'â€”' }}
         </p>
         <p v-if="review.status === 'SUCCEEDED'" class="notice">
-          Job selesai, tetapi BE-05 belum melakukan apply ke target.
+          Batch sudah selesai diaplikasikan ke target trusted.
+          {{ appliedRows === null ? '' : `${appliedRows} baris diproses.` }}
         </p>
         <label v-if="canEdit"
           >Catatan aksi<textarea v-model="comment" maxlength="2000" :disabled="busy" />
@@ -283,6 +348,27 @@ onBeforeUnmount(stop)
             Resume
           </button>
         </div>
+      </section>
+      <section class="panel">
+        <h2>Preview dan apply</h2>
+        <p class="muted">
+          Preview mengikat snapshot dan revision batch. Jika batch berubah, buat preview baru.
+        </p>
+        <div class="toolbar">
+          <button class="primary" :disabled="busy || !canPreview" @click="run(previewBatch)">
+            Buat preview</button
+          ><button :disabled="busy || !canApprove" @click="run(approveBatch)">
+            Approve preview</button
+          ><button :disabled="busy || !canApply" @click="run(applyBatch)">Apply batch</button>
+        </div>
+        <template v-if="preview">
+          <p>
+            Target {{ JSON.stringify(preview.target) }} · hash {{ preview.preview_hash }} ·
+            {{ preview.can_approve ? 'siap approval' : 'belum siap approval' }}
+          </p>
+          <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
+          <DataTable :rows="previewRows" />
+        </template>
       </section>
       <section class="panel">
         <h2>Temuan ({{ review.finding_count }})</h2>
@@ -350,7 +436,7 @@ onBeforeUnmount(stop)
                   :key="candidate.id"
                   :value="candidate.id"
                 >
-                  {{ (candidate.label as string) || candidate.id }}
+                  {{ candidateLabel(candidate) }}
                 </option>
               </select></label
             >

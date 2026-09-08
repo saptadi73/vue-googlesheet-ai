@@ -163,6 +163,10 @@ export function getApiErrorMessage(error: unknown): string {
       IMPORT_MASTER_STALE: 'Versi master berubah. Tinjau binding dan buat batch baru.',
       IMPORT_REVISION_CONFLICT: 'Muat ulang detail batch sebelum melakukan aksi.',
       IMPORT_STATE_CONFLICT: 'Aksi tidak tersedia untuk status batch saat ini.',
+      IMPORT_PREVIEW_STALE: 'Preview batch tidak berlaku lagi. Buat preview ulang.',
+      IMPORT_PREVIEW_REQUIRED: 'Buat preview batch sebelum approval atau apply.',
+      IMPORT_APPROVAL_REQUIRED: 'Minta reviewer menyetujui preview terbaru.',
+      IMPORT_APPLY_CONFLICT: 'Apply tidak tersedia untuk status batch saat ini.',
       IMPORT_QUESTION_REVISION_CONFLICT: 'Pertanyaan berubah. Muat ulang pertanyaan batch.',
       IMPORT_QUESTION_ALREADY_ANSWERED:
         'Pertanyaan sudah dijawab. Muat ulang untuk melihat keputusan.',

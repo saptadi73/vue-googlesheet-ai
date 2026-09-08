@@ -118,6 +118,28 @@ export interface ImportQuestionList {
   has_more: boolean
 }
 
+export interface ImportPreviewChange {
+  source_row?: number
+  operation?: string
+  before?: Record<string, unknown> | null
+  after?: Record<string, unknown> | null
+  [key: string]: unknown
+}
+
+export interface ImportReviewPreview {
+  target: Record<string, unknown>
+  changes: ImportPreviewChange[]
+  summary: Record<string, unknown>
+  preview_hash: string
+  preview_token: string
+  can_approve: boolean
+}
+
+export interface ImportReviewApplyResult {
+  review: ImportReview
+  rows_applied: number
+}
+
 export interface ImportList {
   items: ImportReview[]
   has_more: boolean
@@ -165,4 +187,32 @@ export async function resolveImportReviewMasterProposal(
     `/import-reviews/${reviewId}/questions/${questionId}/resolve-master-proposal`,
     payload,
   )
+}
+
+export async function previewImportReview(reviewId: string, revisionNo: number) {
+  return call<ImportReviewPreview>('POST', `/import-reviews/${reviewId}/preview`, {
+    revision_no: revisionNo,
+  })
+}
+
+export async function approveImportReview(
+  reviewId: string,
+  revisionNo: number,
+  comment: string,
+) {
+  return call<ImportReview>('POST', `/import-reviews/${reviewId}/approve`, {
+    revision_no: revisionNo,
+    comment: comment.trim(),
+  })
+}
+
+export async function applyImportReview(
+  reviewId: string,
+  revisionNo: number,
+  previewToken: string,
+) {
+  return call<ImportReviewApplyResult>('POST', `/import-reviews/${reviewId}/apply`, {
+    revision_no: revisionNo,
+    preview_token: previewToken,
+  })
 }

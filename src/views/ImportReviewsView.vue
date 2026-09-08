@@ -82,8 +82,8 @@ watch(sheetId, () => {
     ><p class="eyebrow">IMPORT REVIEW</p>
     <h1>Review batch import</h1>
     <p class="notice">
-      Batch memakai snapshot tersimpan. Job SUCCEEDED bukan berarti data sudah dimuat; BE-05 belum
-      menyediakan apply import.
+      Batch memakai snapshot tersimpan. Setelah blocker selesai, gunakan preview, approval, lalu
+      apply dari detail batch.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section v-if="editor" class="panel">
@@ -144,6 +144,9 @@ watch(sheetId, () => {
               'FAILED',
               'STALE_REVIEW',
               'CANCELLED',
+              'READY_FOR_APPROVAL',
+              'APPROVED',
+              'APPLYING',
               'SUCCEEDED',
             ]"
             :key="s"
