@@ -12,6 +12,19 @@ export type ImportStatus =
   | 'APPLYING'
   | 'SUCCEEDED'
 
+export type ImportQuestionStatus = 'OPEN' | 'ANSWERED' | 'PENDING_APPROVAL' | 'CANCELLED'
+export type ImportQuestionCategory =
+  | 'DATA_QUALITY'
+  | 'DUPLICATE_KEY'
+  | 'DATA_QUALITY_WARNING'
+  | 'CONFIGURATION'
+export type ImportQuestionAction =
+  | 'APPLY_CORRECTION'
+  | 'CORRECT_SOURCE'
+  | 'PROPOSE_MASTER'
+  | 'KEEP_ORIGINAL'
+  | 'SELECT_RECORD'
+
 export interface ImportCheckpoint {
   deterministic_complete?: boolean
   rows_valid?: number
@@ -55,6 +68,56 @@ export interface Finding {
   location?: string
 }
 
+export interface ImportQuestionCandidate {
+  id: string
+  label?: string
+  [key: string]: unknown
+}
+
+export interface ImportQuestion {
+  id: string
+  import_review_id: string
+  staging_row_id: string | null
+  source_row?: number
+  source_column: string | null
+  target_column: string | null
+  category: ImportQuestionCategory
+  prompt: string
+  mandatory: boolean
+  allowed_actions: ImportQuestionAction[]
+  candidates: ImportQuestionCandidate[]
+  candidate_count: number
+  status: ImportQuestionStatus
+  revision_no: number
+  decisions: unknown[]
+  proposed_master_definition_id?: string | null
+}
+
+export interface ImportQuestionDecision {
+  revision_no: number
+  action: ImportQuestionAction
+  reason?: string
+  corrected_value?: unknown
+  selected_candidate_id?: string
+  master_proposal?: unknown
+}
+
+export interface ImportQuestionActionResponse {
+  question: ImportQuestion | null
+  review: ImportReview
+  stale: boolean
+}
+
+export interface ImportQuestionResolve {
+  revision_no: number
+  master_definition_id: string
+}
+
+export interface ImportQuestionList {
+  items: ImportQuestion[]
+  has_more: boolean
+}
+
 export interface ImportList {
   items: ImportReview[]
   has_more: boolean
@@ -65,4 +128,41 @@ export async function createImportReview(sourceSheetId: string, configurationId?
     source_sheet_id: sourceSheetId,
     ...(configurationId ? { configuration_id: configurationId } : {}),
   })
+}
+
+export async function listImportReviewQuestions(
+  reviewId: string,
+  status = '',
+  category = '',
+  offset = 0,
+  limit = 50,
+) {
+  const query = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+  if (status) query.set('status', status)
+  if (category) query.set('category', category)
+  return call<ImportQuestionList>('GET', `/import-reviews/${reviewId}/questions?${query}`)
+}
+
+export async function answerImportReviewQuestion(
+  reviewId: string,
+  questionId: string,
+  payload: ImportQuestionDecision,
+) {
+  return call<ImportQuestionActionResponse>(
+    'POST',
+    `/import-reviews/${reviewId}/questions/${questionId}/answer`,
+    payload,
+  )
+}
+
+export async function resolveImportReviewMasterProposal(
+  reviewId: string,
+  questionId: string,
+  payload: ImportQuestionResolve,
+) {
+  return call<ImportQuestionActionResponse>(
+    'POST',
+    `/import-reviews/${reviewId}/questions/${questionId}/resolve-master-proposal`,
+    payload,
+  )
 }

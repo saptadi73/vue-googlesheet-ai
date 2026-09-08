@@ -1,4 +1,4 @@
-# Frontend batch review import BE05
+# Frontend batch review import BE-05
 
 Frontend menyediakan `/import-reviews` untuk membuat dan mencari batch, serta
 `/import-reviews/:id` untuk memantau detail batch. Implementasi mengikuti
@@ -19,8 +19,14 @@ Frontend menyediakan `/import-reviews` untuk membuat dan mencari batch, serta
   atau load ke target.
 - List memakai status, offset dan limit 50 dengan `has_more`; tidak menampilkan total
   fiktif. Akses mengikuti role E/S backend dan tenant scope.
+- Detail batch menampilkan pertanyaan dari BE06 untuk jawaban manual dan resolve proposal
+  master melalui endpoint yang sama; nilai koreksi masih hanya staging batch.
+- Pertanyaan yang dijawab tidak mengirim raw values, tidak menulis ke master/trusted target,
+  dan tidak menjalankan AI.
 
 Batch memakai snapshot yang sudah tersimpan. Profiling ulang atau perubahan dependency
 tidak mengubah batch lama secara diam-diam; buat batch baru bila diperlukan. Frontend
 tidak mengirim raw cell values, tidak memanggil AI, tidak menulis trusted/master, dan
 tidak menjalankan migrasi `5ab90e816eee`.
+
+Lihat detail implementasi BE06: [FRONTEND_BE06.md](FRONTEND_BE06.md).

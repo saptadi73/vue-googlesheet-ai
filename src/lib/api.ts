@@ -163,6 +163,19 @@ export function getApiErrorMessage(error: unknown): string {
       IMPORT_MASTER_STALE: 'Versi master berubah. Tinjau binding dan buat batch baru.',
       IMPORT_REVISION_CONFLICT: 'Muat ulang detail batch sebelum melakukan aksi.',
       IMPORT_STATE_CONFLICT: 'Aksi tidak tersedia untuk status batch saat ini.',
+      IMPORT_QUESTION_REVISION_CONFLICT: 'Pertanyaan berubah. Muat ulang pertanyaan batch.',
+      IMPORT_QUESTION_ALREADY_ANSWERED:
+        'Pertanyaan sudah dijawab. Muat ulang untuk melihat keputusan.',
+      IMPORT_STAGING_MISSING: 'Batch tidak konsisten saat ini. Buat batch baru jika perlu.',
+      IMPORT_DECISION_ACTION_INVALID: 'Pilih aksi sesuai daftar tindakan yang tersedia.',
+      IMPORT_DECISION_CANDIDATE_INVALID:
+        'Pilih kandidat yang valid dari daftar yang diberikan.',
+      IMPORT_DECISION_REASON_REQUIRED:
+        'Isi alasan untuk koreksi sumber atau usulan master.',
+      IMPORT_DECISION_VALUE_REQUIRED:
+        'Nilai koreksi wajib diisi dan harus cocok dengan jenis target.',
+      IMPORT_DECISION_VALUE_INVALID:
+        'Nilai koreksi tidak sesuai tipe target. Periksa format atau isi ulang.',
       IMPORT_INPUT_PENDING: 'Blocker batch belum dapat dilanjutkan; jangan retry otomatis.',
       IMPORT_REVALIDATE_REQUIRED: 'Gunakan revalidate batch, bukan retry job import review.',
       MASTER_NOT_APPROVED: 'Master harus aktif dan memiliki versi approved.',
