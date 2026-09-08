@@ -2,7 +2,7 @@
 
 Versi backend **0.1.0** · berdasarkan implementasi yang diperiksa pada **8 September 2026**.
 
-Dokumen ini menjelaskan **114 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
+Dokumen ini menjelaskan **117 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
 
 ## Navigasi
 
@@ -65,12 +65,12 @@ Respons error:
 {
   "status": "error",
   "data": null,
-  "meta": { "request_id": "33333333-3333-4333-8333-333333333333" },
+  "meta": {"request_id": "33333333-3333-4333-8333-333333333333"},
   "errors": [
     {
       "code": "VALIDATION_ERROR",
       "message": "Periksa parameter permintaan.",
-      "details": [{ "field": "body.username", "message": "Field required" }]
+      "details": [{"field": "body.username", "message": "Field required"}]
     }
   ]
 }
@@ -95,37 +95,37 @@ Contoh respons yang diberi label **isi `data`** di bagian berikut adalah bagian 
 
 Singkatan di tabel:
 
-| Kode   | Role yang diizinkan                                                |
-| ------ | ------------------------------------------------------------------ |
-| Public | Tanpa bearer token                                                 |
-| Auth   | Semua user aktif yang terautentikasi; akses produk tetap diperiksa |
-| A      | `PLATFORM_ADMIN`                                                   |
-| E      | `PLATFORM_ADMIN`, `SOURCE_OWNER`, `DATA_STEWARD`                   |
-| R      | `PLATFORM_ADMIN`, `TECHNICAL_APPROVER`                             |
-| S      | Gabungan E dan R                                                   |
-| D      | `PLATFORM_ADMIN`, `DATA_STEWARD`                                   |
+| Kode | Role yang diizinkan |
+|---|---|
+| Public | Tanpa bearer token |
+| Auth | Semua user aktif yang terautentikasi; akses produk tetap diperiksa |
+| A | `PLATFORM_ADMIN` |
+| E | `PLATFORM_ADMIN`, `SOURCE_OWNER`, `DATA_STEWARD` |
+| R | `PLATFORM_ADMIN`, `TECHNICAL_APPROVER` |
+| S | Gabungan E dan R |
+| D | `PLATFORM_ADMIN`, `DATA_STEWARD` |
 
 Role UI bukan hierarki bebas: misalnya `TECHNICAL_APPROVER` dapat approve tetapi tidak membuat source. Admin tetap dibatasi tenant sendiri. Untuk query, user harus tercantum pada `allowed_roles` produk/template; admin tidak otomatis melewati allowlist tersebut. Row scope pengguna berlaku pada query dan ekspor; `{"SALES":{"branch_name":[]}}` tidak mengizinkan baris, sedangkan `{}` berarti tidak ada tambahan pembatasan baris.
 
 ## 2. Autentikasi dan pengguna
 
-| Method | Path                    | Hak    | Body                  | HTTP sukses | Data respons                   |
-| ------ | ----------------------- | ------ | --------------------- | ----------- | ------------------------------ |
-| POST   | `/auth/login`           | Public | LoginRequest          | 200         | TokenPair                      |
-| POST   | `/auth/refresh`         | Public | RefreshRequest        | 200         | TokenPair baru                 |
-| GET    | `/auth/me`              | Auth   | —                     | 200         | User public                    |
-| POST   | `/auth/logout`          | Auth   | —                     | 200         | `{message: string}`            |
-| POST   | `/auth/change-password` | Auth   | PasswordChange        | 200         | `{message: string}`            |
-| POST   | `/users`                | A      | UserCreate            | 201         | User public                    |
-| GET    | `/users`                | A      | —; query offset/limit | 200         | User public[]; meta pagination |
-| PATCH  | `/users/{user_id}`      | A      | UserUpdate            | 200         | User public                    |
+| Method | Path | Hak | Body | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| POST | `/auth/login` | Public | LoginRequest | 200 | TokenPair |
+| POST | `/auth/refresh` | Public | RefreshRequest | 200 | TokenPair baru |
+| GET | `/auth/me` | Auth | — | 200 | User public |
+| POST | `/auth/logout` | Auth | — | 200 | `{message: string}` |
+| POST | `/auth/change-password` | Auth | PasswordChange | 200 | `{message: string}` |
+| POST | `/users` | A | UserCreate | 201 | User public |
+| GET | `/users` | A | —; query offset/limit | 200 | User public[]; meta pagination |
+| PATCH | `/users/{user_id}` | A | UserUpdate | 200 | User public |
 
 ### Login, refresh, dan logout
 
 Login adalah JSON biasa, bukan OAuth form:
 
 ```json
-{ "tenant_code": "default", "username": "admin", "password": "PASSWORD_LOGIN_ANDA" }
+{"tenant_code":"default","username":"admin","password":"PASSWORD_LOGIN_ANDA"}
 ```
 
 Respons lengkap:
@@ -148,7 +148,7 @@ Tidak ada field `expires_in`, user, atau cookie login pada respons. Panggil `/au
 Refresh body:
 
 ```json
-{ "refresh_token": "REFRESH_TOKEN_TERAKHIR" }
+{"refresh_token":"REFRESH_TOKEN_TERAKHIR"}
 ```
 
 Refresh token **sekali pakai dan dirotasi**: simpan kedua token baru, jangan memakai refresh lama lagi. Jika beberapa request mendapat 401 bersamaan, lakukan satu refresh bersama (single-flight), lalu retry request yang memang ditolak autentikasi satu kali. Jika refresh gagal, hapus session dan arahkan login. Jangan me-refresh berulang untuk 403/422 atau otomatis mengulangi mutation yang timeout tanpa mengetahui apakah sudah berhasil.
@@ -158,7 +158,7 @@ Logout menaikkan token version akun dan mencabut **semua token akun**, bukan han
 PasswordChange:
 
 ```json
-{ "current_password": "PASSWORD_LAMA_ANDA", "new_password": "PASSWORD_BARU_MINIMAL_12_KARAKTER" }
+{"current_password":"PASSWORD_LAMA_ANDA","new_password":"PASSWORD_BARU_MINIMAL_12_KARAKTER"}
 ```
 
 Contoh isi `data` User public:
@@ -172,7 +172,7 @@ Contoh isi `data` User public:
   "full_name": "Viewer Cabang Jakarta",
   "role": "VIEWER",
   "is_active": true,
-  "row_scope": { "SALES": { "branch_name": ["Jakarta"] } }
+  "row_scope": {"SALES": {"branch_name": ["Jakarta"]}}
 }
 ```
 
@@ -186,7 +186,7 @@ UserCreate:
   "password": "PASSWORD_AWAL_MINIMAL_12_KARAKTER",
   "full_name": "Viewer Cabang Jakarta",
   "role": "VIEWER",
-  "row_scope": { "SALES": { "branch_name": ["Jakarta"] } }
+  "row_scope": {"SALES": {"branch_name": ["Jakarta"]}}
 }
 ```
 
@@ -196,23 +196,23 @@ PATCH hanya mendukung `role`, `is_active`, dan `row_scope`; bukan username, full
 
 ## 3. Google Sheets dan profiling
 
-| Method | Path                                              | Hak | Body / parameter          | HTTP sukses | Data respons                                                                      |
-| ------ | ------------------------------------------------- | --- | ------------------------- | ----------- | --------------------------------------------------------------------------------- |
-| POST   | `/sources/google-sheets`                          | E   | SourceCreate              | 202         | `{source: DataSource, ...EnqueuedJob}`                                            |
-| GET    | `/sources`                                        | S   | offset/limit              | 200         | DataSource[]; meta pagination                                                     |
-| GET    | `/sources/{source_id}`                            | S   | UUID source               | 200         | DataSource                                                                        |
-| GET    | `/sources/{source_id}/sheets`                     | S   | UUID source               | 200         | SourceSheet[]                                                                     |
-| GET    | `/source-sheets/{sheet_id}/classification`        | S   | Tidak ada                 | 200         | SheetClassification: kind, status, revision, actor/time, execution_ready, blocker |
-| PUT    | `/source-sheets/{sheet_id}/classification`        | E   | SheetClassificationUpdate | 200         | SheetClassification terbaru                                                       |
-| PATCH  | `/source-sheets/{sheet_id}`                       | E   | SheetUpdate               | 200         | SourceSheet                                                                       |
-| POST   | `/sources/{source_id}/discover`                   | E   | —                         | 202         | EnqueuedJob                                                                       |
-| POST   | `/sources/{source_id}/profile`                    | E   | —                         | 202         | EnqueuedJob                                                                       |
-| POST   | `/sources/{source_id}/sync`                       | E   | —                         | 202         | EnqueuedJob                                                                       |
-| POST   | `/sources/{source_id}/ai-configurations`          | E   | AIConfigurationRequest    | 202         | EnqueuedJob                                                                       |
-| GET    | `/source-sheets/{sheet_id}/configurations`        | S   | UUID tab internal         | 200         | Configuration[]; maksimal 100                                                     |
-| GET    | `/source-sheets/{sheet_id}/configurations/active` | S   | UUID tab internal         | 200         | Configuration atau null                                                           |
-| GET    | `/sources/{source_id}/profiling-runs`             | S   | UUID source               | 200         | ProfilingRun[]; maksimal 100                                                      |
-| GET    | `/sources/{source_id}/profiling-runs/{run_id}`    | S   | UUID source + profile     | 200         | ProfilingRun                                                                      |
+| Method | Path | Hak | Body / parameter | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| POST | `/sources/google-sheets` | E | SourceCreate | 202 | `{source: DataSource, ...EnqueuedJob}` |
+| GET | `/sources` | S | offset/limit | 200 | DataSource[]; meta pagination |
+| GET | `/sources/{source_id}` | S | UUID source | 200 | DataSource |
+| GET | `/sources/{source_id}/sheets` | S | UUID source | 200 | SourceSheet[] |
+| GET | `/source-sheets/{sheet_id}/classification` | S | Tidak ada | 200 | SheetClassification: kind, status, revision, actor/time, execution_ready, blocker |
+| PUT | `/source-sheets/{sheet_id}/classification` | E | SheetClassificationUpdate | 200 | SheetClassification terbaru |
+| PATCH | `/source-sheets/{sheet_id}` | E | SheetUpdate | 200 | SourceSheet |
+| POST | `/sources/{source_id}/discover` | E | — | 202 | EnqueuedJob |
+| POST | `/sources/{source_id}/profile` | E | — | 202 | EnqueuedJob |
+| POST | `/sources/{source_id}/sync` | E | — | 202 | EnqueuedJob |
+| POST | `/sources/{source_id}/ai-configurations` | E | AIConfigurationRequest | 202 | EnqueuedJob |
+| GET | `/source-sheets/{sheet_id}/configurations` | S | UUID tab internal | 200 | Configuration[]; maksimal 100 |
+| GET | `/source-sheets/{sheet_id}/configurations/active` | S | UUID tab internal | 200 | Configuration atau null |
+| GET | `/sources/{source_id}/profiling-runs` | S | UUID source | 200 | ProfilingRun[]; maksimal 100 |
+| GET | `/sources/{source_id}/profiling-runs/{run_id}` | S | UUID source + profile | 200 | ProfilingRun |
 
 ### Mendaftarkan Sheet
 
@@ -285,7 +285,7 @@ Contoh SourceSheet, isi `data` satu item:
 SheetUpdate:
 
 ```json
-{ "range_a1": "A:D", "header_row": 1, "data_start_row": 2, "enabled": true }
+{"range_a1":"A:D","header_row":1,"data_start_row":2,"enabled":true}
 ```
 
 Semua field PATCH opsional. Header 1–100, awal data 2–1000 dan harus setelah header. Range berupa kolom kapital seperti `A:D` atau `A1:D500`; bila angka baris awal dicantumkan, adapter mengharuskan 1. Jangan menyertakan nama tab pada range. Batas default Google 50.000 baris data dan 100 kolom dapat diubah server.
@@ -337,82 +337,86 @@ Contoh kolom disingkat menjadi satu. Profiling menyamarkan semua sampel; tidak m
 AIConfigurationRequest:
 
 ```json
-{ "source_sheet_id": "22222222-2222-4222-8222-222222222222" }
+{"source_sheet_id":"22222222-2222-4222-8222-222222222222"}
 ```
 
 Setelah job AI_CONFIG sukses, `result` berisi `{configuration_id, status: "AI_DRAFT"}`; ambil konfigurasi lewat GET. AI memakai metadata/profile, belum memeriksa typo semua nilai sel atau membentuk referensi master.
+
 
 ## Batch review import (BE-05)
 
 Kontrak lengkap, respons, state machine, idempotency, polling, checkpoint, dan error: [Batch review import BE-05](IMPORT_REVIEW_BE05.md). E = editor, S = editor/reviewer. Batch memakai snapshot tersimpan; belum melakukan review AI atau apply data. Job SUCCEEDED tidak berarti batch import sudah selesai.
 
-| Method | Path                                     | Role | Payload / parameter                    | Status | Data                                               |
-| ------ | ---------------------------------------- | ---- | -------------------------------------- | ------ | -------------------------------------------------- |
-| POST   | `/import-reviews`                        | E    | ImportReviewCreate                     | 202    | review, reused                                     |
-| GET    | `/import-reviews`                        | S    | status, source_sheet_id, offset, limit | 200    | items[], has_more                                  |
-| GET    | `/import-reviews/{review_id}`            | S    | UUID batch                             | 200    | batch, dependencies_current, execution_ready=false |
-| GET    | `/import-reviews/{review_id}/findings`   | S    | offset, limit                          | 200    | items[], has_more                                  |
-| POST   | `/import-reviews/{review_id}/cancel`     | E    | ImportReviewAction                     | 200    | batch CANCELLED                                    |
-| POST   | `/import-reviews/{review_id}/revalidate` | E    | ImportReviewAction                     | 200    | batch VALIDATING atau STALE_REVIEW                 |
-| POST   | `/import-reviews/{review_id}/resume`     | E    | ImportReviewAction                     | 200    | batch VALIDATING jika blocker sudah diselesaikan   |
+| Method | Path | Role | Payload / parameter | Status | Data |
+|---|---|---|---|---|---|
+| POST | `/import-reviews` | E | ImportReviewCreate | 202 | review, reused |
+| GET | `/import-reviews` | S | status, source_sheet_id, offset, limit | 200 | items[], has_more |
+| GET | `/import-reviews/{review_id}` | S | UUID batch | 200 | batch, dependencies_current, execution_ready=false |
+| GET | `/import-reviews/{review_id}/findings` | S | offset, limit | 200 | items[], has_more |
+| POST | `/import-reviews/{review_id}/cancel` | E | ImportReviewAction | 200 | batch CANCELLED |
+| POST | `/import-reviews/{review_id}/revalidate` | E | ImportReviewAction | 200 | batch VALIDATING atau STALE_REVIEW |
+| POST | `/import-reviews/{review_id}/resume` | E | ImportReviewAction | 200 | batch VALIDATING jika blocker sudah diselesaikan |
+| GET | `/import-reviews/{review_id}/questions` | S | status, category, offset, limit | 200 | items[], has_more |
+| POST | `/import-reviews/{review_id}/questions/{question_id}/answer` | E | ImportQuestionDecision | 200 | question, review; stale=true jika dependency berubah |
+| POST | `/import-reviews/{review_id}/questions/{question_id}/resolve-master-proposal` | R | ImportProposalResolution | 200 | question, review setelah master aktif-approved |
 
 ## Storage master kanonis (BE-04)
 
 Kontrak lengkap dan mekanisme deployment: [Storage master BE-04](STORAGE_MASTER_BE04.md). S = editor/reviewer, R = reviewer. Seluruh endpoint berikut mengembalikan 200 dengan envelope standar. Tidak ada endpoint publik untuk menulis record atau melewati review import.
 
-| Method | Path                                             | Role | Payload / parameter                           | Status | Data                                                                           |
-| ------ | ------------------------------------------------ | ---- | --------------------------------------------- | ------ | ------------------------------------------------------------------------------ |
-| GET    | `/master-definitions/{master_id}/storage-plan`   | S    | UUID master                                   | 200    | target, master_version, revision_no, ddl, schema_policy, execution_ready=false |
-| POST   | `/master-definitions/{master_id}/deploy-storage` | R    | MasterRevisionRequest                         | 200    | target, master_version, storage_ready=true, execution_ready=false              |
-| GET    | `/master-definitions/{master_id}/records`        | S    | search, offset, limit, active_only, record_id | 200    | items[], has_more, masked_fields[]                                             |
+| Method | Path | Role | Payload / parameter | Status | Data |
+|---|---|---|---|---|---|
+| GET | `/master-definitions/{master_id}/storage-plan` | S | UUID master | 200 | target, master_version, revision_no, ddl, schema_policy, execution_ready=false |
+| POST | `/master-definitions/{master_id}/deploy-storage` | R | MasterRevisionRequest | 200 | target, master_version, storage_ready=true, execution_ready=false |
+| GET | `/master-definitions/{master_id}/records` | S | search, offset, limit, active_only, record_id | 200 | items[], has_more, masked_fields[] |
 
 ## Registry master dan binding sumber (BE-03)
 
 Metadata master dan binding kini tersedia; kontrak lengkap, payload, respons, versioning, dan error ada di [Registry master BE-03](REGISTRY_MASTER_BE03.md). Storage kanonis tersedia pada BE-04; pemuatan master masih menunggu review/apply import. Semua body baru tersedia di PAYLOADS.json dan SCHEMAS.md.
 
-| Method | Path                                               | Hak | Body / query                             | HTTP sukses | Data respons                                                                     |
-| ------ | -------------------------------------------------- | --- | ---------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
-| GET    | `/master-definitions`                              | S   | search, offset, limit                    | 200         | MasterDefinition[]                                                               |
-| POST   | `/master-definitions/preview`                      | E   | MasterDefinitionCreate; against opsional | 200         | candidates[], creates_master=false                                               |
-| POST   | `/master-definitions`                              | E   | MasterDefinitionCreate                   | 201         | MasterDefinition draft                                                           |
-| GET    | `/master-definitions/{master_id}`                  | S   | UUID master                              | 200         | MasterDefinition                                                                 |
-| PATCH  | `/master-definitions/{master_id}`                  | E   | MasterDefinitionPatch                    | 200         | MasterDefinition draft revisi baru                                               |
-| POST   | `/master-definitions/{master_id}/submit-review`    | E   | MasterRevisionRequest                    | 200         | MasterDefinition NEEDS_REVIEW                                                    |
-| POST   | `/master-definitions/{master_id}/approve`          | R   | MasterRevisionRequest                    | 200         | MasterDefinition APPROVED, versi approved baru                                   |
-| POST   | `/master-definitions/{master_id}/reject`           | R   | MasterRevisionRequest                    | 200         | MasterDefinition REJECTED                                                        |
-| POST   | `/master-definitions/{master_id}/deactivate`       | R   | MasterRevisionRequest                    | 200         | MasterDefinition INACTIVE                                                        |
-| GET    | `/source-sheets/{sheet_id}/master-binding`         | S   | UUID tab                                 | 200         | binding/null, validation, metadata_ready, execution_ready=false, blocking_reason |
-| PUT    | `/source-sheets/{sheet_id}/master-binding`         | E   | MasterBindingUpdate                      | 200         | binding, validation, execution_ready=false                                       |
-| POST   | `/source-sheets/{sheet_id}/master-binding/approve` | R   | MasterRevisionRequest                    | 200         | MasterSourceBinding APPROVED                                                     |
-| POST   | `/source-sheets/{sheet_id}/master-binding/reject`  | R   | MasterRevisionRequest                    | 200         | MasterSourceBinding REJECTED                                                     |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| GET | `/master-definitions` | S | search, offset, limit | 200 | MasterDefinition[] |
+| POST | `/master-definitions/preview` | E | MasterDefinitionCreate; against opsional | 200 | candidates[], creates_master=false |
+| POST | `/master-definitions` | E | MasterDefinitionCreate | 201 | MasterDefinition draft |
+| GET | `/master-definitions/{master_id}` | S | UUID master | 200 | MasterDefinition |
+| PATCH | `/master-definitions/{master_id}` | E | MasterDefinitionPatch | 200 | MasterDefinition draft revisi baru |
+| POST | `/master-definitions/{master_id}/submit-review` | E | MasterRevisionRequest | 200 | MasterDefinition NEEDS_REVIEW |
+| POST | `/master-definitions/{master_id}/approve` | R | MasterRevisionRequest | 200 | MasterDefinition APPROVED, versi approved baru |
+| POST | `/master-definitions/{master_id}/reject` | R | MasterRevisionRequest | 200 | MasterDefinition REJECTED |
+| POST | `/master-definitions/{master_id}/deactivate` | R | MasterRevisionRequest | 200 | MasterDefinition INACTIVE |
+| GET | `/source-sheets/{sheet_id}/master-binding` | S | UUID tab | 200 | binding/null, validation, metadata_ready, execution_ready=false, blocking_reason |
+| PUT | `/source-sheets/{sheet_id}/master-binding` | E | MasterBindingUpdate | 200 | binding, validation, execution_ready=false |
+| POST | `/source-sheets/{sheet_id}/master-binding/approve` | R | MasterRevisionRequest | 200 | MasterSourceBinding APPROVED |
+| POST | `/source-sheets/{sheet_id}/master-binding/reject` | R | MasterRevisionRequest | 200 | MasterSourceBinding REJECTED |
 
 Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-binding yang belum mempunyai binding menggunakan MASTER_BINDING_REQUIRED. Binding metadata ready tidak memberi izin load. GET klasifikasi MASTER menambah ringkasan master_binding; field klasifikasi lainnya tetap seperti BE-02.
 
 ## 4. Konfigurasi ETL dan approval
 
-**Status BE-02:** klasifikasi per tab sudah aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`. Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`. Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tetap tidak menerima dataset_kind. Registry/binding master tersedia pada BE-03; MASTER tetap tertahan sebelum review/apply import tersedia. Kontrak respons, error, serta dampak rollout dijelaskan di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). BE-04 menambah storage/pencarian record dan BE-05 menambah batch review sehingga jumlah operasi aktif menjadi 114.
+**Status BE-02:** klasifikasi per tab sudah aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`. Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`. Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tetap tidak menerima dataset_kind. Registry/binding master tersedia pada BE-03; MASTER tetap tertahan sebelum review/apply import tersedia. Kontrak respons, error, serta dampak rollout dijelaskan di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). BE-04 menambah storage/pencarian record, BE-05 batch review, dan BE-06 pertanyaan/keputusan sehingga jumlah operasi aktif menjadi 117.
 
-| Method | Path                                                           | Hak | Body / query           | HTTP sukses | Data respons                                                                  |
-| ------ | -------------------------------------------------------------- | --- | ---------------------- | ----------- | ----------------------------------------------------------------------------- |
-| POST   | `/configurations`                                              | E   | ConfigurationCreate    | 201         | Configuration                                                                 |
-| GET    | `/configurations/{config_id}`                                  | S   | —                      | 200         | Configuration                                                                 |
-| PATCH  | `/configurations/{config_id}`                                  | E   | ConfigurationPatch     | 200         | Configuration                                                                 |
-| POST   | `/configurations/{config_id}/validate`                         | S   | —                      | 200         | ValidationResult                                                              |
-| GET    | `/configurations/{config_id}/review`                           | S   | Tidak ada              | 200         | ReviewDetail: configuration, source, sheet, profile, validation, capabilities |
-| POST   | `/configurations/{config_id}/workbook-preview`                 | E   | WorkbookPreviewRequest | 200         | WorkbookPreview: can_apply, diff, errors, validation, preview_token           |
-| POST   | `/configurations/{config_id}/workbook-apply`                   | E   | WorkbookApplyRequest   | 200         | Configuration draft revisi baru                                               |
-| POST   | `/configurations/{config_id}/submit-review`                    | E   | ReviewSubmission       | 200         | Configuration                                                                 |
-| POST   | `/configurations/{config_id}/approve`                          | R   | Decision               | 200         | Configuration                                                                 |
-| POST   | `/configurations/{config_id}/reject`                           | R   | Decision               | 200         | Configuration                                                                 |
-| POST   | `/configurations/{config_id}/clone`                            | E   | —                      | 201         | Configuration baru                                                            |
-| POST   | `/configurations/{config_id}/activate`                         | R   | —                      | 202         | EnqueuedJob; alias deploy                                                     |
-| POST   | `/configurations/{config_id}/deploy`                           | R   | —                      | 202         | EnqueuedJob                                                                   |
-| POST   | `/configurations/{config_id}/rollback`                         | R   | —                      | 202         | EnqueuedJob                                                                   |
-| GET    | `/configurations/{config_id}/artifacts`                        | S   | —                      | 200         | Artifact[]; maksimal 100                                                      |
-| POST   | `/configurations/{config_id}/export`                           | S   | ExportRequest          | 201         | Artifact                                                                      |
-| GET    | `/configurations/{config_id}/artifacts/{artifact_id}/download` | S   | —                      | 200         | File binary/teks tanpa envelope                                               |
-| GET    | `/configurations/{config_id}/questions`                        | S   | —                      | 200         | string[] pertanyaan                                                           |
-| GET    | `/configurations/{config_id}/diff`                             | S   | `against` UUID wajib   | 200         | map field → `{before, after}`                                                 |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| POST | `/configurations` | E | ConfigurationCreate | 201 | Configuration |
+| GET | `/configurations/{config_id}` | S | — | 200 | Configuration |
+| PATCH | `/configurations/{config_id}` | E | ConfigurationPatch | 200 | Configuration |
+| POST | `/configurations/{config_id}/validate` | S | — | 200 | ValidationResult |
+| GET | `/configurations/{config_id}/review` | S | Tidak ada | 200 | ReviewDetail: configuration, source, sheet, profile, validation, capabilities |
+| POST | `/configurations/{config_id}/workbook-preview` | E | WorkbookPreviewRequest | 200 | WorkbookPreview: can_apply, diff, errors, validation, preview_token |
+| POST | `/configurations/{config_id}/workbook-apply` | E | WorkbookApplyRequest | 200 | Configuration draft revisi baru |
+| POST | `/configurations/{config_id}/submit-review` | E | ReviewSubmission | 200 | Configuration |
+| POST | `/configurations/{config_id}/approve` | R | Decision | 200 | Configuration |
+| POST | `/configurations/{config_id}/reject` | R | Decision | 200 | Configuration |
+| POST | `/configurations/{config_id}/clone` | E | — | 201 | Configuration baru |
+| POST | `/configurations/{config_id}/activate` | R | — | 202 | EnqueuedJob; alias deploy |
+| POST | `/configurations/{config_id}/deploy` | R | — | 202 | EnqueuedJob |
+| POST | `/configurations/{config_id}/rollback` | R | — | 202 | EnqueuedJob |
+| GET | `/configurations/{config_id}/artifacts` | S | — | 200 | Artifact[]; maksimal 100 |
+| POST | `/configurations/{config_id}/export` | S | ExportRequest | 201 | Artifact |
+| GET | `/configurations/{config_id}/artifacts/{artifact_id}/download` | S | — | 200 | File binary/teks tanpa envelope |
+| GET | `/configurations/{config_id}/questions` | S | — | 200 | string[] pertanyaan |
+| GET | `/configurations/{config_id}/diff` | S | `against` UUID wajib | 200 | map field → `{before, after}` |
 
 ### Payload konfigurasi
 
@@ -430,55 +434,20 @@ Contoh ConfigurationCreate lengkap yang valid secara schema:
     "target_table": "sales_transaction",
     "load_strategy": "UPSERT",
     "columns": [
-      {
-        "source_column": "ID",
-        "target_column": "transaction_id",
-        "target_type": "text",
-        "nullable": false,
-        "is_business_key": true,
-        "transformation_codes": ["trim"]
-      },
-      {
-        "source_column": "Tanggal",
-        "target_column": "transaction_date",
-        "target_type": "date",
-        "nullable": false,
-        "transformation_codes": ["parse_date_id"]
-      },
-      {
-        "source_column": "Cabang",
-        "target_column": "branch_name",
-        "target_type": "text",
-        "nullable": false,
-        "transformation_codes": ["trim"]
-      },
-      {
-        "source_column": "Total",
-        "target_column": "net_amount",
-        "target_type": "numeric",
-        "nullable": false,
-        "transformation_codes": ["parse_decimal_id"]
-      }
+      {"source_column":"ID","target_column":"transaction_id","target_type":"text","nullable":false,"is_business_key":true,"transformation_codes":["trim"]},
+      {"source_column":"Tanggal","target_column":"transaction_date","target_type":"date","nullable":false,"transformation_codes":["parse_date_id"]},
+      {"source_column":"Cabang","target_column":"branch_name","target_type":"text","nullable":false,"transformation_codes":["trim"]},
+      {"source_column":"Total","target_column":"net_amount","target_type":"numeric","nullable":false,"transformation_codes":["parse_decimal_id"]}
     ],
     "data_quality_rules": [
-      { "column": "net_amount", "rule": "min", "value": 0, "action_on_fail": "REJECT_ROW" }
+      {"column":"net_amount","rule":"min","value":0,"action_on_fail":"REJECT_ROW"}
     ],
     "semantic": {
       "code": "SALES",
       "dimensions": ["transaction_id", "transaction_date", "branch_name"],
       "metrics": [
-        {
-          "code": "net_sales",
-          "column": "net_amount",
-          "aggregation": "sum",
-          "label": "Penjualan bersih"
-        },
-        {
-          "code": "transaction_count",
-          "column": "transaction_id",
-          "aggregation": "count",
-          "label": "Jumlah transaksi"
-        }
+        {"code":"net_sales","column":"net_amount","aggregation":"sum","label":"Penjualan bersih"},
+        {"code":"transaction_count","column":"transaction_id","aggregation":"count","label":"Jumlah transaksi"}
       ],
       "allowed_roles": ["PLATFORM_ADMIN", "DATA_STEWARD", "ANALYST", "VIEWER"]
     },
@@ -492,18 +461,18 @@ Contoh ConfigurationCreate lengkap yang valid secara schema:
 
 Aturan penting:
 
-| Bagian                 | Aturan                                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `columns`              | 1–100 mapping; nama source dan target harus unik                                                                                                   |
-| `target_type`          | `text`, `varchar`, `integer`, `bigint`, `numeric`, `boolean`, `date`, `timestamp`, `timestamptz`, `uuid`                                           |
-| Transform              | `trim`, `normalize_whitespace`, `parse_date_id`, `parse_decimal_id`, `uppercase`, `lowercase`, `null_if_empty`; urutan list adalah urutan eksekusi |
-| PII                    | `NONE`, `LOW`, `MEDIUM`, `HIGH`; hanya NONE/LOW masuk semantic columns                                                                             |
-| DQ rule                | `not_null`, `unique`, `min`, `max`, `allowed_values`                                                                                               |
-| `action_on_fail`       | `REJECT_ROW`, `WARN`, `STOP_BATCH`, `REQUIRE_REVIEW`                                                                                               |
-| `semantic.dimensions`  | Harus kolom mapped non-sensitif                                                                                                                    |
-| `semantic.metrics`     | Kode unik dan berbeda dari nama kolom; agregasi sum/avg hanya numerik                                                                              |
-| Agregasi               | `sum`, `count`, `avg`, `min`, `max`, `count_distinct`                                                                                              |
-| `unresolved_questions` | Semua pertanyaan harus diselesaikan sebelum approval/deploy                                                                                        |
+| Bagian | Aturan |
+|---|---|
+| `columns` | 1–100 mapping; nama source dan target harus unik |
+| `target_type` | `text`, `varchar`, `integer`, `bigint`, `numeric`, `boolean`, `date`, `timestamp`, `timestamptz`, `uuid` |
+| Transform | `trim`, `normalize_whitespace`, `parse_date_id`, `parse_decimal_id`, `uppercase`, `lowercase`, `null_if_empty`; urutan list adalah urutan eksekusi |
+| PII | `NONE`, `LOW`, `MEDIUM`, `HIGH`; hanya NONE/LOW masuk semantic columns |
+| DQ rule | `not_null`, `unique`, `min`, `max`, `allowed_values` |
+| `action_on_fail` | `REJECT_ROW`, `WARN`, `STOP_BATCH`, `REQUIRE_REVIEW` |
+| `semantic.dimensions` | Harus kolom mapped non-sensitif |
+| `semantic.metrics` | Kode unik dan berbeda dari nama kolom; agregasi sum/avg hanya numerik |
+| Agregasi | `sum`, `count`, `avg`, `min`, `max`, `count_distinct` |
+| `unresolved_questions` | Semua pertanyaan harus diselesaikan sebelum approval/deploy |
 
 `min/max` memerlukan angka pada `value`; allowed_values memakai list string. Simpan kode berawalan nol sebagai text. Jangan mengubah semua angka bertitik/koma dengan satu fungsi frontend; gunakan transform yang sesuai format sumber.
 
@@ -526,7 +495,7 @@ const current = envelope.data
 const edited = structuredClone(current.configuration_json)
 // Ubah mapping atau aturan sesuai keputusan pengguna.
 const question_answers = Object.fromEntries(
-  current.configuration_json.unresolved_questions.map((q) => [q, jawabanPengguna[q]]),
+  current.configuration_json.unresolved_questions.map(q => [q, jawabanPengguna[q]])
 )
 edited.unresolved_questions = [] // Hanya sesudah jawaban dan konfigurasi terkait diperiksa.
 await api.patch(`/configurations/${configId}`, {
@@ -575,7 +544,7 @@ Urutan UI:
 3. User R mengirim approve/reject:
 
 ```json
-{ "revision_no": 2, "comment": "Mapping, business key, dan hasil validasi sudah diperiksa." }
+{"revision_no":2,"comment":"Mapping, business key, dan hasil validasi sudah diperiksa."}
 ```
 
 4. Default `REQUIRE_SEPARATE_APPROVER=true`: pembuat/editor terakhir tidak boleh menyetujui draft sendiri, termasuk admin. Setelah PATCH, `created_by` menjadi editor tersebut.
@@ -613,23 +582,23 @@ File JSON/YAML berisi metadata schema_version, configuration_id, configuration_v
 
 ## 5. Job, ETL, dan kualitas data
 
-| Method | Path                                      | Hak | Body / query      | HTTP sukses | Data respons                                       |
-| ------ | ----------------------------------------- | --- | ----------------- | ----------- | -------------------------------------------------- |
-| GET    | `/jobs`                                   | S   | offset/limit      | 200         | Job[]; meta pagination                             |
-| GET    | `/jobs/{job_id}`                          | S   | —                 | 200         | Job                                                |
-| POST   | `/jobs/{job_id}/retry`                    | S   | —                 | 202         | EnqueuedJob baru                                   |
-| GET    | `/etl-jobs`                               | S   | —                 | 200         | DataSource[]; maksimal 100                         |
-| POST   | `/etl-jobs/{job_id}/run`                  | E   | —                 | 202         | EnqueuedJob                                        |
-| POST   | `/etl-jobs/{job_id}/pause`                | E   | —                 | 200         | DataSource                                         |
-| POST   | `/etl-jobs/{job_id}/resume`               | E   | —                 | 200         | DataSource                                         |
-| GET    | `/etl-runs`                               | S   | offset/limit      | 200         | ETLRun[]; meta pagination                          |
-| GET    | `/etl-runs/{run_id}`                      | S   | —                 | 200         | ETLRun                                             |
-| GET    | `/etl-runs/{run_id}/errors`               | S   | —                 | 200         | QualityIssue[] tanpa data mentah; maksimal 100     |
-| GET    | `/etl-runs/{run_id}/lineage`              | S   | offset/limit      | 200         | Lineage; meta pagination                           |
-| GET    | `/data-quality/issues`                    | D   | offset/limit      | 200         | QualityIssue[] tanpa data mentah; meta pagination  |
-| POST   | `/data-quality/issues/{issue_id}/resolve` | D   | ResolutionRequest | 200         | QualityIssue tanpa data mentah                     |
-| GET    | `/quarantine/{source_id}/rows`            | D   | offset/limit      | 200         | QualityIssue[] dengan data mentah; meta pagination |
-| POST   | `/quarantine/{source_id}/reprocess`       | D   | —                 | 202         | EnqueuedJob ETL                                    |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| GET | `/jobs` | S | offset/limit | 200 | Job[]; meta pagination |
+| GET | `/jobs/{job_id}` | S | — | 200 | Job |
+| POST | `/jobs/{job_id}/retry` | S | — | 202 | EnqueuedJob baru |
+| GET | `/etl-jobs` | S | — | 200 | DataSource[]; maksimal 100 |
+| POST | `/etl-jobs/{job_id}/run` | E | — | 202 | EnqueuedJob |
+| POST | `/etl-jobs/{job_id}/pause` | E | — | 200 | DataSource |
+| POST | `/etl-jobs/{job_id}/resume` | E | — | 200 | DataSource |
+| GET | `/etl-runs` | S | offset/limit | 200 | ETLRun[]; meta pagination |
+| GET | `/etl-runs/{run_id}` | S | — | 200 | ETLRun |
+| GET | `/etl-runs/{run_id}/errors` | S | — | 200 | QualityIssue[] tanpa data mentah; maksimal 100 |
+| GET | `/etl-runs/{run_id}/lineage` | S | offset/limit | 200 | Lineage; meta pagination |
+| GET | `/data-quality/issues` | D | offset/limit | 200 | QualityIssue[] tanpa data mentah; meta pagination |
+| POST | `/data-quality/issues/{issue_id}/resolve` | D | ResolutionRequest | 200 | QualityIssue tanpa data mentah |
+| GET | `/quarantine/{source_id}/rows` | D | offset/limit | 200 | QualityIssue[] dengan data mentah; meta pagination |
+| POST | `/quarantine/{source_id}/reprocess` | D | — | 202 | EnqueuedJob ETL |
 
 **Perhatikan ID:** `{job_id}` pada `/etl-jobs/{job_id}/...` sebenarnya adalah **DataSource.id**, bukan ID dari `/jobs`. Gunakan source.id dari hasil `/etl-jobs`. Pause memengaruhi sumber/jadwal dan menolak sync saat source paused; bukan cancel job yang sudah berjalan.
 
@@ -655,9 +624,9 @@ Job, isi `data` hasil GET:
   "kind": "AI_CONFIG",
   "source_id": "11111111-1111-4111-8111-111111111111",
   "requested_by": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-  "payload": { "source_sheet_id": "22222222-2222-4222-8222-222222222222" },
+  "payload": {"source_sheet_id":"22222222-2222-4222-8222-222222222222"},
   "status": "SUCCEEDED",
-  "result": { "configuration_id": "77777777-7777-4777-8777-777777777777", "status": "AI_DRAFT" },
+  "result": {"configuration_id":"77777777-7777-4777-8777-777777777777","status":"AI_DRAFT"},
   "error_code": null,
   "error_message": null,
   "started_at": "2026-09-08T08:00:01Z",
@@ -675,26 +644,21 @@ Antrean disimpan di PostgreSQL. Tanpa Redis, operator bisa menjalankan `worker-o
 
 ### Result per jenis job
 
-| Kind               | Bentuk `Job.result` saat sukses                                                         |
-| ------------------ | --------------------------------------------------------------------------------------- |
+| Kind | Bentuk `Job.result` saat sukses |
+|---|---|
 | DISCOVER / PROFILE | `{profiles: [{profiling_run_id, source_sheet_id, snapshot_id}], schema_drift: boolean}` |
-| AI_CONFIG          | `{configuration_id, status: "AI_DRAFT"}`                                                |
-| DEPLOY / ROLLBACK  | `{configuration_id, data_product_code, status: "ACTIVE"}`                               |
-| ETL                | `{runs: [RunOutcome, ...]}`                                                             |
+| AI_CONFIG | `{configuration_id, status: "AI_DRAFT"}` |
+| DEPLOY / ROLLBACK | `{configuration_id, data_product_code, status: "ACTIVE"}` |
+| ETL | `{runs: [RunOutcome, ...]}` |
 
 RunOutcome salah satu bentuk:
 
 ```json
 {
   "runs": [
-    {
-      "etl_run_id": "88888888-8888-4888-8888-888888888888",
-      "status": "SUCCEEDED",
-      "rows_loaded": 3,
-      "rows_quarantined": 0
-    },
-    { "etl_run_id": "99999999-9999-4999-8999-999999999999", "status": "SKIPPED_DUPLICATE" },
-    { "source_sheet_id": "22222222-2222-4222-8222-222222222222", "status": "CHANGE_DETECTED" }
+    {"etl_run_id":"88888888-8888-4888-8888-888888888888","status":"SUCCEEDED","rows_loaded":3,"rows_quarantined":0},
+    {"etl_run_id":"99999999-9999-4999-8999-999999999999","status":"SKIPPED_DUPLICATE"},
+    {"source_sheet_id":"22222222-2222-4222-8222-222222222222","status":"CHANGE_DETECTED"}
   ]
 }
 ```
@@ -728,7 +692,7 @@ QualityIssue, isi satu item tanpa raw data:
   "etl_run_id": "88888888-8888-4888-8888-888888888888",
   "source_id": "11111111-1111-4111-8111-111111111111",
   "source_row": 18,
-  "errors": [{ "column": "transaction_date", "code": "TYPE_OR_NULL_ERROR" }],
+  "errors": [{"column":"transaction_date","code":"TYPE_OR_NULL_ERROR"}],
   "status": "OPEN",
   "resolution": null
 }
@@ -739,36 +703,36 @@ Quarantine menambahkan field `data` berupa array nilai sel asli, misalnya `["001
 Resolve body:
 
 ```json
-{ "resolution": "Tanggal sudah diperbaiki di Google Sheets; menunggu reprocess." }
+{"resolution":"Tanggal sudah diperbaiki di Google Sheets; menunggu reprocess."}
 ```
 
 Resolve hanya menandai issue RESOLVED dan menyimpan catatan, **tidak mengubah nilai data atau memuat ulang baris**. Reprocess membaca ulang Google Sheet dengan konfigurasi aktif. Perbaiki sumber terlebih dahulu; input yang sama dapat menghasilkan SKIPPED_DUPLICATE. Histori issue tetap terpisah dari hasil run baru.
 
 ## 6. Katalog, query, dan laporan
 
-| Method | Path                                               | Hak  | Body / query               | HTTP sukses | Data respons                                  |
-| ------ | -------------------------------------------------- | ---- | -------------------------- | ----------- | --------------------------------------------- |
-| GET    | `/data-products`                                   | Auth | —                          | 200         | DataProduct[] yang diizinkan; maksimal 1000   |
-| GET    | `/data-products/{code}`                            | Auth | Kode, bukan UUID           | 200         | DataProduct                                   |
-| GET    | `/data-products/{code}/dimensions`                 | Auth | —                          | 200         | string[] nama dimensi                         |
-| GET    | `/data-products/{code}/metrics`                    | Auth | —                          | 200         | MetricDefinition[]                            |
-| POST   | `/data-products/{code}/query`                      | Auth | QueryPlan                  | 200         | QueryRow[]; meta query                        |
-| POST   | `/data-products/{code}/export`                     | Auth | QueryPlan                  | 200         | CSV tanpa envelope                            |
-| POST   | `/saved-queries/{code}/run`                        | Auth | —                          | 200         | QueryRow[]; meta query                        |
-| GET    | `/semantic/data-products`                          | Auth | —                          | 200         | Alias daftar DataProduct aktif yang diizinkan |
-| PATCH  | `/semantic/data-products/{product_id}`             | D    | ProductUpdate              | 200         | DataProduct                                   |
-| GET    | `/semantic/metrics`                                | Auth | —                          | 200         | `[{data_product: code, ...MetricDefinition}]` |
-| GET    | `/semantic/query-templates`                        | Auth | —                          | 200         | SavedQuery[] sesuai role; maksimal 100        |
-| POST   | `/semantic/query-templates`                        | D    | SavedQueryCreate           | 201         | SavedQuery DRAFT                              |
-| GET    | `/semantic/intents`                                | Auth | —                          | 200         | Alias daftar query-templates                  |
-| POST   | `/semantic/intents`                                | D    | SavedQueryCreate           | 201         | Alias create query-template                   |
-| POST   | `/semantic/query-templates/{template_id}/validate` | D    | —                          | 200         | SavedQuery VALIDATED                          |
-| POST   | `/semantic/query-templates/{template_id}/activate` | D    | —                          | 200         | SavedQuery ACTIVE                             |
-| GET    | `/reports/sales/summary`                           | Auth | start_date, end_date wajib | 200         | QueryRow[] total sales                        |
-| GET    | `/reports/sales/by-branch`                         | Auth | start_date, end_date wajib | 200         | QueryRow[] per branch                         |
-| GET    | `/reports/sales/trend`                             | Auth | start_date, end_date wajib | 200         | QueryRow[] per bulan                          |
-| GET    | `/reports/inventory/stock-position`                | Auth | —                          | 200         | QueryRow[] stock                              |
-| GET    | `/reports/data-quality/summary`                    | D    | —                          | 200         | map status → jumlah issue                     |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| GET | `/data-products` | Auth | — | 200 | DataProduct[] yang diizinkan; maksimal 1000 |
+| GET | `/data-products/{code}` | Auth | Kode, bukan UUID | 200 | DataProduct |
+| GET | `/data-products/{code}/dimensions` | Auth | — | 200 | string[] nama dimensi |
+| GET | `/data-products/{code}/metrics` | Auth | — | 200 | MetricDefinition[] |
+| POST | `/data-products/{code}/query` | Auth | QueryPlan | 200 | QueryRow[]; meta query |
+| POST | `/data-products/{code}/export` | Auth | QueryPlan | 200 | CSV tanpa envelope |
+| POST | `/saved-queries/{code}/run` | Auth | — | 200 | QueryRow[]; meta query |
+| GET | `/semantic/data-products` | Auth | — | 200 | Alias daftar DataProduct aktif yang diizinkan |
+| PATCH | `/semantic/data-products/{product_id}` | D | ProductUpdate | 200 | DataProduct |
+| GET | `/semantic/metrics` | Auth | — | 200 | `[{data_product: code, ...MetricDefinition}]` |
+| GET | `/semantic/query-templates` | Auth | — | 200 | SavedQuery[] sesuai role; maksimal 100 |
+| POST | `/semantic/query-templates` | D | SavedQueryCreate | 201 | SavedQuery DRAFT |
+| GET | `/semantic/intents` | Auth | — | 200 | Alias daftar query-templates |
+| POST | `/semantic/intents` | D | SavedQueryCreate | 201 | Alias create query-template |
+| POST | `/semantic/query-templates/{template_id}/validate` | D | — | 200 | SavedQuery VALIDATED |
+| POST | `/semantic/query-templates/{template_id}/activate` | D | — | 200 | SavedQuery ACTIVE |
+| GET | `/reports/sales/summary` | Auth | start_date, end_date wajib | 200 | QueryRow[] total sales |
+| GET | `/reports/sales/by-branch` | Auth | start_date, end_date wajib | 200 | QueryRow[] per branch |
+| GET | `/reports/sales/trend` | Auth | start_date, end_date wajib | 200 | QueryRow[] per bulan |
+| GET | `/reports/inventory/stock-position` | Auth | — | 200 | QueryRow[] stock |
+| GET | `/reports/data-quality/summary` | D | — | 200 | map status → jumlah issue |
 
 ### Data product dan pengaturan akses
 
@@ -779,7 +743,7 @@ Gunakan `code` untuk query dan `id` untuk PATCH pengaturan semantic. Daftar prod
 ProductUpdate:
 
 ```json
-{ "allowed_roles": ["PLATFORM_ADMIN", "DATA_STEWARD", "ANALYST", "VIEWER"], "status": "ACTIVE" }
+{"allowed_roles":["PLATFORM_ADMIN","DATA_STEWARD","ANALYST","VIEWER"],"status":"ACTIVE"}
 ```
 
 Field opsional, status ACTIVE/SUSPENDED. PATCH menaikkan `version`, sehingga template yang memakai versi sebelumnya dapat menjadi stale. Data sync menaikkan `freshness_version`. Endpoint dimensions mengembalikan **nama field**, bukan daftar distinct values untuk dropdown.
@@ -791,9 +755,9 @@ Field opsional, status ACTIVE/SUSPENDED. PATCH menaikkan `version`, sehingga tem
   "metrics": ["net_sales", "transaction_count"],
   "dimensions": ["branch_name"],
   "filters": [
-    { "field": "transaction_date", "operator": "between", "value": ["2026-09-01", "2026-09-30"] }
+    {"field":"transaction_date","operator":"between","value":["2026-09-01","2026-09-30"]}
   ],
-  "sort": [{ "field": "net_sales", "direction": "desc" }],
+  "sort": [{"field":"net_sales","direction":"desc"}],
   "time_grain": "none",
   "limit": 100,
   "offset": 0
@@ -802,16 +766,16 @@ Field opsional, status ACTIVE/SUSPENDED. PATCH menaikkan `version`, sehingga tem
 
 Query metrics/dimensions berasal dari katalog produk, bukan label bebas. Maksimal masing-masing 20, filter 20, sort 10. Limit 1–1000, default 100; offset 0–100000. Server juga menerapkan batas `NL2SQL_MAX_ROWS` yang dapat lebih kecil.
 
-| Field        | Mekanisme                                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| `metrics`    | Agregasi metric yang didefinisikan katalog                                                   |
+| Field | Mekanisme |
+|---|---|
+| `metrics` | Agregasi metric yang didefinisikan katalog |
 | `dimensions` | Kolom group-by jika ada metrics; jika tanpa metrics, proyeksi baris, bukan DISTINCT otomatis |
-| `filters`    | Semua digabung AND dan hanya boleh memakai dimensi yang diizinkan                            |
-| `operator`   | eq, in, between, gte, lte, gt, lt                                                            |
-| `value`      | Scalar untuk eq/perbandingan; list 1–100 item untuk in; list tepat dua item untuk between    |
-| Null         | Hanya `eq` untuk filter scalar null                                                          |
-| `sort.field` | Harus muncul sebagai field output query                                                      |
-| `time_grain` | none/day/week/month/quarter/year; diterapkan pada dimensi bertipe tanggal/waktu              |
+| `filters` | Semua digabung AND dan hanya boleh memakai dimensi yang diizinkan |
+| `operator` | eq, in, between, gte, lte, gt, lt |
+| `value` | Scalar untuk eq/perbandingan; list 1–100 item untuk in; list tepat dua item untuk between |
+| Null | Hanya `eq` untuk filter scalar null |
+| `sort.field` | Harus muncul sebagai field output query |
+| `time_grain` | none/day/week/month/quarter/year; diterapkan pada dimensi bertipe tanggal/waktu |
 
 Jika metrics dan dimensions kosong, server memilih seluruh dimensi produk. Bila tidak ada output yang dapat dipilih, QUERY_INVALID. Tidak ada raw SQL, join bebas, OR filter, HAVING, atau pencarian contains pada payload.
 
@@ -821,8 +785,8 @@ Respons query lengkap:
 {
   "status": "success",
   "data": [
-    { "branch_name": "Bandung", "net_sales": 200, "transaction_count": 1 },
-    { "branch_name": "Jakarta", "net_sales": 150, "transaction_count": 2 }
+    {"branch_name":"Bandung","net_sales":200,"transaction_count":1},
+    {"branch_name":"Jakarta","net_sales":150,"transaction_count":2}
   ],
   "meta": {
     "data_product": "SALES",
@@ -846,7 +810,7 @@ SavedQueryCreate lengkap tersedia di [PAYLOADS.json](api/PAYLOADS.json), key `Sa
 {
   "code": "sales_by_branch",
   "data_product_code": "SALES",
-  "plan": { "metrics": ["net_sales"], "dimensions": ["branch_name"], "limit": 100 },
+  "plan": {"metrics":["net_sales"],"dimensions":["branch_name"],"limit":100},
   "examples": ["Penjualan per cabang"],
   "allowed_roles": ["PLATFORM_ADMIN", "DATA_STEWARD", "ANALYST", "VIEWER"]
 }
@@ -860,13 +824,13 @@ Examples dinormalisasi casefold, whitespace, dan penghapusan tanda `?`, `!`, `.`
 
 Contoh: `GET /reports/sales/by-branch?start_date=2026-09-01&end_date=2026-09-30`. Kedua tanggal wajib, end_date boleh sama dengan start_date tetapi tidak lebih awal.
 
-| Report                   | Produk/field yang harus tersedia                                                     | Bentuk baris                                               |
-| ------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| sales/summary            | SALES; metric net_sales dan transaction_count; dimensi transaction_date untuk filter | `{net_sales, transaction_count}`                           |
-| sales/by-branch          | Ditambah branch_name                                                                 | `{branch_name, net_sales, transaction_count}`              |
-| sales/trend              | transaction_date dengan grain month                                                  | `{transaction_date, net_sales, transaction_count}`         |
-| inventory/stock-position | INVENTORY; metric stock_quantity; dimensi product_code, warehouse_code               | `{product_code, warehouse_code, stock_quantity}`           |
-| data-quality/summary     | Tidak bergantung produk semantic                                                     | `{"OPEN":3,"RESOLVED":2}`; status tanpa issue tidak muncul |
+| Report | Produk/field yang harus tersedia | Bentuk baris |
+|---|---|---|
+| sales/summary | SALES; metric net_sales dan transaction_count; dimensi transaction_date untuk filter | `{net_sales, transaction_count}` |
+| sales/by-branch | Ditambah branch_name | `{branch_name, net_sales, transaction_count}` |
+| sales/trend | transaction_date dengan grain month | `{transaction_date, net_sales, transaction_count}` |
+| inventory/stock-position | INVENTORY; metric stock_quantity; dimensi product_code, warehouse_code | `{product_code, warehouse_code, stock_quantity}` |
+| data-quality/summary | Tidak bergantung produk semantic | `{"OPEN":3,"RESOLVED":2}`; status tanpa issue tidak muncul |
 
 Reports tidak membuat produk atau kolom secara otomatis. Meta sama seperti query, query_source OPERATIONAL. Query internal memakai limit default 100; endpoint report belum mempunyai pagination/filter tambahan. Sales summary tetap array, biasanya satu baris; aggregate sum dapat null saat tidak ada data.
 
@@ -876,13 +840,13 @@ POST `/data-products/{code}/export` memakai QueryPlan yang sama dan menghasilkan
 
 ## 7. NL2SQL dan klarifikasi
 
-| Method | Path                                     | Hak                  | Body             | HTTP sukses | Data respons                                |
-| ------ | ---------------------------------------- | -------------------- | ---------------- | ----------- | ------------------------------------------- |
-| POST   | `/nl2sql/query`                          | Auth                 | QuestionRequest  | 200         | QueryRow[] atau [] klarifikasi; meta khusus |
-| GET    | `/nl2sql/requests/{request_id}`          | Auth + pemilik/admin | —                | 200         | QueryRequest                                |
-| POST   | `/nl2sql/requests/{request_id}/feedback` | Auth + pemilik/admin | FeedbackRequest  | 200         | `{recorded:true}`                           |
-| POST   | `/nl2sql/clarifications/{request_id}`    | Auth + pemilik/admin | QuestionRequest  | 200         | QueryRow[]/[]; meta parent_request_id       |
-| POST   | `/nl2sql/requests/{request_id}/promote`  | D                    | SavedQueryCreate | 201         | SavedQuery DRAFT                            |
+| Method | Path | Hak | Body | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| POST | `/nl2sql/query` | Auth | QuestionRequest | 200 | QueryRow[] atau [] klarifikasi; meta khusus |
+| GET | `/nl2sql/requests/{request_id}` | Auth + pemilik/admin | — | 200 | QueryRequest |
+| POST | `/nl2sql/requests/{request_id}/feedback` | Auth + pemilik/admin | FeedbackRequest | 200 | `{recorded:true}` |
+| POST | `/nl2sql/clarifications/{request_id}` | Auth + pemilik/admin | QuestionRequest | 200 | QueryRow[]/[]; meta parent_request_id |
+| POST | `/nl2sql/requests/{request_id}/promote` | D | SavedQueryCreate | 201 | SavedQuery DRAFT |
 
 QuestionRequest:
 
@@ -937,28 +901,22 @@ NL2SQL berjalan sinkron, bukan Job. Timeout frontend harus cukup untuk timeout m
 
 ## 8. Audit, penggunaan AI, dan health
 
-| Method | Path                        | Hak    | Body / query        | HTTP sukses | Data respons                  |
-| ------ | --------------------------- | ------ | ------------------- | ----------- | ----------------------------- |
-| GET    | `/admin/ai-usage/summary`   | A      | —                   | 200         | AIUsageSummary[]              |
-| GET    | `/admin/ai-usage/by-tenant` | A      | —                   | 200         | Alias summary tenant saat ini |
-| GET    | `/admin/ai-usage/by-user`   | A      | —                   | 200         | AIUsageSummary[] + user_id    |
-| GET    | `/admin/audit-events`       | A      | offset/limit        | 200         | AuditEvent[]; meta pagination |
-| GET    | `/health`                   | Public | —; tanpa prefix API | 200         | `{alive:true}`                |
-| GET    | `/health/live`              | Public | —; tanpa prefix API | 200         | `{alive:true}`                |
-| GET    | `/health/database`          | Public | —; tanpa prefix API | 200         | DatabaseHealth                |
-| GET    | `/health/ready`             | Public | —; tanpa prefix API | 200         | Readiness                     |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
+|---|---|---|---|---|---|
+| GET | `/admin/ai-usage/summary` | A | — | 200 | AIUsageSummary[] |
+| GET | `/admin/ai-usage/by-tenant` | A | — | 200 | Alias summary tenant saat ini |
+| GET | `/admin/ai-usage/by-user` | A | — | 200 | AIUsageSummary[] + user_id |
+| GET | `/admin/audit-events` | A | offset/limit | 200 | AuditEvent[]; meta pagination |
+| GET | `/health` | Public | —; tanpa prefix API | 200 | `{alive:true}` |
+| GET | `/health/live` | Public | —; tanpa prefix API | 200 | `{alive:true}` |
+| GET | `/health/database` | Public | —; tanpa prefix API | 200 | DatabaseHealth |
+| GET | `/health/ready` | Public | —; tanpa prefix API | 200 | Readiness |
 
 AIUsageSummary, contoh isi `data`:
 
 ```json
 [
-  {
-    "requests": 4,
-    "input_tokens": 5000,
-    "output_tokens": 1000,
-    "cached_tokens": 0,
-    "estimated_cost_usd": 0.01
-  }
+  {"requests":4,"input_tokens":5000,"output_tokens":1000,"cached_tokens":0,"estimated_cost_usd":0.01}
 ]
 ```
 
@@ -969,19 +927,19 @@ AuditEvent: metadata record + user_id nullable, event string, resource_id nullab
 DatabaseHealth, isi `data`:
 
 ```json
-{ "database": "postgresql", "connected": true, "name": "googleai", "latency_ms": 12.5 }
+{"database":"postgresql","connected":true,"name":"googleai","latency_ms":12.5}
 ```
 
 Readiness saat Redis tersedia:
 
 ```json
-{ "database": "ready", "redis": "ready", "background_jobs": "celery" }
+{"database":"ready","redis":"ready","background_jobs":"celery"}
 ```
 
 Readiness mode manual dapat tetap 200:
 
 ```json
-{ "database": "ready", "redis": "unavailable", "background_jobs": "manual_worker_only" }
+{"database":"ready","redis":"unavailable","background_jobs":"manual_worker_only"}
 ```
 
 Jika REDIS_REQUIRED=true dan Redis tidak siap → 503 REDIS_UNAVAILABLE. Database/schema platform tidak siap → 503 DATABASE_UNAVAILABLE. Liveness tidak memeriksa database. Readiness hanya memeriksa koneksi utama/schema dan Redis; tidak membuktikan key Google/OpenAI, role DDL/reader, worker, atau beat berfungsi. `background_jobs="celery"` adalah hasil inferensi Redis tersedia, bukan pemeriksaan proses worker.
@@ -1018,17 +976,17 @@ sequenceDiagram
 
 Checklist UI per modul:
 
-| Halaman       | Data/API utama                         | Kondisi yang harus ditangani                                  |
-| ------------- | -------------------------------------- | ------------------------------------------------------------- |
-| Login/session | auth/login, refresh, me, logout        | Rotasi token, 401 vs 403                                      |
-| Sumber        | sources, sheets, profiling-runs        | QUEUED bukan selesai; tab internal ID berbeda dari gid Google |
-| Editor ETL    | configurations, questions, validate    | Full-object PATCH, revision conflict, pertanyaan terbuka      |
-| Approval      | approve/reject/deploy                  | Role dan approver terpisah; ACTIVE setelah job sukses         |
-| Monitor job   | jobs, etl-runs                         | HTTP 200 dengan job FAILED; result per tab                    |
-| Kualitas data | issues/quarantine/resolve/reprocess    | Catatan resolve tidak memperbaiki data otomatis               |
-| Dashboard     | data-products, metrics, query, reports | Katalog kosong, allowlist, batas baris, null aggregate        |
-| Chat data     | nl2sql/query, clarifications, feedback | Klarifikasi di meta, request baru, timeout AI                 |
-| Admin         | users, audit-events, ai-usage          | Scope tenant, revoke token saat update user                   |
+| Halaman | Data/API utama | Kondisi yang harus ditangani |
+|---|---|---|
+| Login/session | auth/login, refresh, me, logout | Rotasi token, 401 vs 403 |
+| Sumber | sources, sheets, profiling-runs | QUEUED bukan selesai; tab internal ID berbeda dari gid Google |
+| Editor ETL | configurations, questions, validate | Full-object PATCH, revision conflict, pertanyaan terbuka |
+| Approval | approve/reject/deploy | Role dan approver terpisah; ACTIVE setelah job sukses |
+| Monitor job | jobs, etl-runs | HTTP 200 dengan job FAILED; result per tab |
+| Kualitas data | issues/quarantine/resolve/reprocess | Catatan resolve tidak memperbaiki data otomatis |
+| Dashboard | data-products, metrics, query, reports | Katalog kosong, allowlist, batas baris, null aggregate |
+| Chat data | nl2sql/query, clarifications, feedback | Klarifikasi di meta, request baru, timeout AI |
+| Admin | users, audit-events, ai-usage | Scope tenant, revoke token saat update user |
 
 ### Axios pada frontend yang sudah ada
 
@@ -1044,12 +1002,7 @@ Jika memakai Vite proxy same-origin, VITE_API_ORIGIN boleh kosong. Jangan menaru
 Contoh source dan polling dengan pembatalan UI:
 
 ```ts
-type Envelope<T> = {
-  status: 'success' | 'error'
-  data: T
-  meta: Record<string, unknown>
-  errors: unknown[]
-}
+type Envelope<T> = { status: 'success' | 'error'; data: T; meta: Record<string, unknown>; errors: unknown[] }
 type Job = {
   id: string
   status: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
@@ -1086,14 +1039,10 @@ Contoh ini mengasumsikan `api` sudah diimpor dan bearer diatur. Tambahkan batas 
 Untuk request AI sinkron, override timeout Axios yang saat ini 30 detik, misalnya 90 detik jika timeout server tetap 60 detik:
 
 ```ts
-const { data } = await api.post(
-  '/nl2sql/query',
-  {
-    question: 'Berapa penjualan per cabang bulan September 2026?',
-    data_product_code: 'SALES',
-  },
-  { timeout: 90_000 },
-)
+const { data } = await api.post('/nl2sql/query', {
+  question: 'Berapa penjualan per cabang bulan September 2026?',
+  data_product_code: 'SALES',
+}, { timeout: 90_000 })
 
 if (data.meta.clarification_required) {
   // Tampilkan data.meta.question; simpan data.meta.query_id.
@@ -1110,36 +1059,36 @@ CORS saat ini mengizinkan GET/POST/PATCH dan header Authorization/Content-Type, 
 
 ### Error utama untuk frontend
 
-| HTTP | Code                                                                  | Tindakan frontend                                             |
-| ---- | --------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 401  | AUTHENTICATION_REQUIRED, INVALID_TOKEN                                | Refresh sekali atau login ulang                               |
-| 401  | INVALID_CREDENTIALS                                                   | Tampilkan kesalahan login/password; jangan loop refresh login |
-| 403  | FORBIDDEN, SCOPE_INVALID                                              | Tampilkan akses ditolak atau scope perlu diperbaiki           |
-| 403  | SEPARATE_APPROVER_REQUIRED                                            | Gunakan reviewer lain                                         |
-| 404  | RESOURCE_NOT_FOUND, DATA_PRODUCT_NOT_FOUND, SAVED_QUERY_NOT_FOUND     | Reload pilihan; bisa berarti tidak ada atau tidak diizinkan   |
-| 409  | RESOURCE_CONFLICT                                                     | Kode duplikat atau relasi invalid; jangan auto-retry          |
-| 409  | CONFIGURATION_CONFLICT                                                | Reload revision/profile dan minta review ulang                |
-| 409  | CONFIGURATION_IMMUTABLE                                               | Clone untuk perubahan baru                                    |
-| 409  | PROFILE_REQUIRED, APPROVAL_REQUIRED                                   | Selesaikan langkah prasyarat                                  |
-| 409  | TEMPLATE_STALE, TEMPLATE_VALIDATION_REQUIRED                          | Validate/activate template sesuai versi produk                |
-| 409  | JOB_CONFLICT, QUERY_CONFLICT                                          | Aksi tidak cocok dengan status objek                          |
-| 409  | SOURCE_PAUSED, ETL_RUN_LOCKED                                         | Resume sumber atau tunggu run lain selesai                    |
-| 409  | ARTIFACT_MISSING, ARTIFACT_HASH_MISMATCH, ARTIFACT_INVALID            | Jangan lanjut deploy; eskalasi ke pengelola backend           |
-| 422  | VALIDATION_ERROR                                                      | Petakan details[].field ke input form                         |
-| 422  | CONFIGURATION_INVALID, AI_CONFIGURATION_INVALID, SCHEMA_CHANGE_UNSAFE | Perbaiki mapping/data atau lakukan migrasi yang ditinjau      |
-| 422  | QUERY_INVALID, QUERY_TOO_EXPENSIVE, NL2SQL_UNSAFE_QUERY               | Perbaiki plan, dimensi, atau persempit periode                |
-| 422  | DQ_STOP_BATCH, DQ_REQUIRE_REVIEW                                      | Tampilkan batch tertahan; minta perbaikan sumber/aturan       |
-| 429  | NL2SQL_QUOTA_EXCEEDED, AI_BUDGET_EXCEEDED                             | Jangan retry terus; kuota/budget harian tercapai              |
-| 503  | OPENAI_NOT_CONFIGURED, AI_UPSTREAM_FAILED, AI_PRICING_REQUIRED        | Konfigurasi/layanan AI perlu diperiksa                        |
-| 503  | NL2SQL_NOT_CONFIGURED, NL2SQL_READER_UNSAFE                           | Role database query AI perlu diperiksa                        |
-| 503  | DATABASE_UNAVAILABLE, REDIS_UNAVAILABLE                               | Tampilkan layanan belum siap                                  |
-| 500  | INTERNAL_ERROR                                                        | Simpan request ID dan tampilkan pesan umum                    |
+| HTTP | Code | Tindakan frontend |
+|---|---|---|
+| 401 | AUTHENTICATION_REQUIRED, INVALID_TOKEN | Refresh sekali atau login ulang |
+| 401 | INVALID_CREDENTIALS | Tampilkan kesalahan login/password; jangan loop refresh login |
+| 403 | FORBIDDEN, SCOPE_INVALID | Tampilkan akses ditolak atau scope perlu diperbaiki |
+| 403 | SEPARATE_APPROVER_REQUIRED | Gunakan reviewer lain |
+| 404 | RESOURCE_NOT_FOUND, DATA_PRODUCT_NOT_FOUND, SAVED_QUERY_NOT_FOUND | Reload pilihan; bisa berarti tidak ada atau tidak diizinkan |
+| 409 | RESOURCE_CONFLICT | Kode duplikat atau relasi invalid; jangan auto-retry |
+| 409 | CONFIGURATION_CONFLICT | Reload revision/profile dan minta review ulang |
+| 409 | CONFIGURATION_IMMUTABLE | Clone untuk perubahan baru |
+| 409 | PROFILE_REQUIRED, APPROVAL_REQUIRED | Selesaikan langkah prasyarat |
+| 409 | TEMPLATE_STALE, TEMPLATE_VALIDATION_REQUIRED | Validate/activate template sesuai versi produk |
+| 409 | JOB_CONFLICT, QUERY_CONFLICT | Aksi tidak cocok dengan status objek |
+| 409 | SOURCE_PAUSED, ETL_RUN_LOCKED | Resume sumber atau tunggu run lain selesai |
+| 409 | ARTIFACT_MISSING, ARTIFACT_HASH_MISMATCH, ARTIFACT_INVALID | Jangan lanjut deploy; eskalasi ke pengelola backend |
+| 422 | VALIDATION_ERROR | Petakan details[].field ke input form |
+| 422 | CONFIGURATION_INVALID, AI_CONFIGURATION_INVALID, SCHEMA_CHANGE_UNSAFE | Perbaiki mapping/data atau lakukan migrasi yang ditinjau |
+| 422 | QUERY_INVALID, QUERY_TOO_EXPENSIVE, NL2SQL_UNSAFE_QUERY | Perbaiki plan, dimensi, atau persempit periode |
+| 422 | DQ_STOP_BATCH, DQ_REQUIRE_REVIEW | Tampilkan batch tertahan; minta perbaikan sumber/aturan |
+| 429 | NL2SQL_QUOTA_EXCEEDED, AI_BUDGET_EXCEEDED | Jangan retry terus; kuota/budget harian tercapai |
+| 503 | OPENAI_NOT_CONFIGURED, AI_UPSTREAM_FAILED, AI_PRICING_REQUIRED | Konfigurasi/layanan AI perlu diperiksa |
+| 503 | NL2SQL_NOT_CONFIGURED, NL2SQL_READER_UNSAFE | Role database query AI perlu diperiksa |
+| 503 | DATABASE_UNAVAILABLE, REDIS_UNAVAILABLE | Tampilkan layanan belum siap |
+| 500 | INTERNAL_ERROR | Simpan request ID dan tampilkan pesan umum |
 
 Error Google seperti GOOGLE_NOT_CONFIGURED (503), SOURCE_ACCESS_DENIED (403), SOURCE_NOT_FOUND (404), SOURCE_READ_FAILED (422), dan UPSTREAM_RATE_LIMITED (503) biasanya muncul pada **Job.error_code/error_message** karena operasi Google berjalan melalui worker. PROFILE_FAILED (422) dapat terjadi karena header kosong/duplikat/bertabrakan. Worker error non-AppError dibungkus JOB_EXECUTION_FAILED.
 
 ### Keterbatasan yang perlu dipertahankan dalam UI
 
-1. Klasifikasi master/non-master per tab sudah tersedia pada BE-02. Master kanonis dan storage tersedia pada BE-03/BE-04; endpoint batch import-review BE-05 tersedia untuk review snapshot, tetapi pertanyaan per sel, approval/apply import, dan integrasi runtime masih tahap berikutnya. Lihat [batch review import](IMPORT_REVIEW_BE05.md).
+1. Klasifikasi master/non-master per tab sudah tersedia pada BE-02. Master kanonis, FK antardataset, pertanyaan per sel, dan endpoint import-review **belum tersedia**. Lihat [spesifikasi master data](MASTER_DATA_DAN_VALIDASI_IMPORT.md) sebagai rancangan terpisah, bukan endpoint aktif.
 2. `dataset_kind` hanya diterima oleh SheetClassificationUpdate. Payload lain tetap menolak field tambahan yang tidak ada di schema; master_definition_id diterima pada MasterBindingUpdate, bukan pada payload klasifikasi.
 3. AI ETL membuat draft dari metadata/profile; seluruh sampel disamarkan. Tidak ada pemeriksaan typo semua data otomatis saat sync.
 4. Query dibatasi satu data product, tanpa SQL bebas atau join dinamis. Foreign key master yang direncanakan tidak boleh ditampilkan sebagai fitur yang sudah berjalan.
@@ -1160,5 +1109,6 @@ Jalankan dari root backend memakai interpreter venv. Tidak membutuhkan koneksi d
 Exporter memverifikasi setiap operasi runtime tercantum pada tabel endpoint, setiap jenis payload mempunyai contoh yang valid menurut Pydantic, lalu menghasilkan schema/parameter dan OpenAPI snapshot. Perubahan perilaku service tetap memerlukan review manual penjelasan dan contoh respons; OpenAPI generik saja tidak dapat mendeteksi perubahan bentuk `data`.
 
 Sumber implementasi: [router API](../app/api/v1/router.py), [schema request](../app/schemas/configuration.py), [envelope/error](../app/core/exceptions.py), [worker](../app/workers/runner.py), dan service masing-masing modul. Panduan konfigurasi lingkungan tersedia di [Konfigurasi dan rotasi kredensial](KONFIGURASI_DAN_ROTASI_KREDENSIAL.md).
+
 
 Wizard Vue dan round-trip Excel untuk parameter yang didukung sudah diimplementasikan. Lihat [Panduan review dan import Excel](PANDUAN_REVIEW_ETL.md) untuk payload, respons, batasan, serta langkah menjalankan migrasi.
