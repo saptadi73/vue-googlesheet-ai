@@ -9,8 +9,11 @@ belum tersedia pada runtime backend saat ini.
 
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).
-Pertanyaan terstruktur, koreksi koreksi, dan proposal master awal pada batch diimplementasikan
+Pertanyaan terstruktur, koreksi staging, dan proposal master awal pada batch diimplementasikan
 di endpoint/detail batch sesuai [frontend BE06](FRONTEND_BE06.md).
+Preview/apply batch dari kontrak terbaru juga tersedia pada halaman detail batch:
+frontend membuat preview revision terbaru, reviewer menyetujui, lalu editor menjalankan
+apply dengan `preview_token` yang sama.
 
 ## Perilaku penting
 

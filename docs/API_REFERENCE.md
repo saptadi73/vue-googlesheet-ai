@@ -362,6 +362,7 @@ Kontrak lengkap, respons, state machine, idempotency, polling, checkpoint, dan e
 | POST | `/import-reviews/{review_id}/preview` | E | ImportReviewPreviewRequest | 200 | target, changes[], summary, preview_hash, preview_token, can_approve |
 | POST | `/import-reviews/{review_id}/approve` | R | ImportReviewApproveRequest | 200 | review APPROVED |
 | POST | `/import-reviews/{review_id}/apply` | E | ImportReviewApplyRequest | 200 | review SUCCEEDED, rows_applied |
+| POST | `/import-reviews/{review_id}/resolve-reference` | S | ImportReferenceResolveRequest | 200 | EXACT, CANDIDATE, AMBIGUOUS, atau NOT_FOUND beserta kandidat dan `match_score` |
 
 Urutan untuk frontend: tunggu batch bebas dari `blocking_codes`, panggil `preview`, tampilkan before/after per baris, minta approval reviewer, kemudian kirim token preview yang sama ke `apply`. Jika revision, snapshot, konfigurasi, atau target berubah, backend mengembalikan `409 IMPORT_PREVIEW_STALE` dan frontend harus membuat preview baru. Apply memakai UPSERT berdasarkan business key dan seluruh baris diproses dalam transaksi request.
 
@@ -394,6 +395,10 @@ Metadata master dan binding kini tersedia; kontrak lengkap, payload, respons, ve
 | PUT | `/source-sheets/{sheet_id}/master-binding` | E | MasterBindingUpdate | 200 | binding, validation, execution_ready=false |
 | POST | `/source-sheets/{sheet_id}/master-binding/approve` | R | MasterRevisionRequest | 200 | MasterSourceBinding APPROVED |
 | POST | `/source-sheets/{sheet_id}/master-binding/reject` | R | MasterRevisionRequest | 200 | MasterSourceBinding REJECTED |
+| GET | `/source-sheets/{sheet_id}/column-bindings` | S | UUID tab | 200 | daftar binding kolom ke master |
+| PUT | `/source-sheets/{sheet_id}/column-bindings` | E | MasterColumnBindingCreate | 200 | binding kolom draft dengan revision baru |
+| POST | `/column-bindings/{binding_id}/approve` | R | MasterRevisionRequest | 200 | binding kolom APPROVED |
+| POST | `/column-bindings/{binding_id}/reject` | R | MasterRevisionRequest | 200 | binding kolom REJECTED |
 
 Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-binding yang belum mempunyai binding menggunakan MASTER_BINDING_REQUIRED. Binding metadata ready tidak memberi izin load. GET klasifikasi MASTER menambah ringkasan master_binding; field klasifikasi lainnya tetap seperti BE-02.
 

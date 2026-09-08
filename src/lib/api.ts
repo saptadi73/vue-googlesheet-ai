@@ -148,7 +148,7 @@ export function getApiErrorMessage(error: unknown): string {
       CLASSIFICATION_REVIEW_STALE:
         'Periksa klasifikasi terbaru. Ajukan ulang draft; clone konfigurasi immutable.',
       MASTER_RUNTIME_PENDING:
-        'Metadata dan storage dapat disiapkan. Review/apply import master belum tersedia.',
+        'Metadata dan storage dapat disiapkan. Gunakan batch import untuk preview/apply.',
       IMPORT_SOURCE_UNAVAILABLE:
         'Sumber dijeda atau tab tidak tersedia. Periksa sumber dan klasifikasi.',
       IMPORT_CLASSIFICATION_REQUIRED:
@@ -172,10 +172,8 @@ export function getApiErrorMessage(error: unknown): string {
         'Pertanyaan sudah dijawab. Muat ulang untuk melihat keputusan.',
       IMPORT_STAGING_MISSING: 'Batch tidak konsisten saat ini. Buat batch baru jika perlu.',
       IMPORT_DECISION_ACTION_INVALID: 'Pilih aksi sesuai daftar tindakan yang tersedia.',
-      IMPORT_DECISION_CANDIDATE_INVALID:
-        'Pilih kandidat yang valid dari daftar yang diberikan.',
-      IMPORT_DECISION_REASON_REQUIRED:
-        'Isi alasan untuk koreksi sumber atau usulan master.',
+      IMPORT_DECISION_CANDIDATE_INVALID: 'Pilih kandidat yang valid dari daftar yang diberikan.',
+      IMPORT_DECISION_REASON_REQUIRED: 'Isi alasan untuk koreksi sumber atau usulan master.',
       IMPORT_DECISION_VALUE_REQUIRED:
         'Nilai koreksi wajib diisi dan harus cocok dengan jenis target.',
       IMPORT_DECISION_VALUE_INVALID:

@@ -22,9 +22,9 @@ aktif yang mempunyai versi approved. Implementasi mengikuti `API_REFERENCE.md`,
 - Error storage required/stale mengarahkan deployment oleh reviewer; schema migration
   required mengarahkan penanganan backend tanpa drop, recreate, atau retry otomatis.
 
-Storage siap tidak berarti record telah diimpor. MASTER tetap diblokir oleh
-MASTER_RUNTIME_PENDING pada alur run, retry dan reprocess. Tidak ada tombol insert,
-edit, merge, deactivate atau delete record karena BE04 belum menyediakan API publiknya.
+Storage siap tidak berarti record telah diimpor. Import data dilakukan melalui batch import:
+preview, approval, lalu apply. Tidak ada tombol insert, edit, merge, deactivate atau delete
+record langsung dari halaman storage karena BE04 belum menyediakan API publik untuk operasi itu.
 
 Verifikasi mencakup build production/type-check, 16 unit test dan tiga tes browser
 BE04 di samping 12 tes workflow sebelumnya. Tes browser memakai mock API untuk

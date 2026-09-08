@@ -80,7 +80,7 @@ async function deploy() {
   )
   if (current !== generation) return
   notice.value = result.storage_ready
-    ? 'Storage siap. Tidak ada data yang diimpor; review/apply import belum tersedia.'
+    ? 'Storage siap. Lanjutkan import melalui halaman Batch import.'
     : 'Periksa kesiapan storage kembali.'
   await loadPlan()
   if (current === generation) await loadRecords(0)
@@ -125,8 +125,8 @@ onBeforeUnmount(() => {
     <RouterLink :to="`/masters/${id}`">← Definisi master</RouterLink>
     <h1>Storage &amp; record master</h1>
     <p class="notice">
-      Storage siap tidak berarti import berhasil. Review/apply import master belum tersedia;
-      execution_ready tetap false.
+      Storage siap tidak berarti import berhasil. Jalankan preview, approval, dan apply melalui
+      halaman Batch import.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>

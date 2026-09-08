@@ -18,6 +18,8 @@ import {
   type ImportReviewPreview,
   listImportReviewQuestions,
   previewImportReview,
+  resolveImportReference,
+  type ImportReferenceResolveResult,
   resolveImportReviewMasterProposal,
   type ImportReview,
 } from '@/lib/importReviews'
@@ -35,7 +37,10 @@ const review = ref<ImportReview | null>(null),
   questionStatus = ref(''),
   questionCategory = ref(''),
   preview = ref<ImportReviewPreview | null>(null),
-  appliedRows = ref<number | null>(null)
+  appliedRows = ref<number | null>(null),
+  referenceMasterId = ref(''),
+  referenceValue = ref(''),
+  referenceResult = ref<ImportReferenceResolveResult | null>(null)
 interface QuestionAnswerDraft {
   action: ImportQuestionAction | ''
   correctedValue: string
@@ -48,13 +53,24 @@ const comment = ref(''),
   questionDrafts = ref<Record<string, QuestionAnswerDraft>>({})
 const findingRows = computed(() => findings.value as Record<string, unknown>[])
 const previewRows = computed(() => (preview.value?.changes || []) as Record<string, unknown>[])
+const referenceRows = computed(() => {
+  if (!referenceResult.value) return []
+  if (referenceResult.value.record) return [referenceResult.value.record]
+  return referenceResult.value.candidates || []
+})
+const questionItems = computed(() =>
+  questions.value.map((question) => {
+    initDraft(question)
+    return { question, draft: questionDrafts.value[question.id] as QuestionAnswerDraft }
+  }),
+)
 const canEdit = computed(() => editRoles.includes(user.value?.role || ''))
 const canReview = computed(() => reviewRoles.includes(user.value?.role || ''))
 const canPreview = computed(
   () =>
     canEdit.value &&
     !!review.value &&
-    ['NEEDS_INPUT', 'READY_FOR_APPROVAL', 'APPROVED'].includes(review.value.status) &&
+    ['READY_FOR_APPROVAL', 'APPROVED'].includes(review.value.status) &&
     !(review.value.checkpoint.blocking_codes || []).length &&
     review.value.dependencies_current !== false,
 )
@@ -108,7 +124,9 @@ function initDraft(question: ImportQuestion) {
     }
     return
   }
-  if (!question.allowed_actions.includes(current.action)) current.action = defaultAction
+  if (current.action && !question.allowed_actions.includes(current.action)) {
+    current.action = defaultAction
+  }
   if (!current.proposedMasterDefinitionId) {
     current.proposedMasterDefinitionId = question.proposed_master_definition_id || ''
   }
@@ -148,12 +166,17 @@ function requiresReason(action: ImportQuestionAction | '') {
   return action === 'CORRECT_SOURCE' || action === 'PROPOSE_MASTER'
 }
 function candidateLabel(candidate: Record<string, unknown>) {
-  return typeof candidate.label === 'string' && candidate.label ? candidate.label : String(candidate.id)
+  return typeof candidate.label === 'string' && candidate.label
+    ? candidate.label
+    : String(candidate.id)
 }
 function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
   const draft = questionDrafts.value[question.id]
   if (!draft || !draft.action) throw new Error('Pilih tindakan dahulu.')
-  const payload: ImportQuestionDecision = { revision_no: question.revision_no, action: draft.action }
+  const payload: ImportQuestionDecision = {
+    revision_no: question.revision_no,
+    action: draft.action,
+  }
   if (draft.action === 'APPLY_CORRECTION') {
     if (!draft.correctedValue.trim()) throw new Error('Nilai koreksi wajib diisi.')
     payload.corrected_value = normalizeCorrectionValue(draft.correctedValue)
@@ -182,9 +205,10 @@ function applyQuestionResponse(response: ImportQuestionActionResponse) {
   review.value = response.review
   preview.value = null
   appliedRows.value = null
-  if (response.question) {
-    const index = questions.value.findIndex((item) => item.id === response.question.id)
-    if (index >= 0) questions.value[index] = response.question
+  const updated = response.question
+  if (updated) {
+    const index = questions.value.findIndex((item) => item.id === updated.id)
+    if (index >= 0) questions.value[index] = updated
   }
 }
 async function answerQuestion(question: ImportQuestion) {
@@ -257,25 +281,35 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
 async function previewBatch() {
   if (!review.value) return
   preview.value = await previewImportReview(id.value, review.value.revision_no)
+  review.value = preview.value.review
   appliedRows.value = null
   notice.value = 'Preview batch siap ditinjau.'
 }
 async function approveBatch() {
   if (!review.value || !preview.value) return
-  review.value = await approveImportReview(
-    id.value,
-    review.value.revision_no,
-    comment.value,
-  )
+  review.value = await approveImportReview(id.value, review.value.revision_no, comment.value)
   notice.value = 'Preview batch disetujui. Editor dapat menjalankan apply dengan token yang sama.'
 }
 async function applyBatch() {
   if (!review.value || !preview.value) return
-  const result = await applyImportReview(id.value, review.value.revision_no, preview.value.preview_token)
+  const result = await applyImportReview(
+    id.value,
+    review.value.revision_no,
+    preview.value.preview_token,
+  )
   review.value = result.review
   appliedRows.value = result.rows_applied
   notice.value = `Apply selesai. ${result.rows_applied} baris diproses.`
   await Promise.all([loadFindings(), loadQuestions()])
+}
+async function resolveReference() {
+  if (!review.value) return
+  referenceResult.value = await resolveImportReference(
+    id.value,
+    review.value.revision_no,
+    referenceMasterId.value.trim(),
+    referenceValue.value.trim(),
+  )
 }
 watch(
   [id, user],
@@ -286,6 +320,7 @@ watch(
     questionDrafts.value = {}
     preview.value = null
     appliedRows.value = null
+    referenceResult.value = null
     if (user.value) void run(load)
   },
   { immediate: true },
@@ -301,7 +336,9 @@ onBeforeUnmount(stop)
     <template v-if="review"
       ><section class="panel">
         <h2>{{ review.status }} Â· {{ review.dataset_kind }}</h2>
-        <p>{{ review.id }} Â· revisi {{ review.revision_no }} Â· generasi {{ review.generation }}</p>
+        <p>
+          {{ review.id }} Â· revisi {{ review.revision_no }} Â· generasi {{ review.generation }}
+        </p>
         <p>
           Snapshot {{ review.snapshot_hash }} Â· dependency
           {{ review.dependencies_current === false ? 'berubah' : 'terkini' }}
@@ -363,11 +400,33 @@ onBeforeUnmount(stop)
         </div>
         <template v-if="preview">
           <p>
-            Target {{ JSON.stringify(preview.target) }} · hash {{ preview.preview_hash }} ·
+            Target {{ preview.target }} · hash {{ preview.preview_hash }} ·
             {{ preview.can_approve ? 'siap approval' : 'belum siap approval' }}
           </p>
           <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
           <DataTable :rows="previewRows" />
+        </template>
+        <form class="toolbar" @submit.prevent="run(resolveReference)">
+          <label
+            >Master ID<input
+              v-model="referenceMasterId"
+              required
+              placeholder="UUID master definition"
+              :disabled="busy"
+          /></label>
+          <label
+            >Value<input
+              v-model="referenceValue"
+              required
+              maxlength="500"
+              placeholder="Nilai business key"
+              :disabled="busy"
+          /></label>
+          <button :disabled="busy || !review">Resolve reference</button>
+        </form>
+        <template v-if="referenceResult">
+          <p>Reference {{ referenceResult.status }} · master {{ referenceResult.master_id }}</p>
+          <DataTable :rows="referenceRows" />
         </template>
       </section>
       <section class="panel">
@@ -402,37 +461,42 @@ onBeforeUnmount(stop)
           ><button :disabled="busy" @click="run(() => loadQuestions(0))">Muat ulang</button>
         </div>
         <p v-if="!questions.length" class="muted">Belum ada pertanyaan untuk batch ini.</p>
-        <article v-for="question in questions" :key="question.id" class="card-row">
-          <h3>{{ question.category }} Â· {{ question.status }} Â· baris {{ question.source_row || 'â€”' }}</h3>
+        <article v-for="item in questionItems" :key="item.question.id" class="card-row">
+          <h3>
+            {{ item.question.category }} � {{ item.question.status }} � baris
+            {{ item.question.source_row || '�' }}
+          </h3>
+          <p>{{ item.question.prompt }}</p>
           <p>
-            {{ question.prompt }}
+            Kolom {{ item.question.source_column || '�' }} =>
+            {{ item.question.target_column || '�' }} �
+            {{ item.question.mandatory ? 'Wajib' : 'Opsional' }}
+            {{
+              item.question.decisions.length
+                ? ` � keputusan: ${item.question.decisions.length}`
+                : ''
+            }}
           </p>
-          <p>
-            Kolom {{ question.source_column || 'â€”' }} â‡’ {{ question.target_column || 'â€”' }} Â·
-            {{ question.mandatory ? 'Wajib' : 'Opsional' }}
-            {{ question.decisions.length ? ` Â· keputusan: ${question.decisions.length}` : '' }}
-          </p>
-          <template v-if="question.status === 'OPEN' && canEdit">
+          <template v-if="item.question.status === 'OPEN' && canEdit">
             <label
-              >Tindakan<select v-model="questionDrafts[question.id].action" :disabled="busy">
-                <option v-for="action in question.allowed_actions" :key="action">{{ action }}</option>
+              >Tindakan<select v-model="item.draft.action" :disabled="busy">
+                <option v-for="action in item.question.allowed_actions" :key="action">
+                  {{ action }}
+                </option>
               </select></label
             >
-            <label v-if="questionDrafts[question.id].action === 'APPLY_CORRECTION'"
+            <label v-if="item.draft.action === 'APPLY_CORRECTION'"
               >Nilai koreksi<input
-                v-model="questionDrafts[question.id].correctedValue"
-                placeholder="321 atau \"abc\""
+                v-model="item.draft.correctedValue"
+                placeholder='321 atau "abc"'
                 :disabled="busy"
               />
             </label>
-            <label v-if="questionDrafts[question.id].action === 'SELECT_RECORD'"
-              >Pilih kandidat<select
-                v-model="questionDrafts[question.id].selectedCandidateId"
-                :disabled="busy"
-              >
+            <label v-if="item.draft.action === 'SELECT_RECORD'"
+              >Pilih kandidat<select v-model="item.draft.selectedCandidateId" :disabled="busy">
                 <option value="">Pilih kandidat</option>
                 <option
-                  v-for="candidate in question.candidates"
+                  v-for="candidate in item.question.candidates"
                   :key="candidate.id"
                   :value="candidate.id"
                 >
@@ -440,45 +504,44 @@ onBeforeUnmount(stop)
                 </option>
               </select></label
             >
-            <label v-if="requiresReason(questionDrafts[question.id].action)"
-              >Alasan<textarea
-                v-model="questionDrafts[question.id].reason"
-                maxlength="2000"
-                :disabled="busy"
-              /></label
-            >
-            <label v-if="questionDrafts[question.id].action === 'PROPOSE_MASTER'"
+            <label v-if="requiresReason(item.draft.action)"
+              >Alasan<textarea v-model="item.draft.reason" maxlength="2000" :disabled="busy" />
+            </label>
+            <label v-if="item.draft.action === 'PROPOSE_MASTER'"
               >Master proposal (JSON)<textarea
-                v-model="questionDrafts[question.id].masterProposalText"
+                v-model="item.draft.masterProposalText"
                 maxlength="4000"
                 placeholder='{"code":"kode_master","name":"Nama"}'
                 :disabled="busy"
-              /></label
-            >
+              />
+            </label>
             <div class="toolbar">
               <button
                 class="primary"
                 :disabled="busy"
-                @click="run(() => answerQuestion(question))"
+                @click="run(() => answerQuestion(item.question))"
               >
                 Simpan jawaban
               </button>
             </div>
           </template>
-          <template v-else-if="question.status === 'PENDING_APPROVAL' && canReview">
+          <template v-else-if="item.question.status === 'PENDING_APPROVAL' && canReview">
             <label
               >Master definition approved (ID)<input
-                v-model="questionDrafts[question.id].proposedMasterDefinitionId"
+                v-model="item.draft.proposedMasterDefinitionId"
                 placeholder="UUID master definition"
                 :disabled="busy"
-              /></label
+            /></label>
+            <button
+              class="primary"
+              :disabled="busy"
+              @click="run(() => resolveProposal(item.question))"
             >
-            <button class="primary" :disabled="busy" @click="run(() => resolveProposal(question))">
               Selesaikan proposal master
             </button>
           </template>
           <div v-else>
-            <pre>{{ JSON.stringify(question.decisions, null, 2) }}</pre>
+            <pre>{{ JSON.stringify(item.question.decisions, null, 2) }}</pre>
           </div>
         </article>
         <div class="toolbar">

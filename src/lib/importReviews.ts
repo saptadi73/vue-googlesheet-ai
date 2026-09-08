@@ -14,16 +14,9 @@ export type ImportStatus =
 
 export type ImportQuestionStatus = 'OPEN' | 'ANSWERED' | 'PENDING_APPROVAL' | 'CANCELLED'
 export type ImportQuestionCategory =
-  | 'DATA_QUALITY'
-  | 'DUPLICATE_KEY'
-  | 'DATA_QUALITY_WARNING'
-  | 'CONFIGURATION'
+  'DATA_QUALITY' | 'DUPLICATE_KEY' | 'DATA_QUALITY_WARNING' | 'CONFIGURATION'
 export type ImportQuestionAction =
-  | 'APPLY_CORRECTION'
-  | 'CORRECT_SOURCE'
-  | 'PROPOSE_MASTER'
-  | 'KEEP_ORIGINAL'
-  | 'SELECT_RECORD'
+  'APPLY_CORRECTION' | 'CORRECT_SOURCE' | 'PROPOSE_MASTER' | 'KEEP_ORIGINAL' | 'SELECT_RECORD'
 
 export interface ImportCheckpoint {
   deterministic_complete?: boolean
@@ -127,7 +120,8 @@ export interface ImportPreviewChange {
 }
 
 export interface ImportReviewPreview {
-  target: Record<string, unknown>
+  review: ImportReview
+  target: string
   changes: ImportPreviewChange[]
   summary: Record<string, unknown>
   preview_hash: string
@@ -138,6 +132,13 @@ export interface ImportReviewPreview {
 export interface ImportReviewApplyResult {
   review: ImportReview
   rows_applied: number
+}
+
+export interface ImportReferenceResolveResult {
+  status: 'EXACT' | 'CANDIDATE' | 'AMBIGUOUS' | 'NOT_FOUND'
+  master_id: string
+  record?: Record<string, unknown>
+  candidates?: Record<string, unknown>[]
 }
 
 export interface ImportList {
@@ -195,11 +196,7 @@ export async function previewImportReview(reviewId: string, revisionNo: number) 
   })
 }
 
-export async function approveImportReview(
-  reviewId: string,
-  revisionNo: number,
-  comment: string,
-) {
+export async function approveImportReview(reviewId: string, revisionNo: number, comment: string) {
   return call<ImportReview>('POST', `/import-reviews/${reviewId}/approve`, {
     revision_no: revisionNo,
     comment: comment.trim(),
@@ -215,4 +212,21 @@ export async function applyImportReview(
     revision_no: revisionNo,
     preview_token: previewToken,
   })
+}
+
+export async function resolveImportReference(
+  reviewId: string,
+  revisionNo: number,
+  masterDefinitionId: string,
+  value: string,
+) {
+  return call<ImportReferenceResolveResult>(
+    'POST',
+    `/import-reviews/${reviewId}/resolve-reference`,
+    {
+      revision_no: revisionNo,
+      master_definition_id: masterDefinitionId,
+      value,
+    },
+  )
 }
