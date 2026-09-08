@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #ecfdf5;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+}
+
+@layer base {
+  body {
+    @apply m-0 min-w-80 bg-slate-50 font-sans text-slate-900 antialiased;
+  }
+
+  button:not(:disabled),
+  a {
+    @apply cursor-pointer;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-4 outline-brand-600;
+  }
+}

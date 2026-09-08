@@ -1,0 +1,255 @@
+.etl {
+  min-height: 100vh;
+  background: #f5f7f8;
+  color: #172e29;
+  font:
+    14px/1.6 'Inter Variable',
+    system-ui,
+    sans-serif;
+}
+.etl-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding: 18px 4%;
+  background: white;
+  border-bottom: 1px solid #dde6e3;
+}
+.etl-header > a:first-child {
+  font-size: 19px;
+  font-weight: 700;
+}
+.etl-header span {
+  margin-left: auto;
+}
+.etl main {
+  max-width: 1320px;
+  margin: auto;
+  padding: 32px 24px;
+}
+.etl h1 {
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.25;
+  margin: 8px 0 14px;
+}
+.etl h2 {
+  font-size: 20px;
+  font-weight: 650;
+  margin-bottom: 12px;
+}
+.etl h3 {
+  font-size: 16px;
+  font-weight: 650;
+}
+.etl p {
+  margin: 8px 0;
+}
+.etl .panel {
+  background: white;
+  border: 1px solid #dce6e1;
+  border-radius: 14px;
+  padding: 24px;
+  margin: 20px 0;
+}
+.etl .login {
+  max-width: 440px;
+  margin: 70px auto;
+}
+.etl label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 10px 0;
+  font-weight: 500;
+}
+.etl input,
+.etl select,
+.etl textarea {
+  background: white;
+  border: 1px solid #becfc6;
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: #172e29;
+  min-width: 0;
+  width: 100%;
+  font: inherit;
+}
+.etl input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  accent-color: #137d55;
+}
+.etl label.check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+}
+.etl button,
+.etl a.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c6d8cd;
+  border-radius: 8px;
+  padding: 8px 15px;
+  background: white;
+  cursor: pointer;
+  font-weight: 550;
+  gap: 7px;
+}
+.etl button:hover,
+.etl a.button:hover {
+  background: #eff7f2;
+}
+.etl button.primary,
+.etl a.primary {
+  background: #137d55;
+  color: white;
+  border-color: #137d55;
+}
+.etl button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.etl :focus-visible {
+  outline: 3px solid #4bbd8d;
+  outline-offset: 3px;
+}
+.etl .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+.etl .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
+}
+.etl .steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0;
+}
+.etl .steps .active {
+  background: #137d55;
+  color: white;
+}
+.etl .error {
+  padding: 12px;
+  background: #fff0ee;
+  color: #9c2a20;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+.etl .notice {
+  padding: 12px;
+  background: #edf5ff;
+  color: #25476b;
+  border-radius: 8px;
+}
+.etl .success {
+  padding: 12px;
+  background: #eaf7ee;
+  color: #21663c;
+  border-radius: 8px;
+}
+.etl .eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  color: #38775c;
+}
+.etl .muted {
+  color: #60746a;
+}
+.etl .scroll {
+  overflow: auto;
+}
+.etl table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.etl th,
+.etl td {
+  padding: 10px;
+  border-bottom: 1px solid #e0e8e4;
+  vertical-align: top;
+}
+.etl th {
+  font-size: 12px;
+  color: #62796c;
+}
+.etl pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f3f6f4;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.etl .tag {
+  display: inline-block;
+  background: #edf5ef;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.etl .card-row {
+  border-top: 1px solid #e0e8e4;
+  padding: 16px 0;
+}
+.etl .wide-input {
+  min-width: 150px;
+}
+.etl .question {
+  border-left: 3px solid #e6b45c;
+  padding-left: 16px;
+}
+.etl details {
+  margin: 14px 0;
+}
+.etl summary {
+  cursor: pointer;
+  font-weight: 550;
+}
+.etl .sticky-actions {
+  position: sticky;
+  bottom: 0;
+  background: #fffffff5;
+  padding: 14px;
+  border: 1px solid #dce6e1;
+  border-radius: 12px;
+  box-shadow: 0 -4px 18px #123c2010;
+}
+.etl fieldset:disabled input,
+.etl fieldset:disabled select,
+.etl fieldset:disabled textarea {
+  background: #f6f8f7;
+}
+.etl .danger {
+  color: #a53529;
+}
+@media (max-width: 650px) {
+  .etl main {
+    padding: 20px 12px;
+  }
+  .etl .panel {
+    padding: 16px;
+  }
+  .etl-header {
+    gap: 12px;
+  }
+  .etl-header span {
+    margin-left: 0;
+  }
+  .etl h1 {
+    font-size: 24px;
+  }
+}
