@@ -23,6 +23,12 @@ async function storageSetup(page: Page) {
         status: 409,
         json: { status: 'error', data: null, meta: {}, errors: [{ code, message: code }] },
       })
+    if (path === '/master-definitions/example') return ok({
+      approved_definition_json: {
+        fields: [{ name: 'valid_from', type: 'timestamptz' }],
+        policy: { effective_dating: { valid_from_column: 'valid_from', valid_to_column: 'valid_to' } },
+      },
+    })
     if (path.endsWith('/storage-plan'))
       return ok({
         target: 'trusted.master_test',
@@ -97,13 +103,14 @@ test('reviewer deploys reviewed revision, preserves masking and leading zero, pa
     comment: 'Schema telah ditinjau',
   })
   await expect(
-    page.getByText('Storage siap. Tidak ada data yang diimpor', { exact: false }),
+    page.getByText('Storage siap. Lanjutkan import', { exact: false }),
   ).toBeVisible()
   await expect(page.getByText('Field disamarkan oleh backend:', { exact: false })).toContainText(
     'salary',
   )
   await page.getByLabel('Cari business key atau label').fill('001%_')
   await page.getByLabel('Hanya record aktif').uncheck()
+  await page.getByLabel('Berlaku pada').fill('2026-02-01T12:00:00+07:00')
   await page.getByRole('button', { name: 'Cari record', exact: true }).click()
   await expect(page.getByRole('cell', { name: '001', exact: true })).toBeVisible()
   await page.getByLabel('Cari business key atau label').fill('belum diterapkan')
@@ -112,6 +119,7 @@ test('reviewer deploys reviewed revision, preserves masking and leading zero, pa
   expect(state.queries.at(-1)?.get('search')).toBe('001%_')
   expect(state.queries.at(-1)?.get('active_only')).toBe('false')
   expect(state.queries.at(-1)?.get('offset')).toBe('50')
+  expect(state.queries.at(-1)?.get('as_of')).toBe('2026-02-01T12:00:00+07:00')
   await expect(page.getByRole('button', { name: 'Record berikutnya' })).toBeDisabled()
   expect(state.errors).toEqual([])
   expect(state.unexpected).toEqual([])

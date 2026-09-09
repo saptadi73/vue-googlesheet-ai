@@ -88,6 +88,28 @@ describe('BE03 definitions and approved mapping', () => {
       transformation_codes: ['trim', 'uppercase'],
     })
   })
+  it('requires an entity key plus non-null start and excludes the end from version keys', () => {
+    const value = definition()
+    value.fields.push(
+      { name: 'valid_from', type: 'date', nullable: false, pii_classification: 'NONE' },
+      { name: 'valid_to', type: 'date', nullable: true, pii_classification: 'NONE' },
+    )
+    value.policy.effective_dating = {
+      valid_from_column: 'valid_from', valid_to_column: 'valid_to',
+      interval: 'START_INCLUSIVE_END_EXCLUSIVE', overlap_policy: 'REJECT',
+    }
+    expect(() => validateDefinition(value)).toThrow('Business key versi')
+    value.business_key = ['valid_from']
+    expect(() => validateDefinition(value)).toThrow('Business key versi')
+    value.business_key = ['code', 'valid_from']
+    expect(() => validateDefinition(value)).not.toThrow()
+    value.fields[3]!.nullable = false
+    value.business_key.push('valid_to')
+    expect(() => validateDefinition(value)).toThrow('Business key versi')
+    value.business_key = ['code', 'valid_from']
+    value.fields[2]!.nullable = true
+    expect(() => validateDefinition(value)).toThrow('business key')
+  })
   it('requires label even if nullable and rejects reused source headers', () => {
     expect(() =>
       bindingColumns(definition(), { code: { source: 'Kode', transforms: [] } }),

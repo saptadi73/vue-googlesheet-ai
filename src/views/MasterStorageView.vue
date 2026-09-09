@@ -5,6 +5,8 @@ import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
 import { call, user, editRoles, reviewRoles } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
+import type { Master } from '@/lib/masters'
+import axios from 'axios'
 
 interface StoragePlan {
   target: string
@@ -26,11 +28,18 @@ const reader = computed(() => [...editRoles, ...reviewRoles].includes(user.value
 const { busy, error, notice, run } = useTask()
 const plan = ref<StoragePlan | null>(null)
 const records = ref<RecordsPage | null>(null)
+const master = ref<Master | null>(null)
+const asOf = ref('')
+const periodType = computed(() => {
+  const definition = master.value?.approved_definition_json
+  const period = definition?.policy.effective_dating
+  return period ? definition?.fields.find((field) => field.name === period.valid_from_column)?.type : undefined
+})
 const search = ref(''),
   recordId = ref(''),
   activeOnly = ref(true),
   offset = ref(0)
-const applied = ref({ search: '', recordId: '', activeOnly: true })
+const applied = ref({ search: '', recordId: '', activeOnly: true, asOf: '' })
 const comment = ref(''),
   confirmed = ref(false)
 let generation = 0
@@ -49,6 +58,7 @@ async function loadRecords(next = 0, apply = false) {
       search: search.value,
       recordId: recordId.value.trim(),
       activeOnly: activeOnly.value,
+      asOf: periodType.value ? asOf.value : '',
     }
   const filters = applied.value
   const params = new URLSearchParams({
@@ -58,8 +68,20 @@ async function loadRecords(next = 0, apply = false) {
     active_only: String(filters.activeOnly),
   })
   if (filters.recordId) params.set('record_id', filters.recordId)
+  if (filters.asOf) params.set('as_of', filters.asOf.length === 16 ? `${filters.asOf}:00` : filters.asOf)
   records.value = null
-  const result = await call<RecordsPage>('GET', `${base()}/records?${params}`)
+  let result: RecordsPage
+  try {
+    result = await call<RecordsPage>('GET', `${base()}/records?${params}`)
+  } catch (error) {
+    if (current === generation && axios.isAxiosError(error) &&
+      error.response?.data?.errors?.some((issue: { code: string }) => issue.code === 'MASTER_EFFECTIVE_DATING_REQUIRED')) {
+      master.value = null
+      asOf.value = ''
+      applied.value.asOf = ''
+    }
+    throw error
+  }
   if (current === generation) {
     records.value = result
     offset.value = next
@@ -91,6 +113,9 @@ function initialize() {
   pendingLoad = false
   const current = generation
   void run(async () => {
+    const definition = await call<Master>('GET', base())
+    if (current !== generation) return
+    master.value = definition
     await loadPlan()
     if (current === generation && plan.value) await loadRecords()
   })
@@ -104,10 +129,12 @@ watch(
     confirmed.value = false
     comment.value = ''
     search.value = ''
+    master.value = null
+    asOf.value = ''
     recordId.value = ''
     activeOnly.value = true
     offset.value = 0
-    applied.value = { search: '', recordId: '', activeOnly: true }
+    applied.value = { search: '', recordId: '', activeOnly: true, asOf: '' }
     pendingLoad = true
     initialize()
   },
@@ -173,8 +200,17 @@ onBeforeUnmount(() => {
             pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
         /></label>
         <label><input v-model="activeOnly" type="checkbox" />Hanya record aktif</label>
+        <label v-if="periodType">Berlaku pada
+          <input v-model="asOf" :type="periodType === 'date' ? 'date' : periodType === 'timestamp' ? 'datetime-local' : 'text'"
+            step="1" maxlength="64" :disabled="busy"
+            :placeholder="periodType === 'timestamptz' ? '2026-02-01T12:00:00+07:00' : ''" />
+        </label>
         <button :disabled="busy">Cari record</button>
       </form>
+      <p v-if="periodType" class="muted">Kosongkan tanggal untuk seluruh riwayat. Awal inklusif, akhir eksklusif.
+        Status aktif terpisah dari masa berlaku. Pencarian tidak memilih record atau FK otomatis.
+        <template v-if="periodType === 'timestamptz'">Gunakan ISO dengan detik dan offset eksplisit (contoh +07:00); zona browser tidak diasumsikan.</template>
+      </p>
       <p v-if="busy" role="status">Memuat…</p>
       <template v-if="records">
         <p v-if="records.masked_fields.length" class="notice">

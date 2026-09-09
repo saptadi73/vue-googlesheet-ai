@@ -19,6 +19,11 @@ export type ImportQuestionAction =
   'APPLY_CORRECTION' | 'CORRECT_SOURCE' | 'PROPOSE_MASTER' | 'KEEP_ORIGINAL' | 'SELECT_RECORD'
 
 export interface ImportCheckpoint {
+  close_open_periods?: boolean
+  effective_plan_hash?: string
+  periods_to_close?: number
+  periods_closed?: number
+  rows_applied?: number
   deterministic_complete?: boolean
   rows_valid?: number
   rows_invalid?: number
@@ -123,6 +128,13 @@ export interface ImportPreviewChange {
 }
 
 export interface ImportReviewPreview {
+  period_closures?: Array<{
+    record_id: string
+    revision_no: number
+    column: string
+    before: null
+    after: string
+  }>
   review: ImportReview
   target: string
   changes: ImportPreviewChange[]
@@ -133,6 +145,7 @@ export interface ImportReviewPreview {
 }
 
 export interface ImportReviewApplyResult {
+  periods_closed?: number
   review: ImportReview
   rows_applied: number
 }
@@ -194,9 +207,10 @@ export async function resolveImportReviewMasterProposal(
   )
 }
 
-export async function previewImportReview(reviewId: string, revisionNo: number) {
+export async function previewImportReview(reviewId: string, revisionNo: number, closeOpenPeriods = false) {
   return call<ImportReviewPreview>('POST', `/import-reviews/${reviewId}/preview`, {
     revision_no: revisionNo,
+    close_open_periods: closeOpenPeriods,
   })
 }
 

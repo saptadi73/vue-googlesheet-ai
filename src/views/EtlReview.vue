@@ -1060,7 +1060,7 @@ onBeforeRouteUpdate(confirmLeave)
                 record.created_by === user?.id
               "
               @click="
-                comment = ''
+                comment = '';
                 decisionModal = 'approve'
               "
             >
@@ -1068,7 +1068,7 @@ onBeforeRouteUpdate(confirmLeave)
             ><button
               :disabled="busy || dirty"
               @click="
-                comment = ''
+                comment = '';
                 decisionModal = 'reject'
               "
             >

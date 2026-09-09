@@ -24,6 +24,15 @@ import {
   type ImportReview,
 } from '@/lib/importReviews'
 import { useTask } from '@/lib/tasks'
+import type { Master } from '@/lib/masters'
+const master = ref<Master | null>(null)
+const closeOpenPeriods = ref(false)
+const closureEligible = computed(() => {
+  const policy = master.value?.approved_definition_json?.policy
+  return review.value?.dataset_kind === 'MASTER' && !!policy?.effective_dating && policy.new_record_policy === 'PROPOSE_INSERT'
+})
+const closureRows = computed(() => (preview.value?.period_closures || []).map((closure) => ({ ...closure })))
+watch(closeOpenPeriods, () => { preview.value = null })
 const route = useRoute(),
   id = computed(() => String(route.params.id)),
   { busy, error, notice, run } = useTask()
@@ -38,6 +47,7 @@ const review = ref<ImportReview | null>(null),
   questionCategory = ref(''),
   preview = ref<ImportReviewPreview | null>(null),
   appliedRows = ref<number | null>(null),
+  appliedPeriods = ref<number | null>(null),
   referenceMasterId = ref(''),
   referenceValue = ref(''),
   referenceQuestionId = ref(''),
@@ -111,7 +121,7 @@ const questionCategoryItems: Array<'' | ImportQuestionCategory> = [
   'CONFIGURATION',
   'AI_REVIEW',
 ]
-const terminal = ['NEEDS_INPUT', 'FAILED', 'STALE_REVIEW', 'CANCELLED', 'SUCCEEDED', 'APPROVED']
+const terminal = ['NEEDS_INPUT', 'FAILED', 'STALE_REVIEW', 'CANCELLED', 'SUCCEEDED', 'APPROVED', 'READY_FOR_APPROVAL']
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 function stop() {
@@ -259,6 +269,14 @@ async function load() {
   review.value = result
   preview.value = null
   appliedRows.value = null
+  closeOpenPeriods.value = result.checkpoint.close_open_periods ?? false
+  appliedPeriods.value = null
+  master.value = null
+  if (result.dataset_kind === 'MASTER' && result.master_id) {
+    const definition = await call<Master>('GET', `/master-definitions/${result.master_id}`)
+    if (epoch !== generation) return
+    master.value = definition
+  }
   await Promise.all([loadFindings(), loadQuestions()])
   if (epoch === generation && !terminal.includes(result.status))
     timer = setTimeout(() => void poll(epoch), 3000)
@@ -276,6 +294,7 @@ async function poll(epoch: number) {
 }
 async function action(kind: 'cancel' | 'revalidate' | 'resume') {
   if (!review.value) return
+  preview.value = null
   const result = await call<ImportReview>('POST', `/import-reviews/${id.value}/${kind}`, {
     revision_no: review.value.revision_no,
     comment: comment.value.trim(),
@@ -284,30 +303,42 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
   preview.value = null
   appliedRows.value = null
   notice.value = `Aksi ${kind} diterima. Periksa status batch terbaru.`
-  await Promise.all([loadFindings(), loadQuestions()])
+  await load()
 }
 async function previewBatch() {
   if (!review.value) return
-  preview.value = await previewImportReview(id.value, review.value.revision_no)
+  preview.value = null
+  const mode = review.value.status === 'APPROVED'
+    ? review.value.checkpoint.close_open_periods ?? false
+    : closureEligible.value && closeOpenPeriods.value
+  preview.value = await previewImportReview(id.value, review.value.revision_no, mode)
   review.value = preview.value.review
   appliedRows.value = null
   notice.value = 'Preview batch siap ditinjau.'
 }
 async function approveBatch() {
   if (!review.value || !preview.value) return
-  review.value = await approveImportReview(id.value, review.value.revision_no, comment.value)
+  try {
+    review.value = await approveImportReview(id.value, review.value.revision_no, comment.value)
+  } catch (error) {
+    preview.value = null
+    throw error
+  }
   notice.value = 'Preview batch disetujui. Editor dapat menjalankan apply dengan token yang sama.'
 }
 async function applyBatch() {
   if (!review.value || !preview.value) return
+  const token = preview.value.preview_token
+  preview.value = null
   const result = await applyImportReview(
     id.value,
     review.value.revision_no,
-    preview.value.preview_token,
+    token,
   )
   review.value = result.review
   appliedRows.value = result.rows_applied
-  notice.value = `Apply selesai. ${result.rows_applied} baris diproses.`
+  appliedPeriods.value = result.periods_closed ?? 0
+  notice.value = `Apply selesai. ${result.rows_applied} baris ditulis, ${result.periods_closed ?? 0} periode ditutup.`
   await Promise.all([loadFindings(), loadQuestions()])
 }
 async function resolveReference() {
@@ -334,6 +365,9 @@ watch(
   [id, user],
   () => {
     review.value = null
+    master.value = null
+    closeOpenPeriods.value = false
+    appliedPeriods.value = null
     findings.value = []
     questions.value = []
     questionDrafts.value = {}
@@ -395,6 +429,7 @@ onBeforeUnmount(stop)
         <p v-if="review.status === 'SUCCEEDED'" class="notice">
           Batch sudah selesai diaplikasikan ke target trusted.
           {{ appliedRows === null ? '' : `${appliedRows} baris diproses.` }}
+          {{ appliedPeriods ?? review.checkpoint.periods_closed ?? 0 }} periode ditutup.
         </p>
         <label v-if="canEdit"
           >Catatan aksi<textarea v-model="comment" maxlength="2000" :disabled="busy" />
@@ -408,7 +443,7 @@ onBeforeUnmount(stop)
           >
             Batalkan batch</button
           ><button
-            :disabled="busy || !['FAILED', 'STALE_REVIEW'].includes(review.status)"
+            :disabled="busy || !['FAILED', 'STALE_REVIEW', 'READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)"
             @click="run(() => action('revalidate'))"
           >
             Revalidate</button
@@ -419,9 +454,19 @@ onBeforeUnmount(stop)
             Resume
           </button>
         </div>
+        <p v-if="['READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)" class="muted">
+          Revalidate mencabut approval dan preview lama. Tunggu validasi selesai, lalu preview dan approve ulang.
+        </p>
       </section>
       <section class="panel">
         <h2>Preview dan apply</h2>
+        <label v-if="closureEligible"><input v-model="closeOpenPeriods" type="checkbox"
+          :disabled="busy || !canPreview || review.status === 'APPROVED'" />
+          Usulkan penutupan periode terbuka untuk batch ini
+        </label>
+        <p v-if="closureEligible" class="muted">Periode lama ditutup pada awal versi baru melalui approval.
+          Gunakan sumber delta versi baru dengan interval yang tidak overlap.
+          Untuk mengganti rencana yang sudah approved, jalankan Revalidate.</p>
         <p class="muted">
           Preview mengikat snapshot dan revision batch. Jika batch berubah, buat preview baru.
         </p>
@@ -439,6 +484,9 @@ onBeforeUnmount(stop)
           </p>
           <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
           <DataTable :rows="previewRows" />
+          <h3>Penutupan periode: {{ closureRows.length }}</h3>
+          <p>Penutupan terpisah dari jumlah baris kandidat; nilai berikut mengikuti preview backend.</p>
+          <DataTable v-if="closureRows.length" :rows="closureRows" />
         </template>
         <form class="toolbar" @submit.prevent="run(resolveReference)">
           <label

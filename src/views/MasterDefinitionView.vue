@@ -324,7 +324,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               </option>
             </select></label
           >
-          <p>Awal inklusif, akhir eksklusif; overlap ditolak oleh runtime tahap berikutnya.</p>
+          <p>Awal inklusif, akhir eksklusif; overlap ditolak saat preview dan apply.
+            Business key harus memuat awal berlaku yang non-null dan minimal satu key entitas.
+            Akhir berlaku bukan key; null berarti tanpa batas akhir. Versi tersimpan immutable.
+            Perubahan key atau policy master approved memerlukan migrasi yang direview.
+          </p>
         </div>
         <button>Preview kandidat master</button>
       </fieldset>
