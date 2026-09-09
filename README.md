@@ -41,6 +41,7 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | `/masters/:id`                                       | Edit definisi, review dan snapshot approved                                                                           |
 | `/sources/:sourceId/sheets/:sheetId/master-binding`  | Mapping master dari profil, dry-run dan approval binding                                                              |
 | `/sources/:sourceId/sheets/:sheetId/column-bindings` | Binding kolom sumber ke referensi master, review dan approval                                                         |
+| `/sources/:sourceId/sheets/:sheetId/taxonomy-bindings` | Binding kolom ke taxonomy approved, review dan approval                                                            |
 | `/workspace`                                         | Registrasi sumber, klasifikasi MASTER/NON_MASTER per tab, jadwal UTC, profil dan draft manual/AI                      |
 | `/configurations/:id/review`                         | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback |
 | `/jobs?job=UUID`                                     | Polling terbatas dua menit dan dapat dilanjutkan, retry FAILED, jadwal sumber, ETL run, error dan lineage             |

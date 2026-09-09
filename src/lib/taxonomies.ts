@@ -17,3 +17,18 @@ export interface TaxonomyTerm {
   aliases: string[]
   is_active: boolean
 }
+
+export interface TaxonomyColumnBinding {
+  id: string
+  source_sheet_id: string
+  source_column: string
+  taxonomy_id: string
+  taxonomy_version: number
+  required: boolean
+  normalization: string
+  revision_no: number
+  status: 'DRAFT' | 'APPROVED' | 'REJECTED'
+  created_by: string
+  approved_by: string | null
+  approved_at: string | null
+}

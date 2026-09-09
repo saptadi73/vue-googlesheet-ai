@@ -350,6 +350,12 @@ onBeforeUnmount(() => {
         :to="`/sources/${sourceId}/sheets/${selectedSheet.id}/column-bindings`"
         >Atur referensi master</RouterLink
       >
+      <RouterLink
+        v-if="selectedSheet.enabled && selectedSheet.last_fingerprint"
+        class="button"
+        :to="`/sources/${sourceId}/sheets/${selectedSheet.id}/taxonomy-bindings`"
+        >Atur binding taxonomy</RouterLink
+      >
       <p v-if="!selectedSheet.last_fingerprint" class="notice">
         Tab memerlukan profiling sebelum pembuatan draft.
       </p>

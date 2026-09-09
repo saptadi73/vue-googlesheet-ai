@@ -62,6 +62,11 @@ const router = createRouter({
       component: () => import('@/views/ColumnBindingsView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
     },
+    {
+      path: '/sources/:sourceId/sheets/:sheetId/taxonomy-bindings',
+      component: () => import('@/views/TaxonomyBindingsView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
     { path: '/chat', component: () => import('@/views/ChatView.vue') },
     {
       path: '/jobs',

@@ -24,8 +24,12 @@ parameter yang ditandai backend sebagai supported.
 
 Halaman `/taxonomies` mengelola registry taxonomy BE13: editor dapat membuat draft
 dan menambahkan term bertingkat, sedangkan reviewer dapat menyetujui taxonomy dan
-menerbitkan versi baru. Binding domain, mapping otomatis, dan validasi DQ taxonomy
-belum diekspos karena endpoint backend-nya belum tersedia.
+menerbitkan versi baru. Mapping otomatis dan validasi DQ taxonomy belum diekspos
+karena endpoint backend-nya belum tersedia.
+
+Binding taxonomy per kolom tersedia melalui Workspace ETL. Editor hanya dapat memilih
+taxonomy yang aktif dan `APPROVED`, menyimpan draft dengan `revision_no` terbaru, lalu
+reviewer menyetujui atau menolak draft tersebut.
 
 Batch review import BE05 tersedia melalui `/import-reviews`; detail implementasi ada di
 [frontend BE05](FRONTEND_BE05.md).

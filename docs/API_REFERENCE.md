@@ -437,15 +437,21 @@ Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-bind
 
 ## 5. Taxonomy (BE-13)
 
-Taxonomy menyimpan kategori baku berversi dan term hierarkis. Editor membuat taxonomy atau term dalam status `DRAFT`; reviewer mengubah taxonomy menjadi `APPROVED`. Binding kolom dan validasi `in_taxonomy` akan menggunakan versi yang sudah disetujui.
+Taxonomy menyimpan kategori baku berversi dan term hierarkis. Editor membuat taxonomy/term dalam status `DRAFT`; reviewer mengubah taxonomy menjadi `APPROVED`. Binding kolom dan validasi `in_taxonomy` akan menggunakan versi approved.
 
-| Method | Path | Role | Request | Sukses | Keterangan |
+| Method | Path | Hak | Body / query | HTTP sukses | Data respons |
 |---|---|---|---|---|---|
-| POST | `/taxonomies` | E | `TaxonomyCreate` | 201 | taxonomy `DRAFT` |
+| POST | `/taxonomies` | E | TaxonomyCreate | 201 | Taxonomy DRAFT |
 | GET | `/taxonomies` | S | — | 200 | daftar taxonomy tenant |
 | GET | `/taxonomies/{taxonomy_id}/terms` | S | UUID taxonomy | 200 | daftar term dan hierarchy |
-| POST | `/taxonomies/{taxonomy_id}/terms` | E | `TaxonomyTermCreate` | 201 | taxonomy term |
-| POST | `/taxonomies/{taxonomy_id}/approve` | R | — | 200 | taxonomy `APPROVED` dengan versi baru |
+| POST | `/taxonomies/{taxonomy_id}/terms` | E | TaxonomyTermCreate | 201 | TaxonomyTerm |
+| POST | `/taxonomies/{taxonomy_id}/approve` | R | — | 200 | Taxonomy APPROVED dengan version baru |
+| GET | `/taxonomies/source-sheets/{sheet_id}/column-bindings` | S | — | 200 | Binding taxonomy per kolom |
+| PUT | `/taxonomies/source-sheets/{sheet_id}/column-bindings` | E | TaxonomyColumnBindingCreate | 200 | Simpan binding DRAFT (optimistic revision) |
+| POST | `/taxonomies/column-bindings/{binding_id}/approve` | R | MasterRevisionRequest | 200 | Setujui binding taxonomy |
+| POST | `/taxonomies/column-bindings/{binding_id}/reject` | R | MasterRevisionRequest | 200 | Tolak binding taxonomy |
+
+Binding hanya boleh menunjuk taxonomy berstatus `APPROVED` dan `taxonomy_version` yang masih aktif. Perubahan binding selalu kembali ke `DRAFT`; reviewer wajib menyetujui ulang. `revision_no` mencegah dua editor menimpa perubahan.
 
 ### Payload konfigurasi
 
