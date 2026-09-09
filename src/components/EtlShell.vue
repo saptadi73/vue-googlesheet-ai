@@ -1,8 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  Briefcase,
+  Database,
+  FileStack,
+  GitBranch,
+  LayoutDashboard,
+  ListTree,
+  LogOut,
+  MessageSquare,
+  ShieldCheck,
+  Sparkles,
+  User,
+  UserCog,
+} from '@lucide/vue'
 import { login, logout, user, editRoles, reviewRoles } from '@/lib/etl'
 import { getApiErrorMessage } from '@/lib/api'
+import Spinner from '@/components/ui/Spinner.vue'
 import '@/assets/etl.css'
 const router = useRouter()
 const credentials = ref({ tenant_code: '', username: '', password: '' })
@@ -35,35 +50,44 @@ async function signOut() {
 <template>
   <div class="etl">
     <header class="etl-header">
-      <RouterLink to="/">Google Sheet AI</RouterLink
+      <RouterLink to="/"><Sparkles class="icon" :size="16" />Google Sheet AI</RouterLink
       ><RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/workspace"
-        >Workspace ETL</RouterLink
+        ><Briefcase class="icon" :size="16" />Workspace ETL</RouterLink
       >
-      <RouterLink v-if="user" to="/dashboard">Dashboard</RouterLink>
+      <RouterLink v-if="user" to="/dashboard"
+        ><LayoutDashboard class="icon" :size="16" />Dashboard</RouterLink
+      >
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/masters"
-        >Registry master</RouterLink
+        ><Database class="icon" :size="16" />Registry master</RouterLink
       >
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/taxonomies"
-        >Taxonomy</RouterLink
+        ><ListTree class="icon" :size="16" />Taxonomy</RouterLink
       >
       <RouterLink
         v-if="user && [...editRoles, ...reviewRoles].includes(user.role)"
         to="/import-reviews"
-        >Batch import</RouterLink
+        ><FileStack class="icon" :size="16" />Batch import</RouterLink
       >
-      <RouterLink v-if="user" to="/chat">Chat data</RouterLink>
+      <RouterLink v-if="user" to="/chat"
+        ><MessageSquare class="icon" :size="16" />Chat data</RouterLink
+      >
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/jobs"
-        >Job &amp; ETL</RouterLink
+        ><GitBranch class="icon" :size="16" />Job &amp; ETL</RouterLink
       >
       <RouterLink
         v-if="user && ['PLATFORM_ADMIN', 'DATA_STEWARD'].includes(user.role)"
         to="/quality"
-        >Kualitas data</RouterLink
+        ><ShieldCheck class="icon" :size="16" />Kualitas data</RouterLink
       >
-      <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/admin">Administrasi</RouterLink>
-      <RouterLink v-if="user" to="/account">Akun</RouterLink>
+      <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/admin"
+        ><UserCog class="icon" :size="16" />Administrasi</RouterLink
+      >
+      <RouterLink v-if="user" to="/account"><User class="icon" :size="16" />Akun</RouterLink>
       <span v-if="user">{{ user.username }} · {{ user.role }}</span
-      ><button v-if="user" :disabled="busy" @click="signOut">Keluar / ganti akun</button>
+      ><button v-if="user" :disabled="busy" @click="signOut">
+        <Spinner v-if="busy" :size="14" /><LogOut v-else class="icon" :size="14" />Keluar / ganti
+        akun
+      </button>
     </header>
     <main>
       <p v-if="error" role="alert" class="error">{{ error }}</p>
@@ -84,7 +108,9 @@ async function signOut() {
             type="password"
             autocomplete="current-password"
         /></label>
-        <button class="primary" :disabled="busy">{{ busy ? 'Menghubungkan…' : 'Masuk' }}</button>
+        <button class="primary" :disabled="busy">
+          <Spinner v-if="busy" :size="14" label="Menghubungkan…" /><span v-else>Masuk</span>
+        </button>
       </form>
       <p
         v-else-if="Array.isArray($route.meta.roles) && !$route.meta.roles.includes(user.role)"

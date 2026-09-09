@@ -1,7 +1,21 @@
 .etl {
+  --brand: #137d55;
+  --brand-dark: #0e5f41;
+  --brand-light: #4bbd8d;
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --border: #dde6e3;
+  --text: #172e29;
+  --muted: #60746a;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+  --shadow-sm: 0 1px 2px rgba(18, 45, 35, 0.06);
+  --shadow-md: 0 8px 24px -8px rgba(18, 45, 35, 0.18);
+  --shadow-lg: 0 20px 45px -18px rgba(18, 45, 35, 0.28);
   min-height: 100vh;
-  background: #f5f7f8;
-  color: #172e29;
+  background: var(--bg);
+  color: var(--text);
   font:
     14px/1.6 'Inter Variable',
     system-ui,
@@ -13,12 +27,30 @@
   gap: 24px;
   flex-wrap: wrap;
   padding: 18px 4%;
-  background: white;
-  border-bottom: 1px solid #dde6e3;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: var(--shadow-sm);
 }
 .etl-header > a:first-child {
   font-size: 19px;
   font-weight: 700;
+  background: linear-gradient(120deg, var(--brand), var(--brand-light));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.etl-header a {
+  border-radius: 999px;
+  padding: 6px 12px;
+  transition: background 0.15s ease;
+}
+.etl-header a:hover,
+.etl-header a.router-link-active {
+  background: #eaf6f0;
+  color: var(--brand-dark);
 }
 .etl-header span {
   margin-left: auto;
@@ -47,11 +79,53 @@
   margin: 8px 0;
 }
 .etl .panel {
-  background: white;
-  border: 1px solid #dce6e1;
-  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: 24px;
   margin: 20px 0;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+.etl .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin: 20px 0;
+  overflow: hidden;
+}
+.etl .card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px 0;
+}
+.etl .card-head h2 {
+  margin-bottom: 4px;
+}
+.etl .card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.etl .card-body {
+  padding: 18px 24px 24px;
+}
+.etl .card-tight .card-body {
+  padding-top: 0;
+}
+.etl .card-footer {
+  padding: 16px 24px;
+  background: #f8faf9;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .etl .login {
   max-width: 440px;
@@ -67,19 +141,28 @@
 .etl input,
 .etl select,
 .etl textarea {
-  background: white;
+  background: var(--surface);
   border: 1px solid #becfc6;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
-  color: #172e29;
+  color: var(--text);
   min-width: 0;
   width: 100%;
   font: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.etl input:focus,
+.etl select:focus,
+.etl textarea:focus {
+  border-color: var(--brand-light);
+  box-shadow: 0 0 0 3px #4bbd8d33;
 }
 .etl input[type='checkbox'] {
   width: 17px;
   height: 17px;
-  accent-color: #137d55;
+  accent-color: var(--brand);
 }
 .etl label.check {
   display: flex;
@@ -93,29 +176,43 @@
   align-items: center;
   justify-content: center;
   border: 1px solid #c6d8cd;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 8px 15px;
-  background: white;
+  background: var(--surface);
   cursor: pointer;
   font-weight: 550;
   gap: 7px;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease;
 }
 .etl button:hover,
 .etl a.button:hover {
   background: #eff7f2;
+  box-shadow: var(--shadow-sm);
+}
+.etl button:active,
+.etl a.button:active {
+  transform: translateY(1px);
 }
 .etl button.primary,
 .etl a.primary {
-  background: #137d55;
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
   color: white;
-  border-color: #137d55;
+  border-color: var(--brand-dark);
+}
+.etl button.primary:hover,
+.etl a.primary:hover {
+  box-shadow: var(--shadow-md);
 }
 .etl button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 .etl :focus-visible {
-  outline: 3px solid #4bbd8d;
+  outline: 3px solid var(--brand-light);
   outline-offset: 3px;
 }
 .etl .toolbar {
@@ -133,31 +230,42 @@
 .etl .steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   margin: 24px 0;
+  padding: 5px;
+  background: #eaf1ed;
+  border-radius: 999px;
+  width: fit-content;
+  max-width: 100%;
+}
+.etl .steps button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
 }
 .etl .steps .active {
-  background: #137d55;
-  color: white;
+  background: var(--surface);
+  color: var(--brand-dark);
+  box-shadow: var(--shadow-sm);
 }
 .etl .error {
   padding: 12px;
   background: #fff0ee;
   color: #9c2a20;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   white-space: pre-wrap;
 }
 .etl .notice {
   padding: 12px;
   background: #edf5ff;
   color: #25476b;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .etl .success {
   padding: 12px;
   background: #eaf7ee;
   color: #21663c;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .etl .eyebrow {
   font-size: 11px;
@@ -166,7 +274,7 @@
   color: #38775c;
 }
 .etl .muted {
-  color: #60746a;
+  color: var(--muted);
 }
 .etl .scroll {
   overflow: auto;
@@ -191,19 +299,39 @@
   overflow-wrap: anywhere;
   background: #f3f6f4;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
 }
-.etl .tag {
+.etl .tag,
+.etl .badge {
   display: inline-block;
   background: #edf5ef;
-  border-radius: 20px;
+  color: var(--brand-dark);
+  border-radius: 999px;
   padding: 3px 10px;
   font-size: 12px;
+  font-weight: 600;
+}
+.etl .badge-success {
+  background: #eaf7ee;
+  color: #21663c;
+}
+.etl .badge-warn {
+  background: #fff6e5;
+  color: #92620b;
+}
+.etl .badge-danger {
+  background: #fff0ee;
+  color: #9c2a20;
+}
+.etl .badge-info {
+  background: #edf5ff;
+  color: #25476b;
 }
 .etl .card-row {
   border-top: 1px solid #e0e8e4;
   padding: 16px 0;
+  transition: background 0.15s ease;
 }
 .etl .wide-input {
   min-width: 150px;
@@ -221,12 +349,13 @@
 }
 .etl .sticky-actions {
   position: sticky;
-  bottom: 0;
+  bottom: 12px;
   background: #fffffff5;
+  backdrop-filter: blur(6px);
   padding: 14px;
-  border: 1px solid #dce6e1;
-  border-radius: 12px;
-  box-shadow: 0 -4px 18px #123c2010;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 .etl fieldset:disabled input,
 .etl fieldset:disabled select,
@@ -236,12 +365,151 @@
 .etl .danger {
   color: #a53529;
 }
+.etl .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 30, 24, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.etl .modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  animation: modal-in 0.15s ease;
+}
+.etl .modal-wide {
+  width: min(920px, 100%);
+}
+.etl .modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+.etl .modal-head h2 {
+  margin: 0;
+}
+.etl .modal-close {
+  border: none;
+  background: #f0f4f2;
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 14px;
+}
+.etl .modal-body {
+  padding: 20px 24px;
+}
+.etl .modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.etl .icon {
+  flex: none;
+}
+.etl button .icon,
+.etl a.button .icon {
+  width: 15px;
+  height: 15px;
+}
+.etl-header a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.etl .skeleton {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, #e7ede9 25%, #f1f5f2 37%, #e7ede9 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  vertical-align: middle;
+}
+.etl .skeleton-text {
+  display: block;
+  height: 13px;
+  margin: 6px 0;
+}
+.etl .skeleton-block {
+  display: block;
+  width: 100%;
+  height: 80px;
+  border-radius: var(--radius-md);
+}
+.etl .skeleton-circle {
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+}
+.etl .skeleton-lines {
+  display: block;
+}
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+.etl .spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.etl .spinner-icon {
+  animation: spinner-spin 0.85s linear infinite;
+  color: var(--brand);
+}
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (max-width: 650px) {
   .etl main {
     padding: 20px 12px;
   }
   .etl .panel {
     padding: 16px;
+  }
+  .etl .card-head,
+  .etl .card-body,
+  .etl .card-footer {
+    padding-left: 16px;
+    padding-right: 16px;
   }
   .etl-header {
     gap: 12px;

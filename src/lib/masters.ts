@@ -210,6 +210,14 @@ export function bindingColumns(
       business_name: field.name,
       confidence: 1,
       reason: 'Mapping direview pengguna terhadap versi master approved.',
+      numeric_precision: null,
+      numeric_scale: null,
+      varchar_length: null,
+      date_format: null,
+      number_locale: null,
+      source_timezone: null,
+      unit_conversion: null,
+      currency_conversion: null,
     })
   }
   if (new Set(columns.map((c) => c.source_column)).size !== columns.length)

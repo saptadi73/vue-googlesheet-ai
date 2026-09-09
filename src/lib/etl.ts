@@ -53,6 +53,44 @@ export const transforms = [
   'lowercase',
   'null_if_empty',
 ]
+export const roundings = ['HALF_UP', 'HALF_EVEN', 'DOWN']
+export const numberLocales = ['ID', 'US']
+export const unitsByDimension: Record<string, string[]> = {
+  massa: ['T', 'KG', 'G', 'MG'],
+  volume: ['L', 'ML'],
+  panjang: ['M', 'CM', 'MM'],
+}
+export const units = Object.values(unitsByDimension).flat()
+export const currencies = ['IDR', 'USD', 'EUR', 'SGD', 'JPY', 'THB']
+export const qualityRules = [
+  'not_null',
+  'unique',
+  'min',
+  'max',
+  'allowed_values',
+  'format',
+  'max_age_days',
+]
+export const dqFormats = ['UUID', 'ISO_DATE', 'ISO_DATETIME']
+export const dqSeverities = ['INFO', 'WARN', 'ERROR', 'CRITICAL']
+export interface UnitConversion {
+  from_unit: string
+  to_unit: string
+  factor: string
+  output_scale: number
+  rounding: string
+  on_error: string
+}
+export interface CurrencyConversion {
+  from_currency: string
+  to_currency: string
+  rate: string
+  rate_date: string
+  rate_reference: string
+  output_scale: number
+  rounding: string
+  on_error: string
+}
 export interface Column {
   source_column: string
   target_column: string
@@ -65,12 +103,25 @@ export interface Column {
   pii_classification: string
   confidence: number
   reason: string
+  numeric_precision: number | null
+  numeric_scale: number | null
+  varchar_length: number | null
+  date_format: string | null
+  number_locale: string | null
+  source_timezone: string | null
+  unit_conversion: UnitConversion | null
+  currency_conversion: CurrencyConversion | null
 }
 export interface Quality {
   column: string
   rule: string
   value: string | number | string[] | null
   action_on_fail: string
+  severity: string
+  owner: string | null
+  threshold_percent: number | null
+  max_age_days: number | null
+  default_value: string | number | boolean | null
 }
 export interface Metric {
   code: string

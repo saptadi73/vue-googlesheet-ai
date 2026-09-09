@@ -4,19 +4,42 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vu
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
+import Card from '@/components/ui/Card.vue'
+import Modal from '@/components/ui/Modal.vue'
+import Spinner from '@/components/ui/Spinner.vue'
+import CardSkeleton from '@/components/ui/CardSkeleton.vue'
+import {
+  CircleCheck,
+  CircleX,
+  Copy,
+  Download,
+  GitBranch,
+  RefreshCw,
+  Rocket,
+  Save,
+  Upload,
+} from '@lucide/vue'
 import { classificationEvidenceMatches } from '@/lib/classification'
 import { downloadFile, getApiErrorMessage } from '@/lib/api'
 import {
   call,
   copy,
+  currencies,
+  dqFormats,
+  dqSeverities,
   editRoles,
+  numberLocales,
+  qualityRules,
   reviewRoles,
   roles,
+  roundings,
   sections,
   sectionLabels,
   transforms,
   types,
+  units,
   user,
+  type Column,
   type ETL,
   type Quality,
   type Review,
@@ -92,6 +115,7 @@ const unusedHeaders = computed(
 )
 const selectedHeader = ref('')
 const rollbackAcknowledged = ref(false)
+const decisionModal = ref<'approve' | 'reject' | null>(null)
 async function run(action: () => Promise<void>) {
   busy.value = true
   error.value = ''
@@ -173,6 +197,7 @@ async function decision(action: 'approve' | 'reject') {
     action === 'approve'
       ? 'Disetujui. Jalankan deployment untuk mengaktifkan konfigurasi.'
       : 'Konfigurasi ditolak. Clone untuk membuat perbaikan.'
+  decisionModal.value = null
 }
 async function clone() {
   const c = await call<Config>('POST', `${base.value}/clone`)
@@ -275,6 +300,14 @@ function addColumn() {
     pii_classification: 'NONE',
     confidence: 1,
     reason: 'Ditambahkan pengguna; periksa tipe dan sensitivitas data.',
+    numeric_precision: null,
+    numeric_scale: null,
+    varchar_length: null,
+    date_format: null,
+    number_locale: null,
+    source_timezone: null,
+    unit_conversion: null,
+    currency_conversion: null,
   })
   selectedHeader.value = ''
 }
@@ -284,6 +317,11 @@ function addQuality() {
     rule: 'not_null',
     value: null,
     action_on_fail: 'REJECT_ROW',
+    severity: 'ERROR',
+    owner: null,
+    threshold_percent: null,
+    max_age_days: null,
+    default_value: null,
   })
 }
 function qualityValue(q: Quality, event: Event) {
@@ -294,6 +332,58 @@ function qualityValue(q: Quality, event: Event) {
       : value === ''
         ? null
         : Number(value)
+}
+function defaultValueInput(q: Quality, event: Event) {
+  const value = (event.target as HTMLInputElement).value
+  if (value === '') {
+    q.default_value = null
+    return
+  }
+  try {
+    const parsed: unknown = JSON.parse(value)
+    q.default_value =
+      typeof parsed === 'string' || typeof parsed === 'number' || typeof parsed === 'boolean'
+        ? parsed
+        : value
+  } catch {
+    q.default_value = value
+  }
+}
+function defaultValueText(q: Quality) {
+  return q.default_value === null || q.default_value === undefined
+    ? ''
+    : typeof q.default_value === 'string'
+      ? q.default_value
+      : JSON.stringify(q.default_value)
+}
+function setConversion(c: Column, kind: 'none' | 'unit' | 'currency') {
+  c.unit_conversion =
+    kind === 'unit'
+      ? {
+          from_unit: 'KG',
+          to_unit: 'G',
+          factor: '1000',
+          output_scale: 2,
+          rounding: 'HALF_UP',
+          on_error: 'REJECT_ROW',
+        }
+      : null
+  c.currency_conversion =
+    kind === 'currency'
+      ? {
+          from_currency: 'USD',
+          to_currency: 'IDR',
+          rate: '1',
+          rate_date: new Date().toISOString().slice(0, 10),
+          rate_reference: '',
+          output_scale: 2,
+          rounding: 'HALF_UP',
+          on_error: 'REJECT_ROW',
+        }
+      : null
+}
+function conversionKind(c: Column) {
+  return c.unit_conversion ? 'unit' : c.currency_conversion ? 'currency' : 'none'
 }
 watch(
   draft,
@@ -357,7 +447,12 @@ onBeforeRouteUpdate(confirmLeave)
       </p>
       <pre>{{ JSON.stringify(parameterCatalog, null, 2) }}</pre>
     </details>
-    <p v-if="busy" aria-live="polite">Memproses…</p>
+    <p v-if="busy" aria-live="polite"><Spinner label="Memproses…" /></p>
+    <template v-if="busy && !details">
+      <CardSkeleton :rows="2" />
+      <CardSkeleton :rows="4" />
+      <CardSkeleton :rows="3" />
+    </template>
     <template v-if="details && draft && record">
       <p class="eyebrow">{{ details.source.name }} / {{ details.sheet.sheet_name }}</p>
       <h1>Verifikasi konfigurasi ETL</h1>
@@ -472,6 +567,153 @@ onBeforeRouteUpdate(confirmLeave)
               </button>
             </div>
             <label>Catatan / alasan<textarea v-model="c.reason" rows="2" /></label>
+            <details>
+              <summary>Parameter tipe &amp; presisi (BE-12)</summary>
+              <div class="grid">
+                <label v-if="c.target_type === 'numeric'"
+                  >Precision<input
+                    type="number"
+                    min="1"
+                    max="100"
+                    :value="c.numeric_precision"
+                    @change="
+                      c.numeric_precision =
+                        ($event.target as HTMLInputElement).value === ''
+                          ? null
+                          : Number(($event.target as HTMLInputElement).value)
+                    "
+                /></label>
+                <label v-if="c.target_type === 'numeric'"
+                  >Scale<input
+                    type="number"
+                    min="0"
+                    max="50"
+                    :value="c.numeric_scale"
+                    @change="
+                      c.numeric_scale =
+                        ($event.target as HTMLInputElement).value === ''
+                          ? null
+                          : Number(($event.target as HTMLInputElement).value)
+                    "
+                /></label>
+                <label v-if="c.target_type === 'text' || c.target_type === 'varchar'"
+                  >Panjang varchar<input
+                    type="number"
+                    min="1"
+                    max="10485760"
+                    :value="c.varchar_length"
+                    @change="
+                      c.varchar_length =
+                        ($event.target as HTMLInputElement).value === ''
+                          ? null
+                          : Number(($event.target as HTMLInputElement).value)
+                    "
+                /></label>
+                <label v-if="c.target_type === 'date'"
+                  >Pola tanggal (strptime)<input
+                    v-model="c.date_format"
+                    maxlength="40"
+                    placeholder="%d/%m/%Y"
+                /></label>
+                <label v-if="c.target_type === 'numeric'"
+                  >Locale angka<select
+                    :value="c.number_locale || ''"
+                    @change="c.number_locale = ($event.target as HTMLSelectElement).value || null"
+                  >
+                    <option value="">(tidak diatur)</option>
+                    <option v-for="l in numberLocales" :key="l">{{ l }}</option>
+                  </select></label
+                >
+                <label v-if="c.target_type === 'timestamptz'"
+                  >Timezone sumber (IANA)<input
+                    v-model="c.source_timezone"
+                    maxlength="100"
+                    placeholder="Asia/Jakarta"
+                /></label>
+              </div>
+              <p class="muted">
+                Kosongkan field yang tidak dipakai. Precision/scale/varchar hanya berlaku untuk tipe
+                kolom yang sesuai; date_format dan number_locale memerlukan transform parse_date_id
+                / parse_decimal_id pada kolom ini.
+              </p>
+              <template v-if="c.target_type === 'numeric'">
+                <h4>Konversi satuan/kurs</h4>
+                <label
+                  >Jenis konversi<select
+                    :value="conversionKind(c)"
+                    @change="
+                      setConversion(
+                        c,
+                        ($event.target as HTMLSelectElement).value as 'none' | 'unit' | 'currency',
+                      )
+                    "
+                  >
+                    <option value="none">Tidak ada</option>
+                    <option value="unit">Satuan</option>
+                    <option value="currency">Mata uang</option>
+                  </select></label
+                >
+                <div v-if="c.unit_conversion" class="grid">
+                  <label
+                    >Dari<select v-model="c.unit_conversion.from_unit">
+                      <option v-for="u in units" :key="u">{{ u }}</option>
+                    </select></label
+                  ><label
+                    >Ke<select v-model="c.unit_conversion.to_unit">
+                      <option v-for="u in units" :key="u">{{ u }}</option>
+                    </select></label
+                  ><label
+                    >Faktor<input v-model="c.unit_conversion.factor" placeholder="1000" /></label
+                  ><label
+                    >Skala output<input
+                      type="number"
+                      min="0"
+                      max="50"
+                      v-model.number="c.unit_conversion.output_scale"
+                  /></label>
+                  <label
+                    >Pembulatan<select v-model="c.unit_conversion.rounding">
+                      <option v-for="r in roundings" :key="r">{{ r }}</option>
+                    </select></label
+                  >
+                </div>
+                <div v-if="c.currency_conversion" class="grid">
+                  <label
+                    >Dari<select v-model="c.currency_conversion.from_currency">
+                      <option v-for="cur in currencies" :key="cur">{{ cur }}</option>
+                    </select></label
+                  ><label
+                    >Ke<select v-model="c.currency_conversion.to_currency">
+                      <option v-for="cur in currencies" :key="cur">{{ cur }}</option>
+                    </select></label
+                  ><label>Kurs (string desimal)<input v-model="c.currency_conversion.rate" /></label
+                  ><label
+                    >Tanggal kurs<input type="date" v-model="c.currency_conversion.rate_date"
+                  /></label>
+                  <label
+                    >Referensi kurs<input
+                      v-model="c.currency_conversion.rate_reference"
+                      maxlength="500"
+                  /></label>
+                  <label
+                    >Skala output<input
+                      type="number"
+                      min="0"
+                      max="50"
+                      v-model.number="c.currency_conversion.output_scale"
+                  /></label>
+                  <label
+                    >Pembulatan<select v-model="c.currency_conversion.rounding">
+                      <option v-for="r in roundings" :key="r">{{ r }}</option>
+                    </select></label
+                  >
+                </div>
+                <p v-if="c.unit_conversion || c.currency_conversion" class="muted">
+                  Kirim faktor/kurs sebagai string agar presisi desimal tidak hilang. on_error
+                  selalu REJECT_ROW.
+                </p>
+              </template>
+            </details>
           </div>
           <div v-if="unusedHeaders.length" class="toolbar">
             <select v-model="selectedHeader" aria-label="Header untuk ditambahkan">
@@ -540,12 +782,11 @@ onBeforeRouteUpdate(confirmLeave)
               <label
                 >Aturan<select
                   v-model="q.rule"
-                  @change="q.value = q.rule === 'allowed_values' ? [] : null"
+                  @change="
+                    q.value = q.rule === 'allowed_values' ? [] : q.rule === 'format' ? 'UUID' : null
+                  "
                 >
-                  <option
-                    v-for="r in ['not_null', 'unique', 'min', 'max', 'allowed_values']"
-                    :key="r"
-                  >
+                  <option v-for="r in qualityRules" :key="r">
                     {{ r }}
                   </option>
                 </select></label
@@ -563,6 +804,18 @@ onBeforeRouteUpdate(confirmLeave)
                   @input="qualityValue(q, $event)"
                 />
               </label>
+              <label v-if="q.rule === 'format'"
+                >Format<select v-model="q.value">
+                  <option v-for="f in dqFormats" :key="f">{{ f }}</option>
+                </select></label
+              >
+              <label v-if="q.rule === 'max_age_days'"
+                >Umur maksimum (hari)<input
+                  type="number"
+                  min="0"
+                  max="36500"
+                  v-model.number="q.max_age_days"
+              /></label>
               <label
                 >Jika gagal<select v-model="q.action_on_fail">
                   <option
@@ -573,6 +826,34 @@ onBeforeRouteUpdate(confirmLeave)
                   </option>
                 </select></label
               >
+              <label
+                >Severity<select v-model="q.severity">
+                  <option v-for="s in dqSeverities" :key="s">{{ s }}</option>
+                </select></label
+              >
+              <label
+                >Owner<input v-model="q.owner" maxlength="100" placeholder="(opsional)"
+              /></label>
+              <label
+                >Threshold gagal (%)<input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="any"
+                  :value="q.threshold_percent"
+                  @change="
+                    q.threshold_percent =
+                      ($event.target as HTMLInputElement).value === ''
+                        ? null
+                        : Number(($event.target as HTMLInputElement).value)
+                  "
+              /></label>
+              <label
+                >Default value (JSON scalar)<input
+                  :value="defaultValueText(q)"
+                  @change="defaultValueInput(q, $event)"
+                  placeholder='0, false, "teks", null'
+              /></label>
             </div>
             <button class="danger" @click="draft.data_quality_rules.splice(i, 1)">
               Hapus aturan
@@ -768,7 +1049,6 @@ onBeforeRouteUpdate(confirmLeave)
           <p v-if="record.created_by === user?.id" class="notice">
             Gunakan akun approver berbeda untuk menyetujui draft ini.
           </p>
-          <label>Catatan keputusan<textarea v-model="comment" maxlength="2000" /></label>
           <div class="toolbar">
             <button
               class="primary"
@@ -779,23 +1059,60 @@ onBeforeRouteUpdate(confirmLeave)
                 !details.validation.ready_for_review ||
                 record.created_by === user?.id
               "
-              @click="run(() => decision('approve'))"
+              @click="
+                comment = ''
+                decisionModal = 'approve'
+              "
             >
               Setujui konfigurasi</button
-            ><button :disabled="busy || dirty" @click="run(() => decision('reject'))">
+            ><button
+              :disabled="busy || dirty"
+              @click="
+                comment = ''
+                decisionModal = 'reject'
+              "
+            >
               Tolak konfigurasi
             </button>
           </div>
         </div>
       </section>
-      <section
+      <Modal
+        :open="decisionModal !== null"
+        :title="decisionModal === 'approve' ? 'Setujui konfigurasi' : 'Tolak konfigurasi'"
+        @close="decisionModal = null"
+      >
+        <p class="muted">
+          {{
+            decisionModal === 'approve'
+              ? 'Persetujuan mengacu pada revisi dan snapshot yang sudah diperiksa. Deployment tetap perlu dijalankan terpisah.'
+              : 'Konfigurasi yang ditolak dapat di-clone untuk perbaikan.'
+          }}
+        </p>
+        <label>Catatan keputusan<textarea v-model="comment" maxlength="2000" rows="4" /></label>
+        <template #footer>
+          <button :disabled="busy" @click="decisionModal = null">Batal</button>
+          <button
+            :class="{ primary: decisionModal === 'approve' }"
+            :disabled="busy"
+            @click="run(() => decision(decisionModal as 'approve' | 'reject'))"
+          >
+            <Spinner v-if="busy" :size="14" /><CircleCheck
+              v-else-if="decisionModal === 'approve'"
+              class="icon"
+              :size="14"
+            /><CircleX v-else class="icon" :size="14" />
+            {{ decisionModal === 'approve' ? 'Konfirmasi setuju' : 'Konfirmasi tolak' }}
+          </button>
+        </template>
+      </Modal>
+      <Card
         v-if="
           draft.unresolved_questions.length ||
           Object.keys(record.review_state?.answers || {}).length
         "
-        class="panel"
+        title="Pertanyaan & klarifikasi"
       >
-        <h2>Pertanyaan &amp; klarifikasi</h2>
         <fieldset :disabled="!canEdit || busy">
           <div v-for="q in draft.unresolved_questions" :key="q" class="question">
             <label
@@ -822,7 +1139,7 @@ onBeforeRouteUpdate(confirmLeave)
             ><br />{{ a.answer }}
           </p>
         </details>
-      </section>
+      </Card>
       <details class="panel">
         <summary>Review melalui Excel (opsional)</summary>
         <p>
@@ -831,13 +1148,10 @@ onBeforeRouteUpdate(confirmLeave)
         </p>
         <div class="toolbar">
           <button :disabled="busy || dirty" @click="run(download)">
-            Unduh template terisi (.xlsx)</button
+            <Download class="icon" :size="14" />Unduh template terisi (.xlsx)</button
           ><label v-if="canEdit"
-            >Unggah untuk preview<input
-              type="file"
-              accept=".xlsx"
-              :disabled="busy || dirty"
-              @change="importFile"
+            ><span class="toolbar"><Upload class="icon" :size="14" />Unggah untuk preview</span
+            ><input type="file" accept=".xlsx" :disabled="busy || dirty" @change="importFile"
           /></label>
         </div>
         <div v-if="preview">
@@ -879,8 +1193,7 @@ onBeforeRouteUpdate(confirmLeave)
         </div>
       </details>
       <ConfigurationHistory :config="record" :disabled="busy || dirty" />
-      <section v-if="reviewer && record.status === 'SUPERSEDED'" class="panel">
-        <h2>Rollback konfigurasi</h2>
+      <Card v-if="reviewer && record.status === 'SUPERSEDED'" title="Rollback konfigurasi">
         <p class="notice">
           Mengaktifkan versi ini mengganti konfigurasi aktif. Ini tidak memulihkan data historis.
           Snapshot yang disetujui akan diperiksa ulang.
@@ -894,9 +1207,8 @@ onBeforeRouteUpdate(confirmLeave)
         >
           Antrekan rollback versi ini
         </button>
-      </section>
-      <section v-if="job" class="panel" aria-live="polite">
-        <h2>Proses: {{ job.status }}</h2>
+      </Card>
+      <Card v-if="job" :title="`Proses: ${job.status}`">
         <p>{{ job.id }}</p>
         <RouterLink class="button" :to="{ path: '/jobs', query: { job: job.id } }"
           >Buka monitor job</RouterLink
@@ -909,18 +1221,20 @@ onBeforeRouteUpdate(confirmLeave)
           <summary>Hasil proses</summary>
           <pre>{{ JSON.stringify(job.result, null, 2) }}</pre>
         </details>
-      </section>
+      </Card>
       <div class="toolbar sticky-actions">
         <button v-if="step > 0" @click="step--">Sebelumnya</button
         ><button v-if="step < 6" @click="step++">Berikutnya</button
         ><button v-if="canEdit" class="primary" :disabled="busy || !dirty" @click="run(save)">
-          Simpan draft</button
-        ><button :disabled="busy || dirty" @click="run(validate)">Dry-run ulang</button>
+          <Spinner v-if="busy" :size="14" /><Save v-else class="icon" :size="14" />Simpan draft</button
+        ><button :disabled="busy || dirty" @click="run(validate)">
+          <RefreshCw class="icon" :size="14" />Dry-run ulang
+        </button>
         <button v-if="dirty" :disabled="busy" @click="run(load)">
           Buang perubahan &amp; muat ulang
         </button>
         <button v-if="editor && !isDraft" :disabled="busy" @click="run(clone)">
-          Clone untuk perbaikan
+          <Copy class="icon" :size="14" />Clone untuk perbaikan
         </button>
         <button
           v-if="reviewer && record.status === 'APPROVED'"
@@ -928,7 +1242,7 @@ onBeforeRouteUpdate(confirmLeave)
           :disabled="busy || !evidenceReady"
           @click="run(() => queue(`${base}/deploy`))"
         >
-          Deploy konfigurasi
+          <Rocket class="icon" :size="14" />Deploy konfigurasi
         </button>
         <button
           v-if="editor && record.status === 'ACTIVE'"
@@ -936,7 +1250,7 @@ onBeforeRouteUpdate(confirmLeave)
           :disabled="busy"
           @click="run(syncReview)"
         >
-          Buat batch sync review
+          <GitBranch class="icon" :size="14" />Buat batch sync review
         </button>
       </div>
     </template>

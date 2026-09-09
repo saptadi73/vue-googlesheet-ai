@@ -29,6 +29,14 @@ async function create() {
       pii_classification: column.pii_suspected ? 'HIGH' : 'NONE',
       confidence: 1,
       reason: 'Mapping awal manual; periksa tipe, key, sensitivitas, dan transformasi.',
+      numeric_precision: null,
+      numeric_scale: null,
+      varchar_length: null,
+      date_format: null,
+      number_locale: null,
+      source_timezone: null,
+      unit_conversion: null,
+      currency_conversion: null,
     }
   })
   const configuration: ETL = {
