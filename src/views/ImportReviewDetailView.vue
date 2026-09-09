@@ -24,15 +24,69 @@ import {
   type ImportReview,
 } from '@/lib/importReviews'
 import { useTask } from '@/lib/tasks'
+import { getApiErrorMessage } from '@/lib/api'
+import axios from 'axios'
 import type { Master } from '@/lib/masters'
+import type { TaxonomyResolution } from '@/lib/taxonomies'
 const master = ref<Master | null>(null)
+const pollingFailed = ref(false)
+const taxonomyQuestion = ref({
+  taxonomyId: '',
+  stagingRowId: '',
+  sourceColumn: '',
+  targetColumn: '',
+  value: '',
+})
+async function createTaxonomyQuestion() {
+  if (
+    !review.value ||
+    !canEdit.value ||
+    !['NEEDS_INPUT', 'FAILED'].includes(review.value.status) ||
+    review.value.dependencies_current === false
+  )
+    return
+  const draft = taxonomyQuestion.value
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (
+    !uuid.test(draft.taxonomyId) ||
+    !uuid.test(draft.stagingRowId) ||
+    !draft.targetColumn.trim() ||
+    !draft.value.trim()
+  )
+    throw new Error('Isi UUID taxonomy/staging, kolom target, dan nilai staging terkini.')
+  preview.value = null
+  const result = await call<ImportQuestion | { created: false; resolution: TaxonomyResolution }>(
+    'POST',
+    `/taxonomies/${draft.taxonomyId}/ambiguity-question`,
+    {
+      import_review_id: id.value,
+      staging_row_id: draft.stagingRowId,
+      target_column: draft.targetColumn.trim(),
+      value: draft.value,
+      ...(draft.sourceColumn.trim() ? { source_column: draft.sourceColumn.trim() } : {}),
+    },
+  )
+  await load()
+  notice.value =
+    'created' in result && result.created === false
+      ? `Nilai sudah teresolusi (${result.resolution.status}); tidak ada pertanyaan baru.`
+      : 'Pertanyaan taxonomy tersedia. Daftar dan revisi batch sudah diperbarui; lanjutkan dengan jawaban pengguna.'
+}
 const closeOpenPeriods = ref(false)
 const closureEligible = computed(() => {
   const policy = master.value?.approved_definition_json?.policy
-  return review.value?.dataset_kind === 'MASTER' && !!policy?.effective_dating && policy.new_record_policy === 'PROPOSE_INSERT'
+  return (
+    review.value?.dataset_kind === 'MASTER' &&
+    !!policy?.effective_dating &&
+    policy.new_record_policy === 'PROPOSE_INSERT'
+  )
 })
-const closureRows = computed(() => (preview.value?.period_closures || []).map((closure) => ({ ...closure })))
-watch(closeOpenPeriods, () => { preview.value = null })
+const closureRows = computed(() =>
+  (preview.value?.period_closures || []).map((closure) => ({ ...closure })),
+)
+watch(closeOpenPeriods, () => {
+  preview.value = null
+})
 const route = useRoute(),
   id = computed(() => String(route.params.id)),
   { busy, error, notice, run } = useTask()
@@ -120,8 +174,18 @@ const questionCategoryItems: Array<'' | ImportQuestionCategory> = [
   'DATA_QUALITY_WARNING',
   'CONFIGURATION',
   'AI_REVIEW',
+  'TAXONOMY_AMBIGUOUS',
+  'TAXONOMY_INVALID',
 ]
-const terminal = ['NEEDS_INPUT', 'FAILED', 'STALE_REVIEW', 'CANCELLED', 'SUCCEEDED', 'APPROVED', 'READY_FOR_APPROVAL']
+const terminal = [
+  'NEEDS_INPUT',
+  'FAILED',
+  'STALE_REVIEW',
+  'CANCELLED',
+  'SUCCEEDED',
+  'APPROVED',
+  'READY_FOR_APPROVAL',
+]
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 function stop() {
@@ -191,13 +255,17 @@ function candidateLabel(candidate: Record<string, unknown>) {
 function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
   const draft = questionDrafts.value[question.id]
   if (!draft || !draft.action) throw new Error('Pilih tindakan dahulu.')
+  if (!question.allowed_actions.includes(draft.action))
+    throw new Error('Tindakan tidak lagi tersedia; muat ulang pertanyaan.')
   const payload: ImportQuestionDecision = {
     revision_no: question.revision_no,
     action: draft.action,
   }
   if (draft.action === 'APPLY_CORRECTION') {
     if (!draft.correctedValue.trim()) throw new Error('Nilai koreksi wajib diisi.')
-    payload.corrected_value = normalizeCorrectionValue(draft.correctedValue)
+    payload.corrected_value = question.category.startsWith('TAXONOMY_')
+      ? draft.correctedValue.trim()
+      : normalizeCorrectionValue(draft.correctedValue)
   } else if (draft.action === 'PROPOSE_MASTER') {
     if (!draft.reason.trim()) throw new Error('Alasan usulan master wajib diisi.')
     payload.reason = draft.reason.trim()
@@ -212,6 +280,8 @@ function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
     payload.reason = draft.reason.trim()
   } else if (draft.action === 'SELECT_RECORD') {
     if (!draft.selectedCandidateId.trim()) throw new Error('Pilih kandidat yang sesuai.')
+    if (!question.candidates.some((item) => item.id === draft.selectedCandidateId))
+      throw new Error('Pilih kandidat dari respons pertanyaan terbaru.')
     payload.selected_candidate_id = draft.selectedCandidateId.trim()
   } else if (draft.action === 'KEEP_ORIGINAL') {
     if (question.mandatory) throw new Error('KEEP_ORIGINAL tidak tersedia untuk pertanyaan wajib.')
@@ -263,6 +333,8 @@ async function resolveProposal(question: ImportQuestion) {
 }
 async function load() {
   stop()
+  pollingFailed.value = false
+  preview.value = null
   const epoch = generation
   const result = await call<ImportReview>('GET', `/import-reviews/${id.value}`)
   if (epoch !== generation) return
@@ -283,17 +355,31 @@ async function load() {
 }
 async function poll(epoch: number) {
   if (epoch !== generation) return
-  const result = await call<ImportReview>('GET', `/import-reviews/${id.value}`)
-  if (epoch !== generation) return
-  review.value = result
-  if (!terminal.includes(result.status)) {
-    timer = setTimeout(() => void poll(epoch), 3000)
-    return
+  try {
+    const result = await call<ImportReview>('GET', `/import-reviews/${id.value}`)
+    if (epoch !== generation) return
+    review.value = result
+    if (!terminal.includes(result.status)) {
+      timer = setTimeout(() => void poll(epoch), 3000)
+      return
+    }
+    await Promise.all([loadFindings(), loadQuestions()])
+  } catch (failure) {
+    if (epoch !== generation || axios.isCancel(failure)) return
+    stop()
+    preview.value = null
+    pollingFailed.value = true
+    error.value = getApiErrorMessage(failure)
   }
-  await Promise.all([loadFindings(), loadQuestions()])
 }
 async function action(kind: 'cancel' | 'revalidate' | 'resume') {
   if (!review.value) return
+  if (
+    kind === 'resume' &&
+    (review.value.status !== 'NEEDS_INPUT' || review.value.checkpoint.blocking_codes?.length)
+  )
+    throw new Error('Selesaikan blocker sebelum resume batch.')
+  stop()
   preview.value = null
   const result = await call<ImportReview>('POST', `/import-reviews/${id.value}/${kind}`, {
     revision_no: review.value.revision_no,
@@ -308,9 +394,10 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
 async function previewBatch() {
   if (!review.value) return
   preview.value = null
-  const mode = review.value.status === 'APPROVED'
-    ? review.value.checkpoint.close_open_periods ?? false
-    : closureEligible.value && closeOpenPeriods.value
+  const mode =
+    review.value.status === 'APPROVED'
+      ? (review.value.checkpoint.close_open_periods ?? false)
+      : closureEligible.value && closeOpenPeriods.value
   preview.value = await previewImportReview(id.value, review.value.revision_no, mode)
   review.value = preview.value.review
   appliedRows.value = null
@@ -330,11 +417,7 @@ async function applyBatch() {
   if (!review.value || !preview.value) return
   const token = preview.value.preview_token
   preview.value = null
-  const result = await applyImportReview(
-    id.value,
-    review.value.revision_no,
-    token,
-  )
+  const result = await applyImportReview(id.value, review.value.revision_no, token)
   review.value = result.review
   appliedRows.value = result.rows_applied
   appliedPeriods.value = result.periods_closed ?? 0
@@ -371,6 +454,14 @@ watch(
     findings.value = []
     questions.value = []
     questionDrafts.value = {}
+    taxonomyQuestion.value = {
+      taxonomyId: '',
+      stagingRowId: '',
+      sourceColumn: '',
+      targetColumn: '',
+      value: '',
+    }
+    pollingFailed.value = false
     preview.value = null
     appliedRows.value = null
     referenceQuestionId.value = ''
@@ -387,6 +478,11 @@ onBeforeUnmount(stop)
     <h1>Detail batch import</h1>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+    <p v-if="pollingFailed" class="notice">
+      Pemantauan berhenti karena request gagal. Muat ulang status untuk melanjutkan; tidak ada
+      mutation yang diulang otomatis.
+    </p>
+    <button v-if="user" :disabled="busy" @click="run(load)">Muat ulang status batch</button>
     <template v-if="review"
       ><section class="panel">
         <h2>{{ review.status }} Â· {{ review.dataset_kind }}</h2>
@@ -443,30 +539,51 @@ onBeforeUnmount(stop)
           >
             Batalkan batch</button
           ><button
-            :disabled="busy || !['FAILED', 'STALE_REVIEW', 'READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)"
+            :disabled="
+              busy ||
+              !['FAILED', 'STALE_REVIEW', 'READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)
+            "
             @click="run(() => action('revalidate'))"
           >
             Revalidate</button
           ><button
-            :disabled="busy || review.status !== 'NEEDS_INPUT'"
+            :disabled="
+              busy || review.status !== 'NEEDS_INPUT' || !!review.checkpoint.blocking_codes?.length
+            "
             @click="run(() => action('resume'))"
           >
             Resume
           </button>
         </div>
         <p v-if="['READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)" class="muted">
-          Revalidate mencabut approval dan preview lama. Tunggu validasi selesai, lalu preview dan approve ulang.
+          Revalidate mencabut approval dan preview lama. Tunggu validasi selesai, lalu preview dan
+          approve ulang.
         </p>
       </section>
       <section class="panel">
         <h2>Preview dan apply</h2>
-        <label v-if="closureEligible"><input v-model="closeOpenPeriods" type="checkbox"
-          :disabled="busy || !canPreview || review.status === 'APPROVED'" />
+        <p
+          v-if="canReview && !canEdit && review.status === 'READY_FOR_APPROVAL'"
+          class="notice"
+          role="status"
+        >
+          Approval belum dapat dilanjutkan: backend saat ini belum menyediakan akses baca preview
+          untuk Technical Approver. Preview editor harus tersedia melalui endpoint reviewer sebelum
+          dapat ditinjau di akun ini.
+        </p>
+        <label v-if="closureEligible"
+          ><input
+            v-model="closeOpenPeriods"
+            type="checkbox"
+            :disabled="busy || !canPreview || review.status === 'APPROVED'"
+          />
           Usulkan penutupan periode terbuka untuk batch ini
         </label>
-        <p v-if="closureEligible" class="muted">Periode lama ditutup pada awal versi baru melalui approval.
-          Gunakan sumber delta versi baru dengan interval yang tidak overlap.
-          Untuk mengganti rencana yang sudah approved, jalankan Revalidate.</p>
+        <p v-if="closureEligible" class="muted">
+          Periode lama ditutup pada awal versi baru melalui approval. Gunakan sumber delta versi
+          baru dengan interval yang tidak overlap. Untuk mengganti rencana yang sudah approved,
+          jalankan Revalidate.
+        </p>
         <p class="muted">
           Preview mengikat snapshot dan revision batch. Jika batch berubah, buat preview baru.
         </p>
@@ -485,7 +602,9 @@ onBeforeUnmount(stop)
           <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
           <DataTable :rows="previewRows" />
           <h3>Penutupan periode: {{ closureRows.length }}</h3>
-          <p>Penutupan terpisah dari jumlah baris kandidat; nilai berikut mengikuti preview backend.</p>
+          <p>
+            Penutupan terpisah dari jumlah baris kandidat; nilai berikut mengikuti preview backend.
+          </p>
           <DataTable v-if="closureRows.length" :rows="closureRows" />
         </template>
         <form class="toolbar" @submit.prevent="run(resolveReference)">
@@ -542,6 +661,51 @@ onBeforeUnmount(stop)
       </section>
       <section class="panel">
         <h2>Pertanyaan batch</h2>
+        <details
+          v-if="
+            canEdit &&
+            ['NEEDS_INPUT', 'FAILED'].includes(review.status) &&
+            review.dependencies_current !== false
+          "
+        >
+          <summary>Buat pertanyaan taxonomy manual</summary>
+          <p>
+            Untuk staging yang sudah diketahui: UUID baris, mapping taxonomy, dan nilai harus cocok
+            dengan batch ini. Backend memverifikasi semuanya; pertanyaan otomatis worker tetap
+            tersedia di bawah.
+          </p>
+          <form @submit.prevent="run(createTaxonomyQuestion)">
+            <fieldset :disabled="busy">
+              <label
+                >UUID taxonomy<input v-model="taxonomyQuestion.taxonomyId" required maxlength="36"
+              /></label>
+              <label
+                >UUID baris staging<input
+                  v-model="taxonomyQuestion.stagingRowId"
+                  required
+                  maxlength="36"
+              /></label>
+              <label
+                >Kolom target taxonomy<input
+                  v-model="taxonomyQuestion.targetColumn"
+                  required
+                  maxlength="63"
+              /></label>
+              <label
+                >Header sumber taxonomy (opsional)<input
+                  v-model="taxonomyQuestion.sourceColumn"
+                  maxlength="63"
+              /></label>
+              <label
+                >Nilai staging terkini<input
+                  v-model="taxonomyQuestion.value"
+                  required
+                  maxlength="500"
+              /></label>
+              <button>Buat atau muat pertanyaan taxonomy</button>
+            </fieldset>
+          </form>
+        </details>
         <div class="toolbar">
           <select v-model="questionStatus" @change="run(() => loadQuestions(0))">
             <option v-for="status in questionStatusItems" :key="status">
@@ -570,10 +734,25 @@ onBeforeUnmount(stop)
                 : ''
             }}
           </p>
-          <template v-if="item.question.status === 'OPEN' && canEdit">
+          <template
+            v-if="
+              item.question.status === 'OPEN' &&
+              canEdit &&
+              ['NEEDS_INPUT', 'FAILED'].includes(review.status)
+            "
+          >
+            <p v-if="item.question.category.startsWith('TAXONOMY_')" class="muted">
+              Pilihan UUID kandidat disimpan sebagai kode term oleh backend. Koreksi taxonomy adalah
+              teks. CORRECT_SOURCE hanya mencatat keputusan; perbaiki sumber lalu gunakan snapshot
+              dan batch baru.
+            </p>
             <label
               >Tindakan<select v-model="item.draft.action" :disabled="busy">
-                <option v-for="action in item.question.allowed_actions" :key="action">
+                <option
+                  v-for="action in item.question.allowed_actions"
+                  :key="action"
+                  :disabled="item.question.mandatory && action === 'KEEP_ORIGINAL'"
+                >
                   {{ action }}
                 </option>
               </select></label
@@ -581,7 +760,11 @@ onBeforeUnmount(stop)
             <label v-if="item.draft.action === 'APPLY_CORRECTION'"
               >Nilai koreksi<input
                 v-model="item.draft.correctedValue"
-                placeholder='321 atau "abc"'
+                :placeholder="
+                  item.question.category.startsWith('TAXONOMY_')
+                    ? 'Kode, label, atau alias taxonomy'
+                    : '321 atau teks'
+                "
                 :disabled="busy"
               />
             </label>

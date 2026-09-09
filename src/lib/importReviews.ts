@@ -14,7 +14,13 @@ export type ImportStatus =
 
 export type ImportQuestionStatus = 'OPEN' | 'ANSWERED' | 'PENDING_APPROVAL' | 'CANCELLED'
 export type ImportQuestionCategory =
-  'DATA_QUALITY' | 'DUPLICATE_KEY' | 'DATA_QUALITY_WARNING' | 'CONFIGURATION' | 'AI_REVIEW'
+  | 'TAXONOMY_AMBIGUOUS'
+  | 'TAXONOMY_INVALID'
+  | 'DATA_QUALITY'
+  | 'DUPLICATE_KEY'
+  | 'DATA_QUALITY_WARNING'
+  | 'CONFIGURATION'
+  | 'AI_REVIEW'
 export type ImportQuestionAction =
   'APPLY_CORRECTION' | 'CORRECT_SOURCE' | 'PROPOSE_MASTER' | 'KEEP_ORIGINAL' | 'SELECT_RECORD'
 
@@ -207,7 +213,11 @@ export async function resolveImportReviewMasterProposal(
   )
 }
 
-export async function previewImportReview(reviewId: string, revisionNo: number, closeOpenPeriods = false) {
+export async function previewImportReview(
+  reviewId: string,
+  revisionNo: number,
+  closeOpenPeriods = false,
+) {
   return call<ImportReviewPreview>('POST', `/import-reviews/${reviewId}/preview`, {
     revision_no: revisionNo,
     close_open_periods: closeOpenPeriods,

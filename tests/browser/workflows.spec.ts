@@ -100,6 +100,7 @@ test('ETL review saves full draft, resets checklist and approves with a separate
   await page.getByRole('link', { name: 'Buka review', exact: true }).click()
   await page.getByRole('button', { name: '7. Validasi & persetujuan' }).click()
   await page.getByRole('button', { name: 'Setujui konfigurasi' }).click()
+  await page.getByRole('button', { name: 'Konfirmasi setuju' }).click()
   await expect(page.getByRole('button', { name: 'Deploy konfigurasi' })).toBeVisible()
   expect(mock.requests.find((r) => r.path.endsWith('/approve'))?.body.revision_no).toBe(3)
   expect(mock.errors).toEqual([])

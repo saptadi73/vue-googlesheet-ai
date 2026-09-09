@@ -147,7 +147,8 @@ async function decision(name: 'approve' | 'reject') {
     comment: comment.value,
   })
   await load()
-  notice.value = 'Keputusan binding tersimpan. Runtime master tetap belum tersedia.'
+  notice.value =
+    'Keputusan binding tersimpan. Periksa storage dan lanjutkan preview, approval, serta apply melalui batch import.'
 }
 watch(
   [sheetId, user],
@@ -194,8 +195,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
     <p v-if="busy" role="status">Memproses…</p>
     <p class="notice">
-      Metadata binding tidak memberi izin pemuatan. MASTER_RUNTIME_PENDING tetap berlaku setelah
-      approval.
+      Binding approved menyiapkan mapping. Periksa storage, kemudian gunakan preview, approval, dan
+      apply batch import untuk memuat data. Blocker backend tetap harus diselesaikan.
     </p>
     <SheetClassificationForm
       v-if="sheet"

@@ -70,6 +70,7 @@ export const qualityRules = [
   'allowed_values',
   'format',
   'max_age_days',
+  'in_taxonomy',
 ]
 export const dqFormats = ['UUID', 'ISO_DATE', 'ISO_DATETIME']
 export const dqSeverities = ['INFO', 'WARN', 'ERROR', 'CRITICAL']
@@ -92,6 +93,9 @@ export interface CurrencyConversion {
   on_error: string
 }
 export interface Column {
+  taxonomy_id?: string | null
+  taxonomy_version?: number | null
+  taxonomy_required?: boolean
   source_column: string
   target_column: string
   target_type: string
@@ -137,6 +141,7 @@ export interface ETL {
   target_schema: string
   target_table: string
   load_strategy: string
+  append_duplicate_policy?: 'SKIP_IDENTICAL' | 'REJECT_IDENTICAL' | null
   columns: Column[]
   data_quality_rules: Quality[]
   semantic: { code: string; dimensions: string[]; metrics: Metric[]; allowed_roles: string[] }

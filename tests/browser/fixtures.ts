@@ -177,6 +177,10 @@ export async function setup(page: Page) {
       })
     if (path === '/auth/logout' || path === '/auth/change-password') return ok({ message: 'OK' })
     if (path === '/data-products') return ok([product])
+    if (path === '/configurations/parameter-catalog')
+      return ok({ schema_version: '1.0', parameters: [], operations: [], capabilities: {} })
+    if (path === `/configurations/${configId}/validate`)
+      return ok({ ...validation, ready_for_review: true })
     if (path === '/semantic/query-templates') return ok([])
     if (path === '/data-products/SALES/query')
       return ok(

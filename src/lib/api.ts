@@ -141,6 +141,29 @@ export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
     const issue = error.response?.data?.errors?.[0]
     const recovery: Record<string, string> = {
+      REVISION_CONFLICT: 'Muat ulang objek dan tinjau perubahan sebelum menyimpan kembali.',
+      TAXONOMY_IMMUTABLE:
+        'Taxonomy approved tidak dapat ditambah term langsung. Buat draft versi berikutnya.',
+      TAXONOMY_VERSION_IMMUTABLE: 'Snapshot terbit immutable. Gunakan draft versi berikutnya.',
+      TAXONOMY_VERSION_STALE:
+        'Muat versi aktif, perbarui binding dan konfigurasi, approve ulang, lalu gunakan batch baru.',
+      TAXONOMY_VERSION_MISMATCH:
+        'Samakan versi konfigurasi dengan taxonomy aktif dan binding approved.',
+      TAXONOMY_BINDING_STALE:
+        'Binding berubah atau memakai versi lama. Simpan dan approve ulang binding serta referensi konfigurasi.',
+      TAXONOMY_BINDING_REQUIRED:
+        'Simpan dan approve binding taxonomy untuk header ini sebelum validasi konfigurasi.',
+      TAXONOMY_VALUE_INVALID:
+        'Perbaiki nilai melalui pertanyaan batch atau sumber dengan kategori approved yang valid.',
+      TAXONOMY_VALUE_AMBIGUOUS: 'Pilih kandidat pada pertanyaan batch; tidak ada pilihan otomatis.',
+      TAXONOMY_KEY_COLLISION:
+        'Normalisasi kategori menyebabkan business key bertabrakan. Perbaiki sumber dan buat batch baru.',
+      IMPORT_STALE_REVIEW:
+        'Dependency berubah. Muat ulang state, perbarui referensi dan gunakan snapshot/batch baru yang sesuai.',
+      AI_REVIEW_NOT_IMPLEMENTED:
+        'Review AI belum dikonfigurasi di backend. Batch tetap diblokir hingga dependensi ini tersedia.',
+      APPEND_IDENTICAL_REJECTED:
+        'Duplikat identik menggagalkan batch APPEND. Tinjau sumber atau policy, lalu validasi dan review ulang.',
       CLASSIFICATION_REQUIRED: 'Konfirmasi jenis tab melalui Workspace ETL.',
       CLASSIFICATION_CONFLICT:
         'Muat ulang klasifikasi dan tinjau revisinya; jangan kirim ulang revision lama.',
@@ -163,16 +186,25 @@ export function getApiErrorMessage(error: unknown): string {
       IMPORT_MASTER_STALE: 'Versi master berubah. Tinjau binding dan buat batch baru.',
       IMPORT_REVISION_CONFLICT: 'Muat ulang detail batch sebelum melakukan aksi.',
       IMPORT_STATE_CONFLICT: 'Aksi tidak tersedia untuk status batch saat ini.',
-      IMPORT_PREVIEW_STALE: 'Rencana atau target berubah. Revalidate untuk mencabut approval lama, lalu preview dan approve ulang dengan revisi terbaru.',
+      IMPORT_PREVIEW_STALE:
+        'Rencana atau target berubah. Revalidate untuk mencabut approval lama, lalu preview dan approve ulang dengan revisi terbaru.',
       MASTER_PERIOD_INVALID: 'Periksa awal/akhir periode, tipe tanggal, dan field wajib.',
-      MASTER_PERIOD_OVERLAP: 'Periode bertumpang tindih. Perbaiki interval sumber atau usulkan penutupan periode terbuka melalui preview.',
-      MASTER_VERSION_DUPLICATE: 'Key versi berulang dalam batch. Perbaiki sumber sebelum validasi ulang.',
-      MASTER_VERSION_IMMUTABLE: 'Versi tersimpan tidak dapat ditimpa. Koreksi riwayat memerlukan migrasi yang direview.',
-      MASTER_PERIOD_CLOSURE_INVALID: 'Policy insert atau record target tidak memenuhi syarat penutupan periode.',
-      MASTER_RECORD_REVISION_CONFLICT: 'Record target berubah; revalidate, preview dan approve ulang. Jangan gunakan token apply lama.',
-      MASTER_AS_OF_INVALID: 'Tanggal harus sesuai tipe periode: date YYYY-MM-DD, timestamp dengan T dan detik tanpa offset, timestamptz dengan offset wajib.',
-      MASTER_EFFECTIVE_DATING_REQUIRED: 'Master tidak memiliki policy masa berlaku. Gunakan pencarian tanpa filter tanggal.',
-      MASTER_PERIOD_FILTER_FORBIDDEN: 'Akun ini tidak berizin mengakses field periode. Filter atau penutupan periode diblokir.',
+      MASTER_PERIOD_OVERLAP:
+        'Periode bertumpang tindih. Perbaiki interval sumber atau usulkan penutupan periode terbuka melalui preview.',
+      MASTER_VERSION_DUPLICATE:
+        'Key versi berulang dalam batch. Perbaiki sumber sebelum validasi ulang.',
+      MASTER_VERSION_IMMUTABLE:
+        'Versi tersimpan tidak dapat ditimpa. Koreksi riwayat memerlukan migrasi yang direview.',
+      MASTER_PERIOD_CLOSURE_INVALID:
+        'Policy insert atau record target tidak memenuhi syarat penutupan periode.',
+      MASTER_RECORD_REVISION_CONFLICT:
+        'Record target berubah; revalidate, preview dan approve ulang. Jangan gunakan token apply lama.',
+      MASTER_AS_OF_INVALID:
+        'Tanggal harus sesuai tipe periode: date YYYY-MM-DD, timestamp dengan T dan detik tanpa offset, timestamptz dengan offset wajib.',
+      MASTER_EFFECTIVE_DATING_REQUIRED:
+        'Master tidak memiliki policy masa berlaku. Gunakan pencarian tanpa filter tanggal.',
+      MASTER_PERIOD_FILTER_FORBIDDEN:
+        'Akun ini tidak berizin mengakses field periode. Filter atau penutupan periode diblokir.',
       IMPORT_PREVIEW_REQUIRED: 'Buat preview batch sebelum approval atau apply.',
       IMPORT_APPROVAL_REQUIRED: 'Minta reviewer menyetujui preview terbaru.',
       IMPORT_APPLY_CONFLICT: 'Apply tidak tersedia untuk status batch saat ini.',

@@ -138,6 +138,7 @@ watch(
 
     <section class="panel">
       <h2>Binding tersimpan</h2>
+      <button :disabled="busy" @click="run(load)">Muat ulang binding dan versi aktif</button>
       <p v-if="!bindings.length" class="muted">Belum ada binding taxonomy untuk tab ini.</p>
       <article v-for="binding in bindings" :key="binding.id" class="card-row">
         <h3>{{ binding.source_column }}</h3>
@@ -146,6 +147,20 @@ watch(
             binding.taxonomy_version
           }}
           / {{ binding.required ? 'wajib' : 'opsional' }} / {{ binding.normalization }}
+        </p>
+        <p
+          v-if="
+            taxonomies.find((item) => item.id === binding.taxonomy_id)?.version !==
+            binding.taxonomy_version
+          "
+          class="notice"
+        >
+          Versi binding sudah berbeda dari versi aktif. Perbarui binding dan konfigurasi, approve
+          ulang, lalu gunakan batch baru.
+        </p>
+        <p>
+          Revisi {{ binding.revision_no }} / reviewer {{ binding.approved_by || '-' }} /
+          {{ binding.approved_at || '-' }}
         </p>
         <div class="toolbar">
           <button v-if="editor" :disabled="busy" @click="edit(binding)">Edit</button>

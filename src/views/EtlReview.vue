@@ -4,6 +4,13 @@ import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vu
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
+import TaxonomyMapping from '@/components/TaxonomyMapping.vue'
+import { validateTaxonomyConfiguration } from '@/lib/taxonomies'
+import {
+  normalizeConfiguration,
+  configurationIssues,
+  type ConfigurationIssue,
+} from '@/lib/configurationValidation'
 import Card from '@/components/ui/Card.vue'
 import Modal from '@/components/ui/Modal.vue'
 import Spinner from '@/components/ui/Spinner.vue'
@@ -46,6 +53,7 @@ import {
   type Preview,
   type Config,
   type Job,
+  type Validation,
 } from '@/lib/etl'
 const route = useRoute(),
   router = useRouter()
@@ -63,6 +71,7 @@ const error = ref(''),
   busy = ref(false),
   step = ref(0),
   comment = ref('')
+const fieldIssues = ref<ConfigurationIssue[]>([])
 const answers = ref<Record<string, string>>({}),
   resolved = ref<string[]>([])
 const checkedColumns = ref<string[]>([]),
@@ -104,6 +113,11 @@ const ready = computed(
     checkedColumns.value.length === draft.value?.columns.length &&
     checkedSections.value.length === sections.length,
 )
+const appendPolicyAvailable = computed(
+  () =>
+    draft.value?.load_strategy === 'APPEND' &&
+    !draft.value.columns.some((column) => column.is_business_key || column.is_primary_key),
+)
 const publicColumns = computed(
   () => draft.value?.columns.filter((c) => ['NONE', 'LOW'].includes(c.pii_classification)) || [],
 )
@@ -116,6 +130,10 @@ const unusedHeaders = computed(
 const selectedHeader = ref('')
 const rollbackAcknowledged = ref(false)
 const decisionModal = ref<'approve' | 'reject' | null>(null)
+function openDecision(action: 'approve' | 'reject') {
+  comment.value = ''
+  decisionModal.value = action
+}
 async function run(action: () => Promise<void>) {
   busy.value = true
   error.value = ''
@@ -143,11 +161,15 @@ async function load() {
   preview.value = null
   checkedColumns.value = []
   checkedSections.value = []
+  fieldIssues.value = []
 }
 function payload() {
   if (!draft.value || !record.value) throw new Error('Draft belum tersedia.')
-  const configuration = copy(draft.value),
+  const configuration = normalizeConfiguration(draft.value),
     question_answers: Record<string, string> = {}
+  fieldIssues.value = configurationIssues(configuration)
+  if (fieldIssues.value.length) throw new Error('Perbaiki parameter konfigurasi sebelum menyimpan.')
+  validateTaxonomyConfiguration(configuration)
   for (const q of resolved.value) {
     const answer = answers.value[q]?.trim()
     if (!answer) throw new Error(`Isi jawaban: ${q}`)
@@ -160,6 +182,12 @@ function payload() {
   configuration.unresolved_questions = configuration.unresolved_questions.filter(
     (q) => !resolved.value.includes(q),
   )
+  if (
+    configuration.load_strategy !== 'APPEND' ||
+    configuration.columns.some((column) => column.is_business_key || column.is_primary_key)
+  ) {
+    delete configuration.append_duplicate_policy
+  }
   return { revision_no: record.value.revision_no, configuration, question_answers }
 }
 async function save() {
@@ -171,6 +199,9 @@ async function save() {
 async function validate() {
   if (dirty.value) throw new Error('Simpan perubahan sebelum dry-run.')
   await load()
+  if (!details.value) return
+  details.value.validation = { valid: false, ready_for_review: false }
+  details.value.validation = await call<Validation>('POST', `${base.value}/validate`)
   notice.value =
     'Validasi diperbarui terhadap snapshot profiling terakhir. Periksa kembali checklist.'
 }
@@ -272,6 +303,7 @@ async function applyWorkbook() {
   )
     throw new Error('Lakukan preview ulang sebelum menerapkan perubahan.')
   const p = preview.value
+  preview.value = null
   await call('POST', `${base.value}/workbook-apply`, {
     revision_no: p.revision_no,
     configuration: p.configuration,
@@ -408,6 +440,7 @@ watch(
     generation++
     clearTimeout(timer)
     details.value = null
+    fieldIssues.value = []
     draft.value = null
     preview.value = null
     job.value = null
@@ -439,6 +472,11 @@ onBeforeRouteUpdate(confirmLeave)
   <EtlShell>
     <RouterLink to="/workspace">← Daftar sumber</RouterLink>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
+    <ul v-if="fieldIssues.length" class="error" aria-label="Kesalahan parameter konfigurasi">
+      <li v-for="issue in fieldIssues" :key="issue.field + issue.message">
+        {{ issue.field }}: {{ issue.message }}
+      </li>
+    </ul>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
     <details v-if="parameterCatalog" class="panel">
       <summary>Parameter runtime dan capability (BE12)</summary>
@@ -567,10 +605,16 @@ onBeforeRouteUpdate(confirmLeave)
               </button>
             </div>
             <label>Catatan / alasan<textarea v-model="c.reason" rows="2" /></label>
+            <TaxonomyMapping
+              :column="c"
+              :sheet-id="record!.source_sheet_id"
+              :source-id="record!.source_id"
+              @change="Object.assign(c, $event)"
+            />
             <details>
               <summary>Parameter tipe &amp; presisi (BE-12)</summary>
               <div class="grid">
-                <label v-if="c.target_type === 'numeric'"
+                <label v-if="c.target_type === 'numeric' || c.numeric_precision != null"
                   >Precision<input
                     type="number"
                     min="1"
@@ -583,7 +627,7 @@ onBeforeRouteUpdate(confirmLeave)
                           : Number(($event.target as HTMLInputElement).value)
                     "
                 /></label>
-                <label v-if="c.target_type === 'numeric'"
+                <label v-if="c.target_type === 'numeric' || c.numeric_scale != null"
                   >Scale<input
                     type="number"
                     min="0"
@@ -596,7 +640,12 @@ onBeforeRouteUpdate(confirmLeave)
                           : Number(($event.target as HTMLInputElement).value)
                     "
                 /></label>
-                <label v-if="c.target_type === 'text' || c.target_type === 'varchar'"
+                <label
+                  v-if="
+                    c.target_type === 'text' ||
+                    c.target_type === 'varchar' ||
+                    c.varchar_length != null
+                  "
                   >Panjang varchar<input
                     type="number"
                     min="1"
@@ -609,13 +658,23 @@ onBeforeRouteUpdate(confirmLeave)
                           : Number(($event.target as HTMLInputElement).value)
                     "
                 /></label>
-                <label v-if="c.target_type === 'date'"
+                <label
+                  v-if="
+                    c.target_type === 'date' ||
+                    c.date_format != null ||
+                    c.transformation_codes.includes('parse_date_id')
+                  "
                   >Pola tanggal (strptime)<input
                     v-model="c.date_format"
                     maxlength="40"
                     placeholder="%d/%m/%Y"
                 /></label>
-                <label v-if="c.target_type === 'numeric'"
+                <label
+                  v-if="
+                    c.target_type === 'numeric' ||
+                    c.number_locale != null ||
+                    c.transformation_codes.includes('parse_decimal_id')
+                  "
                   >Locale angka<select
                     :value="c.number_locale || ''"
                     @change="c.number_locale = ($event.target as HTMLSelectElement).value || null"
@@ -624,7 +683,7 @@ onBeforeRouteUpdate(confirmLeave)
                     <option v-for="l in numberLocales" :key="l">{{ l }}</option>
                   </select></label
                 >
-                <label v-if="c.target_type === 'timestamptz'"
+                <label v-if="c.target_type === 'timestamptz' || c.source_timezone != null"
                   >Timezone sumber (IANA)<input
                     v-model="c.source_timezone"
                     maxlength="100"
@@ -636,7 +695,9 @@ onBeforeRouteUpdate(confirmLeave)
                 kolom yang sesuai; date_format dan number_locale memerlukan transform parse_date_id
                 / parse_decimal_id pada kolom ini.
               </p>
-              <template v-if="c.target_type === 'numeric'">
+              <template
+                v-if="c.target_type === 'numeric' || c.unit_conversion || c.currency_conversion"
+              >
                 <h4>Konversi satuan/kurs</h4>
                 <label
                   >Jenis konversi<select
@@ -770,6 +831,10 @@ onBeforeRouteUpdate(confirmLeave)
           <p v-if="!draft.data_quality_rules.length">
             Belum ada aturan tambahan. Pemeriksaan tipe, nullability, dan key tetap dijalankan.
           </p>
+          <p class="muted">
+            Rule in_taxonomy mengikuti mapping dan binding approved. Value harus null; action WARN
+            tidak tersedia. REQUIRE_REVIEW membuat pertanyaan pada worker import.
+          </p>
           <div v-for="(q, i) in draft.data_quality_rules" :key="i" class="card-row">
             <div class="grid">
               <label
@@ -821,6 +886,7 @@ onBeforeRouteUpdate(confirmLeave)
                   <option
                     v-for="a in ['REJECT_ROW', 'WARN', 'STOP_BATCH', 'REQUIRE_REVIEW']"
                     :key="a"
+                    :disabled="q.rule === 'in_taxonomy' && a === 'WARN'"
                   >
                     {{ a }}
                   </option>
@@ -878,6 +944,15 @@ onBeforeRouteUpdate(confirmLeave)
                 <option>APPEND</option>
                 <option>FULL_REFRESH</option>
               </select></label
+            ><label v-if="appendPolicyAvailable"
+              >Duplikat identik saat APPEND<select v-model="draft.append_duplicate_policy">
+                <option :value="null">SKIP_IDENTICAL (default)</option>
+                <option v-if="draft.append_duplicate_policy === undefined" :value="undefined">
+                  SKIP_IDENTICAL (belum diatur)
+                </option>
+                <option value="SKIP_IDENTICAL">SKIP_IDENTICAL</option>
+                <option value="REJECT_IDENTICAL">REJECT_IDENTICAL</option>
+              </select></label
             >
           </div>
           <p v-if="draft.load_strategy === 'UPSERT'" class="notice">
@@ -888,7 +963,18 @@ onBeforeRouteUpdate(confirmLeave)
             Baris ditambahkan pada pemuatan berikutnya. Pastikan strategi sesuai dengan sumber
             snapshot agar data tidak berulang.
           </p>
-          <p v-else class="notice">
+          <p v-if="appendPolicyAvailable" class="notice">
+            Tanpa key, identitas baris memakai hash seluruh nilai setelah transform. SKIP melewati
+            baris identik; REJECT menghentikan batch dan membatalkan seluruh penulisan.
+          </p>
+          <p
+            v-else-if="draft.load_strategy === 'APPEND' && draft.append_duplicate_policy"
+            class="notice"
+          >
+            Policy duplikat hanya berlaku untuk APPEND tanpa business key atau primary key dan akan
+            dihapus saat disimpan.
+          </p>
+          <p v-if="draft.load_strategy === 'FULL_REFRESH'" class="notice">
             Isi target diganti saat pemuatan berhasil. Pastikan spreadsheet berisi seluruh data yang
             ingin dipertahankan.
           </p>
@@ -1059,19 +1145,10 @@ onBeforeRouteUpdate(confirmLeave)
                 !details.validation.ready_for_review ||
                 record.created_by === user?.id
               "
-              @click="
-                comment = '';
-                decisionModal = 'approve'
-              "
+              @click="openDecision('approve')"
             >
               Setujui konfigurasi</button
-            ><button
-              :disabled="busy || dirty"
-              @click="
-                comment = '';
-                decisionModal = 'reject'
-              "
-            >
+            ><button :disabled="busy || dirty" @click="openDecision('reject')">
               Tolak konfigurasi
             </button>
           </div>
@@ -1145,6 +1222,11 @@ onBeforeRouteUpdate(confirmLeave)
         <p>
           Unduh draft terbaru, edit sel kuning, lalu unggah untuk melihat perubahan. Impor menyimpan
           draft dan tetap memerlukan verifikasi serta persetujuan aplikasi.
+        </p>
+        <p>
+          Mapping taxonomy ada di tab 04 (U/V/W); simpan dan approve binding registry lebih dahulu.
+          Rule in_taxonomy ada di tab 05. Policy APPEND tanpa key ada di 14 Review!B8. Gunakan
+          workbook terbaru dari backend; sel identitas dan normalisasi tetap dilindungi.
         </p>
         <div class="toolbar">
           <button :disabled="busy || dirty" @click="run(download)">
