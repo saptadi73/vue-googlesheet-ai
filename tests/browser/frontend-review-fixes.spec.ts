@@ -83,7 +83,7 @@ test('failed batch polling reports an error and resumes only after explicit relo
   expect(mock.errors).toEqual([])
 })
 
-test('technical approver sees the missing preview contract without making an editor-only request', async ({
+test('technical approver must read preview before approval without making an editor-only request', async ({
   page,
 }) => {
   const mock = await setup(page)
@@ -109,7 +109,10 @@ test('technical approver sees the missing preview contract without making an edi
   })
   await page.goto('/import-reviews/batch')
   await login(page, 'approver')
-  await expect(page.getByText('Approval belum dapat dilanjutkan:', { exact: false })).toBeVisible()
+  await expect(
+    page.getByText('Baca preview editor sebelum menyetujui batch.', { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Baca preview editor', exact: true })).toBeEnabled()
   await expect(page.getByRole('button', { name: 'Approve preview', exact: true })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Buat preview', exact: true })).toBeDisabled()
   expect(methods.every((method) => method === 'GET')).toBe(true)

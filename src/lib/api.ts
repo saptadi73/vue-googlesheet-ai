@@ -141,6 +141,21 @@ export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
     const issue = error.response?.data?.errors?.[0]
     const recovery: Record<string, string> = {
+      NL2SQL_QUOTA_EXCEEDED:
+        'Kuota harian tercapai. Tunggu kuota tersedia atau hubungi pengelola; jangan retry berulang.',
+      AI_BUDGET_EXCEEDED: 'Budget AI tercapai. Tunggu budget tersedia atau hubungi pengelola.',
+      OPENAI_NOT_CONFIGURED:
+        'Penyedia AI belum siap. Hubungi pengelola atau gunakan saran kemiripan melalui aksi terpisah.',
+      AI_UPSTREAM_FAILED:
+        'Permintaan penyedia AI gagal. Coba lagi secara eksplisit atau gunakan saran kemiripan.',
+      AI_CONFIGURATION_INVALID:
+        'AI menolak atau tidak menghasilkan output yang valid. Periksa nilai yang diminta.',
+      TAXONOMY_AI_RESULT_INVALID:
+        'Hasil AI tidak sesuai kontrak dan tidak dapat digunakan. Minta saran ulang.',
+      TAXONOMY_AI_SCOPE_LIMIT:
+        'Taxonomy melampaui batas konteks AI. Gunakan saran kemiripan atau tinjau cakupan taxonomy.',
+      IMPORT_STAGING_VALUE_INVALID:
+        'Nilai staging tidak sesuai tipe target. Periksa data dan validasi ulang batch.',
       REVISION_CONFLICT: 'Muat ulang objek dan tinjau perubahan sebelum menyimpan kembali.',
       TAXONOMY_IMMUTABLE:
         'Taxonomy approved tidak dapat ditambah term langsung. Buat draft versi berikutnya.',
@@ -205,7 +220,8 @@ export function getApiErrorMessage(error: unknown): string {
         'Master tidak memiliki policy masa berlaku. Gunakan pencarian tanpa filter tanggal.',
       MASTER_PERIOD_FILTER_FORBIDDEN:
         'Akun ini tidak berizin mengakses field periode. Filter atau penutupan periode diblokir.',
-      IMPORT_PREVIEW_REQUIRED: 'Buat preview batch sebelum approval atau apply.',
+      IMPORT_PREVIEW_REQUIRED:
+        'Minta editor membuat ulang preview batch, lalu baca preview terbaru sebelum approval atau apply.',
       IMPORT_APPROVAL_REQUIRED: 'Minta reviewer menyetujui preview terbaru.',
       IMPORT_APPLY_CONFLICT: 'Apply tidak tersedia untuk status batch saat ini.',
       IMPORT_PREVIEW_CONFLICT:

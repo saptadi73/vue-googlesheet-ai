@@ -10,6 +10,7 @@ import type {
   TaxonomyRecommendations,
 } from '@/lib/taxonomies'
 import TaxonomyVersions from '@/components/TaxonomyVersions.vue'
+import TaxonomyAISuggestions from '@/components/TaxonomyAISuggestions.vue'
 import DataTable from '@/components/DataTable.vue'
 
 const { busy, error, notice, run } = useTask()
@@ -62,6 +63,7 @@ async function validateValues() {
   })
 }
 async function refreshSelected() {
+  recommendations.value = null
   await load()
   await loadTerms()
 }
@@ -217,6 +219,13 @@ watch(selectedId, () => {
         <p>Parent: {{ term.parent_id || 'root' }} / Alias: {{ term.aliases.join(', ') || '-' }}</p>
       </article>
       <section v-if="selected.status === 'APPROVED' && selected.is_active" class="panel">
+        <TaxonomyAISuggestions
+          :taxonomy-id="selected.id"
+          :taxonomy-version="selected.version"
+          :values="valuesText"
+          :disabled="busy"
+          @confirm="(code) => run(() => inspectRecommendation(code))"
+        />
         <h3>Resolver dan pemeriksaan nilai</h3>
         <form @submit.prevent="run(resolve)">
           <label>Nilai taxonomy<input v-model="resolveValue" required /></label

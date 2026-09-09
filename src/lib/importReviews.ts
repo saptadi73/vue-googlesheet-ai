@@ -146,7 +146,10 @@ export interface ImportReviewPreview {
   changes: ImportPreviewChange[]
   summary: Record<string, unknown>
   preview_hash: string
-  preview_token: string
+  preview_token?: string
+  preview_revision?: number
+  masked_fields?: string[]
+  read_only?: boolean
   can_approve: boolean
 }
 
@@ -224,10 +227,20 @@ export async function previewImportReview(
   })
 }
 
-export async function approveImportReview(reviewId: string, revisionNo: number, comment: string) {
+export function readImportReviewPreview(reviewId: string) {
+  return call<ImportReviewPreview>('GET', `/import-reviews/${reviewId}/preview`)
+}
+
+export async function approveImportReview(
+  reviewId: string,
+  revisionNo: number,
+  comment: string,
+  previewHash: string,
+) {
   return call<ImportReview>('POST', `/import-reviews/${reviewId}/approve`, {
     revision_no: revisionNo,
     comment: comment.trim(),
+    preview_hash: previewHash,
   })
 }
 

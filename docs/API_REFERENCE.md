@@ -364,6 +364,7 @@ Kontrak lengkap, respons, state machine, idempotency, polling, checkpoint, dan e
 | POST | `/import-reviews/{review_id}/questions/{question_id}/answer` | E | ImportQuestionDecision | 200 | question, review; stale=true jika dependency berubah |
 | POST | `/import-reviews/{review_id}/questions/{question_id}/resolve-master-proposal` | R | ImportProposalResolution | 200 | question, review setelah master aktif-approved |
 | POST | `/import-reviews/{review_id}/preview` | E | ImportReviewPreviewRequest | 200 | target, changes[], summary, preview_hash, preview_token, can_approve |
+| GET | `/import-reviews/{review_id}/preview` | S | Tanpa body | 200 | Preview editor tervalidasi ulang, masked_fields, read_only; tanpa token apply |
 | POST | `/import-reviews/{review_id}/approve` | R | ImportReviewApproveRequest | 200 | review APPROVED |
 | POST | `/import-reviews/{review_id}/apply` | E | ImportReviewApplyRequest | 200 | review SUCCEEDED, rows_applied |
 | POST | `/import-reviews/{review_id}/resolve-reference` | S | ImportReferenceResolveRequest | 200 | ALIAS, EXACT, CANDIDATE, AMBIGUOUS, atau NOT_FOUND; EXACT dapat mengisi staging secara eksplisit |
@@ -440,7 +441,7 @@ Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-bind
 ## 5. Taxonomy (BE-13)
 
 Mulai integrasi frontend dari [handoff BE-13 bertahap](FRONTEND_BE13.md) dan
-[19 contoh payload per aksi](api/BE13_FRONTEND_PAYLOADS.json). Status tersedia di kode
+[20 contoh payload per aksi](api/BE13_FRONTEND_PAYLOADS.json). Status tersedia di kode
 tidak menyatakan deployment environment tujuan sudah selesai.
 
 Taxonomy menyimpan kategori baku berversi dan term hierarkis. Editor membuat taxonomy/term dalam status `DRAFT`; reviewer mengubah taxonomy menjadi `APPROVED`. Binding kolom dan validasi `in_taxonomy` menggunakan versi approved.
@@ -460,6 +461,7 @@ Taxonomy menyimpan kategori baku berversi dan term hierarkis. Editor membuat tax
 | POST | `/taxonomies/{taxonomy_id}/resolve-term` | S | TaxonomyTermResolveRequest | 200 | Resolusi exact/candidate/ambiguous/not found |
 | POST | `/taxonomies/{taxonomy_id}/ambiguity-question` | E | TaxonomyAmbiguityQuestionRequest | 201 | Buat ImportQuestion untuk nilai taxonomy ambigu |
 | POST | `/taxonomies/{taxonomy_id}/validate-values` | S | TaxonomyValuesValidateRequest | 200 | Validasi `in_taxonomy` dan versi taxonomy |
+| POST | `/taxonomies/{taxonomy_id}/recommend-terms-ai` | E | TaxonomyAIRecommendRequest | 200 | Saran generatif dari term aktif; konfirmasi wajib |
 | POST | `/taxonomies/{taxonomy_id}/recommend-terms` | S | TaxonomyRecommendRequest | 200 | Rekomendasi kandidat term berbasis kemiripan; selalu perlu konfirmasi |
 | GET | `/taxonomies/source-sheets/{sheet_id}/column-bindings` | S | — | 200 | Binding taxonomy per kolom |
 | PUT | `/taxonomies/source-sheets/{sheet_id}/column-bindings` | E | TaxonomyColumnBindingCreate | 200 | Simpan binding DRAFT (optimistic revision) |
@@ -1355,7 +1357,7 @@ Tab 04 XLSX kini mengedit referensi taxonomy pada konfigurasi: U=taxonomy_id, V=
 disimpan/disetujui melalui endpoint binding; workbook tidak memberikan approval.
 Dry-run, preview/apply dan ETL langsung menulis kode canonical dari label/alias valid.
 Raw staging dipertahankan. Benturan business key baru akibat normalisasi menghasilkan
-`TAXONOMY_KEY_COLLISION` (422). DSL DQ `in_taxonomy` dan pertanyaan worker otomatis tersedia; rekomendasi AI generatif masih terbuka.
+`TAXONOMY_KEY_COLLISION` (422). DSL DQ `in_taxonomy` dan pertanyaan worker otomatis tersedia; saran AI generatif tersedia melalui endpoint terpisah di bawah.
 
 ### Rule in_taxonomy dan pertanyaan worker
 
@@ -1369,3 +1371,82 @@ TAXONOMY_AMBIGUOUS (SELECT_RECORD/CORRECT_SOURCE) atau TAXONOMY_INVALID
 (APPLY_CORRECTION/CORRECT_SOURCE). Koreksi harus valid dan disimpan sebagai kode canonical.
 Jawab melalui endpoint import review existing, lalu resume. Resume tidak menggandakan staging/pertanyaan.
 Baca [rincian BE-13](REVIEW_BE13.md) untuk collision, stale dependency, dan keterbatasan AI.
+
+### Saran taxonomy generatif (BE-13)
+
+POST `/taxonomies/{taxonomy_id}/recommend-terms-ai` memakai body
+`{"taxonomy_version":2,"values":["teh tawar"],"limit":3}`. Versi wajib sama dengan
+versi approved aktif. Maksimal 50 nilai, masing-masing 1-500 karakter nonblank,
+limit 1-10. Konteks dibatasi 500 term aktif dan 150.000 byte; lebih besar ditolak
+`TAXONOMY_AI_SCOPE_LIMIT` (422), tidak dipotong diam-diam.
+
+Respons data memuat taxonomy_id/version, recommendation_kind=GENERATIVE,
+recommendations, ai_response_id, ai_model, prompt_version. Setiap recommendation
+memuat input_index (zero-based), value, candidates [{term, confidence}], dan
+requires_confirmation=true. term berisi id/code/label/aliases/parent_id dari registry
+aktif. Kandidat kosong adalah hasil sah bila tidak ada kecocokan. Confidence merupakan
+estimasi model, bukan probabilitas terkalibrasi. Output hilang/duplikat, kandidat asing,
+atau kandidat melebihi limit ditolak TAXONOMY_AI_RESULT_INVALID (422). Taxonomy berubah
+selama panggilan menghasilkan TAXONOMY_VERSION_STALE (409).
+
+Endpoint editor ini mengirim nilai kategori yang diminta pengguna dan term taxonomy
+ke provider; tidak membaca raw row/PII dari import secara otomatis. Gunakan tombol
+permintaan saran eksplisit, bukan panggilan otomatis setiap ketikan. Memakai
+OPENAI_MODEL_ETL_CONFIG, prompt taxonomy_recommend_v1.md, kuota/budget/timeout/store
+serta ledger existing dengan purpose TAXONOMY_RECOMMEND. Tidak ada fallback kemiripan
+terselubung: provider belum siap -> OPENAI_NOT_CONFIGURED (503); gagal -> AI_UPSTREAM_FAILED
+(503); refusal/output kosong -> AI_CONFIGURATION_INVALID (422); kuota/budget tetap
+kode existing. UI dapat menawarkan endpoint kemiripan existing sebagai aksi terpisah.
+
+Saran tidak membuat term/alias/binding atau menyetujui data. Untuk TAXONOMY_INVALID,
+pengguna mengonfirmasi saran lalu mengirim term.code sebagai corrected_value lewat
+APPLY_CORRECTION. SELECT_RECORD hanya menerima kandidat yang sudah tercantum pada
+pertanyaan, bukan sembarang ID hasil AI. Perubahan registry tetap draft/publish/reviewer.
+
+### Membaca preview import untuk approval dua akun
+
+Editor membuat POST `/import-reviews/{review_id}/preview` seperti sebelumnya.
+TECHNICAL_APPROVER membaca GET `/import-reviews/{review_id}/preview` tanpa body.
+Endpoint tersedia bagi editor/reviewer tenant yang sama; VIEWER/ANALYST mendapat 403,
+ID tenant lain 404. POST preview dan apply tetap khusus editor.
+
+GET mengembalikan envelope data: review, target, changes[], period_closures[], summary,
+preview_hash, preview_revision, can_approve, masked_fields, read_only=true.
+changes[] berisi source_row/outcome/before/after. Summary berisi jumlah insert,
+insert_proposed, duplicate, key_conflict, invalid, update, unchanged.
+Tidak ada preview_token. `review.revision_no` adalah revision batch saat dibaca;
+preview_revision adalah revision saat editor membuat rencana. Setelah approval, batch
+revision berubah tetapi preview_revision/hash tetap menunjuk rencana yang sama dan
+can_approve=false. Tidak ada pagination pada changes untuk kontrak ini.
+
+Hash dihitung dari rencana sebelum masking. Pembaca di luar PLATFORM_ADMIN/DATA_STEWARD
+menerima [REDACTED] pada field MEDIUM/HIGH di before/after; masked_fields menjelaskan
+nama field. Metadata master juga diperhitungkan. Penutupan periode sensitif tetap tunduk
+MASTER_PERIOD_FILTER_FORBIDDEN (403), sesuai kebijakan approval master existing.
+POST preview sekarang memakai masking pembaca yang sama. Before mencakup nilai record
+existing dari target, bukan hanya business key, agar perubahan atribut target terdeteksi.
+
+GET menghitung ulang dengan opsi close_open_periods yang disimpan editor dan membandingkan
+hash/revision/dependency. Tidak membuat token baru atau mengubah staging/checkpoint/status.
+Belum ada preview/preview format lama -> IMPORT_PREVIEW_REQUIRED (409); minta editor
+membuat ulang. Rencana/revision berubah -> IMPORT_PREVIEW_STALE (409), dependency berubah
+-> IMPORT_STALE_REVIEW (409) atau error dependency terkait. Status di luar READY_FOR_APPROVAL/
+APPROVED menghasilkan IMPORT_STATE_CONFLICT (409). Validasi kategori/periode existing
+juga berlaku dan dapat mengembalikan error validasi atau aksesnya.
+
+Reviewer mengirim POST approve dengan revision_no dari review dan preview_hash dari GET.
+Field preview_hash opsional untuk kompatibilitas client lama, tetapi frontend dua akun
+harus mengirimnya untuk memastikan rencana yang disetujui sama dengan yang dibaca.
+Hash berbeda ditolak IMPORT_PREVIEW_STALE. Backend juga memeriksa ulang preview format
+baru saat approve sehingga perubahan target/staging setelah GET ditolak.
+
+Setelah approval, editor memakai preview_token dari POST editor dan revision batch terbaru
+untuk apply. GET bukan penerbit token dan tidak memperpanjang token editor. Jika token
+kedaluwarsa, editor dapat membuat POST preview ulang hanya jika rencana approved masih sama.
+Preview approved format lama/yang berubah perlu revalidate dan approval ulang sesuai workflow.
+Tidak ada migrasi database; preview baru ditandai preview_format=2 pada checkpoint.
+
+
+Perbaikan pendamping alur dua akun: apply NON_MASTER mengembalikan tipe tanggal/numerik
+JSON staging ke tipe target sebelum UPSERT, tanpa menjalankan ulang transformasi/conversion
+sumber. Nilai tidak dapat dikonversi menghasilkan IMPORT_STAGING_VALUE_INVALID (422).

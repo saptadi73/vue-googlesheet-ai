@@ -1,47 +1,27 @@
 # Tindak lanjut review frontend
 
-## Blocker approval import dua akun
+Kontrak terbaru API_REFERENCE.md dan FRONTEND_BE13.md telah menyediakan GET preview
+reviewer dan saran taxonomy generatif. Blocker kontrak approval dua akun sebelumnya
+sudah ditangani di frontend.
 
-Diverifikasi 9 September 2026 melalui OpenAPI backend lokal dan pembacaan kode
-`app/api/v1/import_reviews.py` serta `app/services/import_review_service.py`.
+## Approval dua akun
 
-- POST `/import-reviews/{id}/preview` memiliki dependency EDIT_ROLES.
-- GET detail hanya mengembalikan record review dan dependencies_current. Checkpoint
-  menyimpan hash/revisi/blocker preview, tetapi tidak changes atau period_closures.
-- POST approve menerima revision_no dan comment, tanpa token preview.
-- Frontend tidak boleh membuka izin editor kepada reviewer, membawa data preview
-  melalui storage browser lintas akun, atau meminta persetujuan tanpa isi perubahan.
+- Editor membuat POST preview; reviewer memilih Baca preview editor (GET).
+- UI menampilkan changes, summary, period_closures dan masked_fields dari backend.
+- Approve mengirim review.revision_no dan preview_hash dari respons preview yang sama.
+- GET tidak memberikan token apply. Editor memuat status terbaru dan membuat POST
+  preview untuk memperoleh token bagi rencana approved yang masih sama.
+- Preview dibuang saat reload, perubahan akun/rute, atau kegagalan approval/pembacaan.
+  Preview required/stale mengarahkan pengguna membuat ulang atau revalidate.
 
-Karena itu approval TECHNICAL_APPROVER masih diblokir dengan penjelasan di UI.
-Belum ada request ke endpoint baru yang diasumsikan tersedia.
+## Saran AI taxonomy
 
-## Kontrak backend yang diperlukan (usulan, belum diimplementasikan)
+- Tombol eksplisit pada registry dan pertanyaan TAXONOMY_INVALID.
+- Input dibatasi 50 nilai nonblank, 500 karakter per nilai dan 1..10 kandidat.
+- Versi taxonomy dikirim; model, prompt, jenis generatif, input index dan confidence tampil.
+- Konfirmasi kode mengisi koreksi; Simpan jawaban tetap aksi terpisah APPLY_CORRECTION.
+- SELECT_RECORD tetap terbatas pada kandidat pertanyaan. Tidak ada fallback AI otomatis.
+- Error provider, stale dan limit ditampilkan; tidak dianggap hasil sukses kosong.
 
-Sediakan pembacaan preview untuk reviewer, misalnya GET `/import-reviews/{id}/preview`.
-Respons perlu memuat revision_no, preview_hash, snapshot_id/hash, target, changes,
-summary, period_closures, mode close_open_periods, blockers dan can_approve.
-Jangan memerlukan token apply pada UI reviewer. Terapkan otorisasi tenant, masking
-dan izin field periode untuk pengguna yang membaca; jangan memakai masking editor.
-
-Pembacaan harus menolak preview stale tanpa diam-diam mengganti rencana. Approval
-perlu mengikat hash yang benar-benar dilihat reviewer, selain revision_no, agar
-preview baru pada revisi batch sama tidak mengganti isi yang sedang disetujui.
-Tetap enforce separation of duties di backend. Editor kemudian memuat ulang state
-dan memperoleh/menggunakan token apply yang cocok dengan rencana approved.
-
-Setelah kontrak tersedia, acceptance wajib memakai DATA_STEWARD dan
-TECHNICAL_APPROVER berbeda, termasuk refresh browser, penggantian akun, perubahan
-target, akses field sensitif, dan penutupan periode.
-
-## Perubahan frontend yang sudah tersedia
-
-- Validasi parameter BE12 sebelum PATCH, mempertahankan string decimal dan field lain.
-- Normalisasi field opsional kosong menjadi null; 0, false dan default string tetap.
-- Error polling terlihat dan pemulihan melalui muat ulang eksplisit.
-- Perlindungan beforeunload pada draft versi taxonomy.
-- Saran kemiripan taxonomy dengan pilihan eksplisit dan pertanyaan manual berbasis
-  UUID staging/mapping/nilai yang diverifikasi backend.
-- Teks binding master mengikuti alur storage dan batch import.
-
-Pengujian browser menggunakan mock API. Pembacaan OpenAPI/kode backend bukan
-pengujian integrasi terautentikasi atau bukti deployment produksi.
+Pengujian browser menggunakan mock API. Kredensial/kualitas provider, masking aktual,
+otorisasi tenant dan deployment backend tetap memerlukan pengujian integrasi lingkungan tujuan.

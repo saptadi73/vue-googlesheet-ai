@@ -18,6 +18,7 @@ import {
   type ImportReviewPreview,
   listImportReviewQuestions,
   previewImportReview,
+  readImportReviewPreview,
   resolveImportReference,
   type ImportReferenceResolveResult,
   resolveImportReviewMasterProposal,
@@ -28,6 +29,7 @@ import { getApiErrorMessage } from '@/lib/api'
 import axios from 'axios'
 import type { Master } from '@/lib/masters'
 import type { TaxonomyResolution } from '@/lib/taxonomies'
+import TaxonomyAISuggestions from '@/components/TaxonomyAISuggestions.vue'
 const master = ref<Master | null>(null)
 const pollingFailed = ref(false)
 const taxonomyQuestion = ref({
@@ -149,8 +151,10 @@ const canApprove = computed(
   () =>
     canReview.value &&
     !!review.value &&
-    !!preview.value?.preview_token &&
+    !!preview.value?.preview_hash &&
     preview.value.can_approve &&
+    preview.value.review.revision_no === review.value.revision_no &&
+    review.value.dependencies_current !== false &&
     review.value.status === 'READY_FOR_APPROVAL',
 )
 const canApply = computed(
@@ -158,6 +162,7 @@ const canApply = computed(
     canEdit.value &&
     !!review.value &&
     !!preview.value?.preview_token &&
+    !preview.value.read_only &&
     review.value.status === 'APPROVED',
 )
 const questionStatusItems: Array<'' | ImportQuestion['status']> = [
@@ -392,21 +397,40 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
   await load()
 }
 async function previewBatch() {
-  if (!review.value) return
+  if (!review.value || !canPreview.value) return
   preview.value = null
+  const epoch = generation
   const mode =
     review.value.status === 'APPROVED'
       ? (review.value.checkpoint.close_open_periods ?? false)
       : closureEligible.value && closeOpenPeriods.value
-  preview.value = await previewImportReview(id.value, review.value.revision_no, mode)
+  const result = await previewImportReview(id.value, review.value.revision_no, mode)
+  if (epoch !== generation) return
+  preview.value = result
   review.value = preview.value.review
   appliedRows.value = null
   notice.value = 'Preview batch siap ditinjau.'
 }
+async function readPreview() {
+  if (!review.value || !(canEdit.value || canReview.value)) return
+  preview.value = null
+  const epoch = generation
+  const result = await readImportReviewPreview(id.value)
+  if (epoch !== generation) return
+  review.value = result.review
+  preview.value = result
+  notice.value = 'Preview editor dimuat untuk ditinjau. Tidak ada token apply yang diterbitkan.'
+}
 async function approveBatch() {
-  if (!review.value || !preview.value) return
+  if (!canApprove.value || !preview.value) return
   try {
-    review.value = await approveImportReview(id.value, review.value.revision_no, comment.value)
+    review.value = await approveImportReview(
+      id.value,
+      preview.value.review.revision_no,
+      comment.value,
+      preview.value.preview_hash,
+    )
+    preview.value.can_approve = false
   } catch (error) {
     preview.value = null
     throw error
@@ -416,6 +440,7 @@ async function approveBatch() {
 async function applyBatch() {
   if (!review.value || !preview.value) return
   const token = preview.value.preview_token
+  if (!canApply.value || !token) return
   preview.value = null
   const result = await applyImportReview(id.value, review.value.revision_no, token)
   review.value = result.review
@@ -447,6 +472,7 @@ async function resolveReference() {
 watch(
   [id, user],
   () => {
+    stop()
     review.value = null
     master.value = null
     closeOpenPeriods.value = false
@@ -562,14 +588,8 @@ onBeforeUnmount(stop)
       </section>
       <section class="panel">
         <h2>Preview dan apply</h2>
-        <p
-          v-if="canReview && !canEdit && review.status === 'READY_FOR_APPROVAL'"
-          class="notice"
-          role="status"
-        >
-          Approval belum dapat dilanjutkan: backend saat ini belum menyediakan akses baca preview
-          untuk Technical Approver. Preview editor harus tersedia melalui endpoint reviewer sebelum
-          dapat ditinjau di akun ini.
+        <p v-if="canReview && !canEdit" class="notice">
+          Baca preview editor sebelum menyetujui batch.
         </p>
         <label v-if="closureEligible"
           ><input
@@ -588,6 +608,13 @@ onBeforeUnmount(stop)
           Preview mengikat snapshot dan revision batch. Jika batch berubah, buat preview baru.
         </p>
         <div class="toolbar">
+          <button
+            v-if="canEdit || canReview"
+            :disabled="busy || !['READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)"
+            @click="run(readPreview)"
+          >
+            Baca preview editor
+          </button>
           <button class="primary" :disabled="busy || !canPreview" @click="run(previewBatch)">
             Buat preview</button
           ><button :disabled="busy || !canApprove" @click="run(approveBatch)">
@@ -595,6 +622,12 @@ onBeforeUnmount(stop)
           ><button :disabled="busy || !canApply" @click="run(applyBatch)">Apply batch</button>
         </div>
         <template v-if="preview">
+          <p v-if="preview.read_only">
+            Preview baca saja; token apply hanya tersedia dari preview editor.
+          </p>
+          <p v-if="preview.masked_fields?.length">
+            Field disamarkan: {{ preview.masked_fields.join(', ') }}
+          </p>
           <p>
             Target {{ preview.target }} · hash {{ preview.preview_hash }} ·
             {{ preview.can_approve ? 'siap approval' : 'belum siap approval' }}
@@ -757,6 +790,21 @@ onBeforeUnmount(stop)
                 </option>
               </select></label
             >
+            <TaxonomyAISuggestions
+              v-if="
+                item.question.category === 'TAXONOMY_INVALID' &&
+                item.question.allowed_actions.includes('APPLY_CORRECTION') &&
+                review.dependencies_current !== false
+              "
+              :key="`${item.question.id}:${item.question.revision_no}`"
+              :disabled="busy"
+              @confirm="
+                (code) => {
+                  item.draft.action = 'APPLY_CORRECTION'
+                  item.draft.correctedValue = code
+                }
+              "
+            />
             <label v-if="item.draft.action === 'APPLY_CORRECTION'"
               >Nilai koreksi<input
                 v-model="item.draft.correctedValue"
