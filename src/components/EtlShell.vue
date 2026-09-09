@@ -90,7 +90,7 @@ async function signOut() {
       </button>
     </header>
     <main>
-      <p v-if="error" role="alert" class="error">{{ error }}</p>
+      <p v-if="error" role="alert" class="error toast">{{ error }}</p>
       <form v-if="!user" class="panel login" @submit.prevent="signIn">
         <p class="eyebrow">WORKSPACE ETL</p>
         <h1>Masuk untuk memeriksa data</h1>
