@@ -125,6 +125,44 @@ const referenceRows = computed(() => {
   if (referenceResult.value.record) return [referenceResult.value.record]
   return referenceResult.value.candidates || []
 })
+const acceptSourceConflicts = ref(false)
+watch(
+  preview,
+  () => {
+    acceptSourceConflicts.value = false
+  },
+  { flush: 'sync' },
+)
+const referenceSourceColumn = ref('')
+const referenceStagingRowId = ref('')
+const referenceTargetColumn = ref('')
+const canWriteReference = computed(
+  () =>
+    canEdit.value &&
+    !!review.value &&
+    ['NEEDS_INPUT', 'READY_FOR_APPROVAL', 'FAILED'].includes(review.value.status) &&
+    review.value.dependencies_current !== false,
+)
+watch(referenceQuestionId, () => {
+  const target = referenceTargets.value.find(
+    (question) => question.id === referenceQuestionId.value,
+  )
+  referenceStagingRowId.value = target?.staging_row_id || ''
+  referenceTargetColumn.value = target?.target_column || ''
+  if (target?.source_column) referenceSourceColumn.value = target.source_column
+})
+watch(
+  [
+    referenceMasterId,
+    referenceValue,
+    referenceSourceColumn,
+    referenceStagingRowId,
+    referenceTargetColumn,
+  ],
+  () => {
+    referenceResult.value = null
+  },
+)
 const aiMetadata = computed(() => review.value?.checkpoint.ai_metadata || [])
 const referenceTargets = computed(() =>
   questions.value.filter(
@@ -139,6 +177,13 @@ const questionItems = computed(() =>
 )
 const canEdit = computed(() => editRoles.includes(user.value?.role || ''))
 const canReview = computed(() => reviewRoles.includes(user.value?.role || ''))
+watch(canWriteReference, (allowed) => {
+  if (!allowed) {
+    referenceQuestionId.value = ''
+    referenceStagingRowId.value = ''
+    referenceTargetColumn.value = ''
+  }
+})
 const canPreview = computed(
   () =>
     canEdit.value &&
@@ -153,6 +198,9 @@ const canApprove = computed(
     !!review.value &&
     !!preview.value?.preview_hash &&
     preview.value.can_approve &&
+    !preview.value.blocking_codes?.length &&
+    (!preview.value.requires_source_confirmation ||
+      (acceptSourceConflicts.value && !!comment.value.trim())) &&
     preview.value.review.revision_no === review.value.revision_no &&
     review.value.dependencies_current !== false &&
     review.value.status === 'READY_FOR_APPROVAL',
@@ -163,6 +211,8 @@ const canApply = computed(
     !!review.value &&
     !!preview.value?.preview_token &&
     !preview.value.read_only &&
+    !preview.value.blocking_codes?.length &&
+    review.value.dependencies_current !== false &&
     review.value.status === 'APPROVED',
 )
 const questionStatusItems: Array<'' | ImportQuestion['status']> = [
@@ -429,6 +479,7 @@ async function approveBatch() {
       preview.value.review.revision_no,
       comment.value,
       preview.value.preview_hash,
+      !!preview.value.requires_source_confirmation && acceptSourceConflicts.value,
     )
     preview.value.can_approve = false
   } catch (error) {
@@ -450,24 +501,32 @@ async function applyBatch() {
   await Promise.all([loadFindings(), loadQuestions()])
 }
 async function resolveReference() {
-  if (!review.value) return
-  const target = referenceTargets.value.find(
-    (question) => question.id === referenceQuestionId.value,
-  )
-  referenceResult.value = await resolveImportReference(
+  if (!review.value || !(canEdit.value || canReview.value)) return
+  const writing = !!referenceStagingRowId.value.trim() || !!referenceTargetColumn.value.trim()
+  if (writing && !canWriteReference.value)
+    throw new Error('Penulisan referensi tidak tersedia pada role/status batch ini.')
+  referenceResult.value = null
+  preview.value = null
+  const epoch = generation
+  const result = await resolveImportReference(
     id.value,
     review.value.revision_no,
     referenceMasterId.value.trim(),
-    referenceValue.value.trim(),
-    target?.staging_row_id || undefined,
-    target?.target_column || undefined,
+    referenceValue.value,
+    referenceSourceColumn.value,
+    referenceStagingRowId.value.trim() || undefined,
+    referenceTargetColumn.value.trim() || undefined,
   )
-  if (referenceResult.value.staging_updated) {
+  if (epoch !== generation) return
+  if (result.staging_updated) {
     preview.value = null
     appliedRows.value = null
-    notice.value = 'Reference tepat ditemukan dan nilai staging telah diisi. Buat preview baru.'
-    await Promise.all([loadFindings(), loadQuestions(questionOffset.value)])
+    if (result.revision_no !== undefined) review.value.revision_no = result.revision_no
+    await load()
+    notice.value =
+      'Referensi staging diperbarui. Revisi batch dimuat ulang; selesaikan pertanyaan wajib lalu buat preview baru.'
   }
+  referenceResult.value = result
 }
 watch(
   [id, user],
@@ -491,6 +550,9 @@ watch(
     preview.value = null
     appliedRows.value = null
     referenceQuestionId.value = ''
+    referenceSourceColumn.value = ''
+    referenceStagingRowId.value = ''
+    referenceTargetColumn.value = ''
     referenceResult.value = null
     if (user.value) void run(load)
   },
@@ -550,10 +612,10 @@ onBeforeUnmount(stop)
         </section>
         <p v-if="review.status === 'SUCCEEDED'" class="notice">
           Batch sudah selesai diaplikasikan ke target trusted.
-          {{ appliedRows === null ? '' : `${appliedRows} baris diproses.` }}
-          {{ appliedPeriods ?? review.checkpoint.periods_closed ?? 0 }} periode ditutup.
+          {{ appliedRows ?? review.checkpoint.rows_applied ?? 'Belum tersedia hitungan' }} baris
+          ditulis. {{ appliedPeriods ?? review.checkpoint.periods_closed ?? 0 }} periode ditutup.
         </p>
-        <label v-if="canEdit"
+        <label v-if="canEdit || canReview"
           >Catatan aksi<textarea v-model="comment" maxlength="2000" :disabled="busy" />
         </label>
         <div v-if="canEdit" class="toolbar">
@@ -607,6 +669,22 @@ onBeforeUnmount(stop)
         <p class="muted">
           Preview mengikat snapshot dan revision batch. Jika batch berubah, buat preview baru.
         </p>
+        <p class="muted">
+          Baris valid dan jumlah kandidat preview bukan jumlah penulisan aktual. UNCHANGED dan KEEP
+          tidak menambah baris ditulis; gunakan hasil apply. DUPLICATE harus diselesaikan sebelum
+          approval.
+        </p>
+        <p
+          v-if="
+            review.dataset_kind === 'MASTER' &&
+            !master?.approved_definition_json?.policy?.effective_dating
+          "
+          class="muted"
+        >
+          UPDATE mempertahankan UUID dan menaikkan revisi record. UNCHANGED mempertahankan revisi
+          dan lineage; record yang tidak ada dalam batch tetap disimpan. Jika target atau staging
+          berubah setelah approval, jalankan Revalidate, preview dan approval ulang.
+        </p>
         <div class="toolbar">
           <button
             v-if="canEdit || canReview"
@@ -633,6 +711,27 @@ onBeforeUnmount(stop)
             {{ preview.can_approve ? 'siap approval' : 'belum siap approval' }}
           </p>
           <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
+          <p v-if="preview.blocking_codes?.length" class="error">
+            Blocker preview: {{ preview.blocking_codes.join(', ') }}. Seluruh batch ditahan.
+          </p>
+          <p v-if="review.dataset_kind === 'MASTER'" class="muted">
+            INSERT_PROPOSED adalah usulan record baru yang ikut disetujui bersama batch. INVALID dan
+            KEY_CONFLICT menahan seluruh batch; konfirmasi tidak mengabaikan policy master.
+          </p>
+          <section v-if="preview.requires_source_confirmation">
+            <h3>Konflik sumber</h3>
+            <DataTable :rows="preview.source_conflicts || []" />
+            <p>Konfirmasi mencakup seluruh konflik, termasuk CLOSE_PERIOD, pada preview ini.</p>
+            <label v-if="canReview" class="check">
+              <input
+                v-model="acceptSourceConflicts"
+                type="checkbox"
+                :disabled="busy || review.status !== 'READY_FOR_APPROVAL'"
+              />
+              Saya menyetujui seluruh konflik sumber pada preview ini
+            </label>
+            <p>Isi Catatan aksi dengan alasan pemilihan sumber sebelum approval.</p>
+          </section>
           <DataTable :rows="previewRows" />
           <h3>Penutupan periode: {{ closureRows.length }}</h3>
           <p>
@@ -640,7 +739,10 @@ onBeforeUnmount(stop)
           </p>
           <DataTable v-if="closureRows.length" :rows="closureRows" />
         </template>
-        <form class="toolbar" @submit.prevent="run(resolveReference)">
+        <form v-if="canEdit || canReview" class="toolbar" @submit.prevent="run(resolveReference)">
+          <label
+            >Kolom sumber referensi<input v-model="referenceSourceColumn" required :disabled="busy"
+          /></label>
           <label
             >Master ID<input
               v-model="referenceMasterId"
@@ -651,25 +753,50 @@ onBeforeUnmount(stop)
           <label
             >Value<input
               v-model="referenceValue"
-              required
               maxlength="500"
-              placeholder="Nilai business key"
+              placeholder="Nilai field binding; kosong untuk referensi opsional"
               :disabled="busy"
           /></label>
           <label
-            >Isi staging (opsional)<select v-model="referenceQuestionId" :disabled="busy">
+            >Isi staging (opsional)<select
+              v-model="referenceQuestionId"
+              :disabled="busy || !canWriteReference"
+            >
               <option value="">Hanya cari reference</option>
               <option v-for="question in referenceTargets" :key="question.id" :value="question.id">
                 Baris {{ question.source_row || '?' }} · {{ question.target_column }}
               </option>
             </select></label
           >
+          <template v-if="canWriteReference">
+            <label
+              >UUID staging referensi<input v-model="referenceStagingRowId" :disabled="busy"
+            /></label>
+            <label
+              >Kolom target referensi<input v-model="referenceTargetColumn" :disabled="busy"
+            /></label>
+          </template>
           <button :disabled="busy || !review">Resolve reference</button>
         </form>
+        <p class="muted">
+          Resolver memakai binding tab/kolom approved dan target konfigurasi UUID. Kosongkan
+          pasangan staging/target untuk pencarian saja. Perubahan alias atau master memerlukan batch
+          baru berdasarkan dependency terbaru; Revalidate tidak mengganti dependency batch lama.
+        </p>
         <template v-if="referenceResult">
           <p>Reference {{ referenceResult.status }} · master {{ referenceResult.master_id }}</p>
           <p v-if="referenceResult.staging_updated" class="success">
-            Nilai staging diperbarui dari record master yang tepat.
+            Nilai staging diperbarui (UUID untuk EXACT/ALIAS, null untuk EMPTY). Pertanyaan wajib
+            tetap harus diselesaikan.
+          </p>
+          <p
+            v-if="
+              referenceResult.requires_question ||
+              ['CANDIDATE', 'AMBIGUOUS', 'NOT_FOUND'].includes(referenceResult.status)
+            "
+            class="notice"
+          >
+            Selesaikan melalui pertanyaan batch. Kandidat tidak dipilih atau ditulis otomatis.
           </p>
           <DataTable :rows="referenceRows" />
         </template>

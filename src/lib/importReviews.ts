@@ -134,6 +134,9 @@ export interface ImportPreviewChange {
 }
 
 export interface ImportReviewPreview {
+  blocking_codes?: string[]
+  source_conflicts?: Array<{ source_row?: number; record_id: string; action?: string }>
+  requires_source_confirmation?: boolean
   period_closures?: Array<{
     record_id: string
     revision_no: number
@@ -160,7 +163,9 @@ export interface ImportReviewApplyResult {
 }
 
 export interface ImportReferenceResolveResult {
-  status: 'ALIAS' | 'EXACT' | 'CANDIDATE' | 'AMBIGUOUS' | 'NOT_FOUND'
+  status: 'ALIAS' | 'EXACT' | 'EMPTY' | 'CANDIDATE' | 'AMBIGUOUS' | 'NOT_FOUND'
+  requires_question?: boolean
+  revision_no?: number
   master_id: string
   record?: Record<string, unknown>
   candidates?: Record<string, unknown>[]
@@ -236,11 +241,13 @@ export async function approveImportReview(
   revisionNo: number,
   comment: string,
   previewHash: string,
+  acceptSourceConflicts = false,
 ) {
   return call<ImportReview>('POST', `/import-reviews/${reviewId}/approve`, {
     revision_no: revisionNo,
     comment: comment.trim(),
     preview_hash: previewHash,
+    accept_source_conflicts: acceptSourceConflicts,
   })
 }
 
@@ -260,9 +267,13 @@ export async function resolveImportReference(
   revisionNo: number,
   masterDefinitionId: string,
   value: string,
+  sourceColumn: string,
   stagingRowId?: string,
   targetColumn?: string,
 ) {
+  if (!sourceColumn.trim()) throw new Error('Kolom sumber referensi wajib diisi.')
+  if (!!stagingRowId !== !!targetColumn)
+    throw new Error('UUID staging dan kolom target harus diisi bersama.')
   return call<ImportReferenceResolveResult>(
     'POST',
     `/import-reviews/${reviewId}/resolve-reference`,
@@ -270,6 +281,7 @@ export async function resolveImportReference(
       revision_no: revisionNo,
       master_definition_id: masterDefinitionId,
       value,
+      source_column: sourceColumn.trim(),
       ...(stagingRowId && targetColumn
         ? { staging_row_id: stagingRowId, target_column: targetColumn }
         : {}),

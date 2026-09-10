@@ -964,8 +964,18 @@ onBeforeRouteUpdate(confirmLeave)
             snapshot agar data tidak berulang.
           </p>
           <p v-if="appendPolicyAvailable" class="notice">
-            Tanpa key, identitas baris memakai hash seluruh nilai setelah transform. SKIP melewati
-            baris identik; REJECT menghentikan batch dan membatalkan seluruh penulisan.
+            Tanpa key, identitas baris memakai hash seluruh nilai bisnis setelah transform/cast.
+            SKIP melewati baris identik; REJECT menghentikan batch dan membatalkan seluruh
+            penulisan. Kejadian bisnis dengan nilai identik memerlukan ID event berbeda jika
+            keduanya harus disimpan. KEEP_ALL belum tersedia; jangan membuat ID acak saat retry.
+          </p>
+          <p v-if="appendPolicyAvailable" class="notice">
+            Dry-run hanya memeriksa duplikat dalam snapshot setelah DQ, tanpa membaca target.
+            Warning APPEND_IDENTICAL_SKIPPED tetap menghitung baris staging sebagai valid. Gunakan
+            preview batch untuk memeriksa target: INSERT untuk hash baru, UNCHANGED untuk duplikat
+            SKIP, dan DUPLICATE yang menahan approval pada REJECT. Nilai before kosong karena
+            pemeriksaan memakai hash. SKIP dapat menulis lebih sedikit baris daripada preview jika
+            target berubah; hitungan aktual tersedia pada hasil apply.
           </p>
           <p
             v-else-if="draft.load_strategy === 'APPEND' && draft.append_duplicate_policy"

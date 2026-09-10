@@ -164,7 +164,10 @@ watch(
     <p v-if="sheet">Tab {{ sheet.sheet_name }}</p>
     <p class="muted">
       Binding ini menyatakan kolom sumber yang merujuk record master. Ia tidak memuat atau mengubah
-      data sumber.
+      data sumber. Kolom target konfigurasi harus bertipe UUID. Menyimpan ulang binding mencabut
+      approval; approve kembali sebelum membuat batch baru. Perubahan binding/alias membuat
+      dependency batch lama stale. ONE_TO_ONE melarang UUID berulang dalam batch; referensi opsional
+      hanya mengizinkan kosong, bukan UUID asing atau nonaktif.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>

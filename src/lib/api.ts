@@ -221,11 +221,36 @@ export function getApiErrorMessage(error: unknown): string {
       MASTER_PERIOD_FILTER_FORBIDDEN:
         'Akun ini tidak berizin mengakses field periode. Filter atau penutupan periode diblokir.',
       IMPORT_PREVIEW_REQUIRED:
-        'Minta editor membuat ulang preview batch, lalu baca preview terbaru sebelum approval atau apply.',
+        'Minta editor membuat preview terbaru. Preview format lama yang sudah approved memerlukan Revalidate, preview dan approval ulang sebelum apply.',
       IMPORT_APPROVAL_REQUIRED: 'Minta reviewer menyetujui preview terbaru.',
       IMPORT_APPLY_CONFLICT: 'Apply tidak tersedia untuk status batch saat ini.',
       IMPORT_PREVIEW_CONFLICT:
-        'Preview memiliki duplicate key atau insert master yang masih memerlukan usulan.',
+        'Selesaikan blocker INVALID, KEY_CONFLICT atau DUPLICATE. Approval tidak mengabaikan policy master; INSERT_PROPOSED mengikuti approval batch.',
+      IMPORT_SOURCE_CONFIRMATION_REQUIRED:
+        'Baca preview terbaru, konfirmasi seluruh konflik sumber dan isi alasan sebelum approval.',
+      MASTER_INSERT_FORBIDDEN:
+        'Policy UPDATE_ONLY melarang record baru. Perbaiki input atau ubah policy melalui lifecycle master.',
+      MASTER_SOURCE_FORBIDDEN:
+        'Gunakan sumber otoritatif untuk perubahan record atau penutupan periode. Konfirmasi reviewer tidak mengabaikan larangan ini.',
+      REFERENCE_BINDING_REQUIRED:
+        'Simpan dan approve binding untuk tab, kolom sumber dan master yang sesuai.',
+      REFERENCE_BINDING_STALE:
+        'Perbarui dan approve binding ke versi master terbaru, lalu buat batch baru.',
+      REFERENCE_MAPPING_INVALID:
+        'Gunakan kolom target konfigurasi bertipe UUID yang sesuai binding sumber.',
+      MASTER_ALIAS_INVALID:
+        'Koreksi alias agar unik setelah normalisasi dan menunjuk UUID master aktif, lalu approve ulang.',
+      REFERENCE_REQUIRED:
+        'Referensi wajib harus diselesaikan ke UUID master aktif melalui pertanyaan batch.',
+      REFERENCE_UNRESOLVED:
+        'Selesaikan referensi melalui pertanyaan batch; kandidat tidak dipilih otomatis.',
+      REFERENCE_RECORD_UNAVAILABLE:
+        'Pilih UUID aktif pada master yang benar; hanya binding opsional mengizinkan kosong.',
+      REFERENCE_CARDINALITY_CONFLICT:
+        'Hilangkan UUID referensi berulang dalam batch dengan binding ONE_TO_ONE.',
+      REFERENCE_RESOLUTION_STALE:
+        'Binding, alias atau master berubah. Buat batch baru berdasarkan dependency terbaru; Revalidate tidak mengganti dependency batch lama.',
+      REFERENCE_SEARCH_FORBIDDEN: 'Gunakan role data yang berizin untuk pencarian field sensitif.',
       IMPORT_QUESTION_REVISION_CONFLICT: 'Pertanyaan berubah. Muat ulang pertanyaan batch.',
       IMPORT_QUESTION_ALREADY_ANSWERED:
         'Pertanyaan sudah dijawab. Muat ulang untuk melihat keputusan.',
@@ -261,7 +286,7 @@ export function getApiErrorMessage(error: unknown): string {
       REFERENCE_VALIDATION_REQUIRED:
         'Periksa dan selesaikan orphan atau ketidakcocokan tipe sebelum memasang foreign key.',
       MASTER_AUTHORITY_INVALID:
-        'Sumber otoritatif harus tab MASTER terkonfirmasi dalam tenant ini.',
+        'Gunakan sumber aktif yang tidak dijeda, tab MASTER terkonfirmasi dalam tenant ini, dan binding approved ke versi master, klasifikasi serta fingerprint terbaru.',
       MASTER_MAPPING_INVALID:
         'Mapping tipe, nullability, PII dan key harus mengikuti snapshot master approved.',
       MASTER_BINDING_INVALID: 'Perbaiki error dry-run sebelum approval binding.',
