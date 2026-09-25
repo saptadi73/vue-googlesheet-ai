@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { setup, login } from './fixtures'
 
-async function storageSetup(page: Page) {
+async function storageSetup(page: Page, sensitivity = 'NONE') {
   const base = await setup(page)
   let storage = false,
     conflict = false,
@@ -23,12 +23,18 @@ async function storageSetup(page: Page) {
         status: 409,
         json: { status: 'error', data: null, meta: {}, errors: [{ code, message: code }] },
       })
-    if (path === '/master-definitions/example') return ok({
-      approved_definition_json: {
-        fields: [{ name: 'valid_from', type: 'timestamptz' }],
-        policy: { effective_dating: { valid_from_column: 'valid_from', valid_to_column: 'valid_to' } },
-      },
-    })
+    if (path === '/master-definitions/example')
+      return ok({
+        approved_definition_json: {
+          fields: [
+            { name: 'valid_from', type: 'timestamptz', pii_classification: 'NONE' },
+            { name: 'valid_to', type: 'timestamptz', pii_classification: sensitivity },
+          ],
+          policy: {
+            effective_dating: { valid_from_column: 'valid_from', valid_to_column: 'valid_to' },
+          },
+        },
+      })
     if (path.endsWith('/storage-plan'))
       return ok({
         target: 'trusted.master_test',
@@ -102,9 +108,7 @@ test('reviewer deploys reviewed revision, preserves masking and leading zero, pa
     revision_no: 7,
     comment: 'Schema telah ditinjau',
   })
-  await expect(
-    page.getByText('Storage siap. Lanjutkan import', { exact: false }),
-  ).toBeVisible()
+  await expect(page.getByText('Storage siap. Lanjutkan import', { exact: false })).toBeVisible()
   await expect(page.getByText('Field disamarkan oleh backend:', { exact: false })).toContainText(
     'salary',
   )
@@ -160,3 +164,31 @@ test('editor reads storage but cannot deploy; viewer cannot load metadata', asyn
   expect(state.requests.filter((r) => r.path.startsWith('/master-definitions'))).toHaveLength(count)
   expect(state.errors).toEqual([])
 })
+
+for (const sensitivity of ['MEDIUM', 'HIGH']) {
+  test(`sensitive ${sensitivity} period filter is hidden for approver but available to data steward`, async ({
+    page,
+  }) => {
+    const state = await storageSetup(page, sensitivity)
+    state.ready()
+    await page.goto('/masters/example/storage')
+    await login(page, 'approver')
+    await expect(page.getByRole('cell', { name: '001', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Berlaku pada')).toHaveCount(0)
+    await expect(
+      page.getByText('Filter masa berlaku tidak tersedia', { exact: false }),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Cari record', exact: true }).click()
+    await expect(page.getByRole('cell', { name: '001', exact: true })).toBeVisible()
+    expect(state.queries.at(-1)?.has('as_of')).toBe(false)
+    await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
+    await page.goto('/masters/example/storage')
+    await login(page)
+    await page.getByLabel('Berlaku pada').fill('2026-02-01T12:00:00+07:00')
+    await page.getByRole('button', { name: 'Cari record', exact: true }).click()
+    await expect(page.getByRole('cell', { name: '001', exact: true })).toBeVisible()
+    expect(state.queries.at(-1)?.get('as_of')).toBe('2026-02-01T12:00:00+07:00')
+    expect(state.errors).toEqual([])
+    expect(state.unexpected).toEqual([])
+  })
+}

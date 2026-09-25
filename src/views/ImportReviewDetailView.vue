@@ -436,10 +436,12 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
     throw new Error('Selesaikan blocker sebelum resume batch.')
   stop()
   preview.value = null
+  const epoch = generation
   const result = await call<ImportReview>('POST', `/import-reviews/${id.value}/${kind}`, {
     revision_no: review.value.revision_no,
     comment: comment.value.trim(),
   })
+  if (epoch !== generation) return
   review.value = result
   preview.value = null
   appliedRows.value = null
@@ -473,17 +475,21 @@ async function readPreview() {
 }
 async function approveBatch() {
   if (!canApprove.value || !preview.value) return
+  const epoch = generation
+  const reviewed = preview.value
   try {
-    review.value = await approveImportReview(
+    const result = await approveImportReview(
       id.value,
       preview.value.review.revision_no,
       comment.value,
       preview.value.preview_hash,
       !!preview.value.requires_source_confirmation && acceptSourceConflicts.value,
     )
-    preview.value.can_approve = false
+    if (epoch !== generation) return
+    review.value = result
+    reviewed.can_approve = false
   } catch (error) {
-    preview.value = null
+    if (epoch === generation) preview.value = null
     throw error
   }
   notice.value = 'Preview batch disetujui. Editor dapat menjalankan apply dengan token yang sama.'
@@ -493,7 +499,9 @@ async function applyBatch() {
   const token = preview.value.preview_token
   if (!canApply.value || !token) return
   preview.value = null
+  const epoch = generation
   const result = await applyImportReview(id.value, review.value.revision_no, token)
+  if (epoch !== generation) return
   review.value = result.review
   appliedRows.value = result.rows_applied
   appliedPeriods.value = result.periods_closed ?? 0
@@ -528,6 +536,13 @@ async function resolveReference() {
   }
   referenceResult.value = result
 }
+let pendingLoad = false
+function initialize() {
+  if (!pendingLoad || busy.value || !user.value) return
+  pendingLoad = false
+  void run(load)
+}
+watch(busy, initialize)
 watch(
   [id, user],
   () => {
@@ -554,11 +569,15 @@ watch(
     referenceStagingRowId.value = ''
     referenceTargetColumn.value = ''
     referenceResult.value = null
-    if (user.value) void run(load)
+    pendingLoad = true
+    initialize()
   },
   { immediate: true },
 )
-onBeforeUnmount(stop)
+onBeforeUnmount(() => {
+  pendingLoad = false
+  stop()
+})
 </script>
 <template>
   <EtlShell

@@ -33,7 +33,21 @@ const asOf = ref('')
 const periodType = computed(() => {
   const definition = master.value?.approved_definition_json
   const period = definition?.policy.effective_dating
-  return period ? definition?.fields.find((field) => field.name === period.valid_from_column)?.type : undefined
+  return period
+    ? definition?.fields.find((field) => field.name === period.valid_from_column)?.type
+    : undefined
+})
+const periodFilterDenied = ref(false)
+const canFilterPeriod = computed(() => {
+  if (!periodType.value || periodFilterDenied.value) return false
+  if (['PLATFORM_ADMIN', 'DATA_STEWARD'].includes(user.value?.role || '')) return true
+  const definition = master.value?.approved_definition_json
+  const period = definition?.policy.effective_dating
+  return !definition?.fields.some(
+    (field) =>
+      [period?.valid_from_column, period?.valid_to_column].includes(field.name) &&
+      ['MEDIUM', 'HIGH'].includes(field.pii_classification),
+  )
 })
 const search = ref(''),
   recordId = ref(''),
@@ -58,7 +72,7 @@ async function loadRecords(next = 0, apply = false) {
       search: search.value,
       recordId: recordId.value.trim(),
       activeOnly: activeOnly.value,
-      asOf: periodType.value ? asOf.value : '',
+      asOf: canFilterPeriod.value ? asOf.value.trim() : '',
     }
   const filters = applied.value
   const params = new URLSearchParams({
@@ -68,15 +82,32 @@ async function loadRecords(next = 0, apply = false) {
     active_only: String(filters.activeOnly),
   })
   if (filters.recordId) params.set('record_id', filters.recordId)
-  if (filters.asOf) params.set('as_of', filters.asOf.length === 16 ? `${filters.asOf}:00` : filters.asOf)
+  if (filters.asOf)
+    params.set('as_of', filters.asOf.length === 16 ? `${filters.asOf}:00` : filters.asOf)
   records.value = null
   let result: RecordsPage
   try {
     result = await call<RecordsPage>('GET', `${base()}/records?${params}`)
   } catch (error) {
-    if (current === generation && axios.isAxiosError(error) &&
-      error.response?.data?.errors?.some((issue: { code: string }) => issue.code === 'MASTER_EFFECTIVE_DATING_REQUIRED')) {
+    if (
+      current === generation &&
+      axios.isAxiosError(error) &&
+      error.response?.data?.errors?.some(
+        (issue: { code: string }) => issue.code === 'MASTER_EFFECTIVE_DATING_REQUIRED',
+      )
+    ) {
       master.value = null
+      asOf.value = ''
+      applied.value.asOf = ''
+    }
+    if (
+      current === generation &&
+      axios.isAxiosError(error) &&
+      error.response?.data?.errors?.some(
+        (issue: { code: string }) => issue.code === 'MASTER_PERIOD_FILTER_FORBIDDEN',
+      )
+    ) {
+      periodFilterDenied.value = true
       asOf.value = ''
       applied.value.asOf = ''
     }
@@ -131,6 +162,7 @@ watch(
     search.value = ''
     master.value = null
     asOf.value = ''
+    periodFilterDenied.value = false
     recordId.value = ''
     activeOnly.value = true
     offset.value = 0
@@ -200,16 +232,35 @@ onBeforeUnmount(() => {
             pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
         /></label>
         <label><input v-model="activeOnly" type="checkbox" />Hanya record aktif</label>
-        <label v-if="periodType">Berlaku pada
-          <input v-model="asOf" :type="periodType === 'date' ? 'date' : periodType === 'timestamp' ? 'datetime-local' : 'text'"
-            step="1" maxlength="64" :disabled="busy"
-            :placeholder="periodType === 'timestamptz' ? '2026-02-01T12:00:00+07:00' : ''" />
+        <label v-if="canFilterPeriod"
+          >Berlaku pada
+          <input
+            v-model="asOf"
+            :type="
+              periodType === 'date'
+                ? 'date'
+                : periodType === 'timestamp'
+                  ? 'datetime-local'
+                  : 'text'
+            "
+            step="1"
+            maxlength="64"
+            :disabled="busy"
+            :placeholder="periodType === 'timestamptz' ? '2026-02-01T12:00:00+07:00' : ''"
+          />
         </label>
         <button :disabled="busy">Cari record</button>
       </form>
-      <p v-if="periodType" class="muted">Kosongkan tanggal untuk seluruh riwayat. Awal inklusif, akhir eksklusif.
-        Status aktif terpisah dari masa berlaku. Pencarian tidak memilih record atau FK otomatis.
-        <template v-if="periodType === 'timestamptz'">Gunakan ISO dengan detik dan offset eksplisit (contoh +07:00); zona browser tidak diasumsikan.</template>
+      <p v-if="periodType && !canFilterPeriod" class="muted">
+        Filter masa berlaku tidak tersedia untuk akun ini karena field periode dibatasi.
+      </p>
+      <p v-if="canFilterPeriod" class="muted">
+        Kosongkan tanggal untuk seluruh riwayat. Awal inklusif, akhir eksklusif. Status aktif
+        terpisah dari masa berlaku. Pencarian tidak memilih record atau FK otomatis.
+        <template v-if="periodType === 'timestamptz'"
+          >Gunakan ISO dengan detik dan offset eksplisit (contoh +07:00); zona browser tidak
+          diasumsikan.</template
+        >
       </p>
       <p v-if="busy" role="status">Memuat…</p>
       <template v-if="records">

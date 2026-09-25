@@ -185,8 +185,22 @@ export async function setup(page: Page) {
     if (path === '/data-products/SALES/query')
       return ok(
         [
-          { branch_name: 'Jakarta', net_sales: 150 },
-          { branch_name: 'Bandung', net_sales: null },
+          {
+            branch_name: 'Jakarta',
+            ...(body.dimensions?.includes('transaction_month')
+              ? { transaction_month: '2026-08' }
+              : {}),
+            net_sales: 150,
+            ...(body.metrics?.includes('transaction_count') ? { transaction_count: 2 } : {}),
+          },
+          {
+            branch_name: 'Bandung',
+            ...(body.dimensions?.includes('transaction_month')
+              ? { transaction_month: '2026-09' }
+              : {}),
+            net_sales: null,
+            ...(body.metrics?.includes('transaction_count') ? { transaction_count: 1 } : {}),
+          },
         ],
         { row_count: 2, query_source: 'OPERATIONAL', cached: false },
       )
@@ -365,6 +379,7 @@ export async function setup(page: Page) {
     record,
     sheet,
     source,
+    product,
     classification,
     setConflict: () => {
       conflict = true

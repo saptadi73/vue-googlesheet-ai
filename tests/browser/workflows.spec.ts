@@ -68,7 +68,7 @@ test('ETL review saves full draft, resets checklist and approves with a separate
   await login(page)
   await page.getByLabel('Nama bisnis', { exact: true }).fill('Penjualan diperiksa')
   await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Draft tersimpan')
+  await expect(page.getByRole('status').filter({ hasText: 'Draft tersimpan' })).toBeVisible()
   expect(mock.requests.find((r) => r.method === 'PATCH')?.body).toMatchObject({
     revision_no: 1,
     question_answers: {},

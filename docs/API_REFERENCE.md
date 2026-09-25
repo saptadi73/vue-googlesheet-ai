@@ -1473,3 +1473,88 @@ error, audit, kompatibilitas, dan batasan: [policy master BE-07](MASTER_IMPORT_P
 Perbaikan pendamping alur dua akun: apply NON_MASTER mengembalikan tipe tanggal/numerik
 JSON staging ke tipe target sebelum UPSERT, tanpa menjalankan ulang transformasi/conversion
 sumber. Nilai tidak dapat dikonversi menghasilkan IMPORT_STAGING_VALUE_INVALID (422).
+
+
+### BE14: metadata bisnis produk
+
+PATCH `/semantic/data-products/{product_id}` menerima `name` (1..200),
+`description` (0..4000), dan `expected_version` (integer positif). Mengirim name
+atau description mewajibkan expected_version; mismatch menghasilkan
+PRODUCT_VERSION_CONFLICT (409). Nama blank/null dan description null ditolak.
+String kosong menghapus deskripsi. Sukses menaikkan semantic version; template
+lama perlu validate/activate ulang. Kontrak, kompatibilitas dan batas tahap 1:
+[Frontend BE14](FRONTEND_BE14.md).
+
+
+### BE14 tahap 2: metadata metrik
+
+PATCH `/semantic/data-products/{product_id}` mendukung `metric_metadata` berdasarkan
+kode metrik existing dengan expected_version wajib. Contoh:
+```json
+{"expected_version":4,"metric_metadata":[{"code":"net_sales","unit":"IDR","synonyms":["Pendapatan bersih"]}]}
+```
+Field omitted dipertahankan; unit null/sinonim [] menghapus metadata terkait.
+METRIC_NOT_FOUND dan METRIC_SYNONYM_CONFLICT menghasilkan 422. Unit adalah label,
+bukan konversi; QueryPlan tetap memakai kode resmi. Batas dan kompatibilitas:
+[Frontend BE14 tahap 2](FRONTEND_BE14.md#tahap-2-unit-dan-sinonim-metrik).
+
+
+### BE14 tahap 3: hasil agregat null
+
+PATCH konfigurasi lengkap mendukung `semantic.metrics[].null_handling`: PRESERVE
+(default) atau ZERO_RESULT. ZERO_RESULT hanya untuk hasil numerik dan diterapkan
+setelah agregasi; bukan default nilai input. Perubahan melewati review/deploy ETL.
+Workbook mempertahankan policy berdasarkan kode metrik, belum menyediakan sel editor.
+[Kontrak dan batas tahap 3](FRONTEND_BE14.md#tahap-3-null-handling-metrik-melalui-konfigurasi-etl).
+
+
+### BE14: editor XLSX null handling
+
+Workbook export terbaru mengaktifkan `11 Metric Definitions!M5:M204` untuk
+PRESERVE/ZERO_RESULT; kosong berarti PRESERVE. Workbook lama wajib diunduh ulang
+sebelum kolom M bisa diedit. Preview/apply tetap menyimpan draft dan membutuhkan
+review/approval aplikasi.
+[Kontrak tahap 4](FRONTEND_BE14.md#tahap-4-editor-null-handling-di-xlsx).
+
+
+### BE14: pilihan template ambigu
+
+Klarifikasi NL2SQL dapat menambahkan template_candidates (code/data_product_code,
+maksimal 20) dan template_candidates_more pada meta. Chat memilih kandidat secara
+ eksplisit, kemudian mengirim saved_query_code pada QuestionRequest lengkap.
+AI tidak dipanggil saat template ambigu. Pilihan tetap tunduk akses/versi terkini;
+produk tidak cocok menghasilkan SAVED_QUERY_PRODUCT_MISMATCH (422).
+[Handoff tahap 5](FRONTEND_BE14.md#tahap-5-klarifikasi-template-yang-ambigu).
+
+
+### BE14: metadata metrik reviewed
+
+Konfigurasi lengkap mendukung `semantic.metrics[].description`, `unit`, dan
+`synonyms`. Metadata ikut revision, review/approval, serta deployment. Editor frontend
+tersedia pada Analitik & akses; workbook baru memakai tab 11 kolom C/D/K dan format
+lama mempertahankan nilai server.
+[Handoff tahap 6](FRONTEND_BE14.md#tahap-6-metadata-metrik-reviewed).
+
+
+### BE14: default periode metrik
+
+MetricDefinition mendukung `default_period: {dimension, days}`. Default memakai tanggal
+UTC ketika dimension belum difilter; konflik antar-metrik menghasilkan
+`QUERY_DEFAULT_PERIOD_CONFLICT` (422). Editor konfigurasi dan workbook I/J tersedia.
+[Handoff tahap 7](FRONTEND_BE14.md#tahap-7-default-periode-metrik).
+
+
+### BE14: filter tetap metrik
+
+MetricDefinition mendukung maksimal 10 `filters` terstruktur. Field wajib mapped publik,
+operator dan bentuk value memakai allowlist. Workbook memakai tab 11 kolom H sebagai
+array JSON; frontend menyediakan editor field/operator/value.
+[Handoff tahap 8](FRONTEND_BE14.md#tahap-8-filter-tetap-metrik).
+
+
+### BE14: visualisasi dinamis
+
+`QueryPlan.visualization` mendukung table, KPI, bar, line, area, pie/donut, combo,
+scatter, dan heatmap. Field harus berasal dari output plan. Respons mengembalikan spec
+melalui meta; Dashboard dan Chat menyediakan renderer serta override manual.
+[Handoff tahap 9](FRONTEND_BE14.md#tahap-9-visualisasi-dinamis).

@@ -20,6 +20,16 @@ export interface QueryPlan {
   time_grain: string
   limit: number
   offset: number
+  visualization?: VisualizationSpec | null
+}
+export type VisualizationType =
+  'table' | 'kpi' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'combo' | 'scatter' | 'heatmap'
+export interface VisualizationSpec {
+  type: VisualizationType
+  title: string
+  x_field: string | null
+  y_field: string | null
+  series: Array<{ field: string; type: 'bar' | 'line' | 'area'; axis: 'left' | 'right' }>
 }
 export interface SavedQuery {
   id: string
@@ -40,5 +50,6 @@ export function emptyPlan(): QueryPlan {
     time_grain: 'none',
     limit: 100,
     offset: 0,
+    visualization: null,
   }
 }

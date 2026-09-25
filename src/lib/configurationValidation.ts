@@ -74,6 +74,12 @@ export function normalizeConfiguration(draft: ETL): ETL {
       if (typeof rule[key] === 'string' && !String(rule[key]).trim()) rule[key] = null
     }
   }
+  for (const metric of result.semantic.metrics) {
+    metric.label = metric.label.replace(/\s+/g, ' ').trim()
+    metric.description = (metric.description || '').replace(/\s+/g, ' ').trim()
+    metric.unit = metric.unit?.trim() || null
+    metric.synonyms = (metric.synonyms || []).map((value) => value.replace(/\s+/g, ' ').trim())
+  }
   return result
 }
 
@@ -196,6 +202,83 @@ export function configurationIssues(config: ETL): ConfigurationIssue[] {
       )
     )
       add(`${path}.column`, 'max_age_days hanya untuk kolom tanggal/waktu.')
+  }
+  const metricTerms = new Map<string, string>()
+  for (const [index, metric] of config.semantic.metrics.entries()) {
+    const path = `semantic.metrics[${index}] (${metric.code})`
+    if (metric.label.length > 200) add(`${path}.label`, 'Label maksimal 200 karakter.')
+    if ((metric.description || '').length > 1000)
+      add(`${path}.description`, 'Definisi bisnis maksimal 1000 karakter.')
+    if ((metric.unit || '').length > 40) add(`${path}.unit`, 'Unit maksimal 40 karakter.')
+    const synonyms = metric.synonyms || []
+    const period = metric.default_period
+    const metricFilters = metric.filters || []
+    if (metricFilters.length > 10) add(`${path}.filters`, 'Maksimal 10 filter tetap per metrik.')
+    for (const [filterIndex, filter] of metricFilters.entries()) {
+      const filterPath = `${path}.filters[${filterIndex}]`
+      if (
+        !config.columns.some(
+          (column) =>
+            column.target_column === filter.field &&
+            ['NONE', 'LOW'].includes(column.pii_classification),
+        )
+      )
+        add(`${filterPath}.field`, 'Filter wajib memakai kolom publik.')
+      const arrayOperator = ['in', 'between'].includes(filter.operator)
+      if (
+        (arrayOperator &&
+          (!Array.isArray(filter.value) ||
+            filter.value.length < 1 ||
+            filter.value.length > 100 ||
+            (filter.operator === 'between' && filter.value.length !== 2))) ||
+        (!arrayOperator && Array.isArray(filter.value))
+      )
+        add(`${filterPath}.value`, 'in memakai array 1..100; between tepat dua nilai.')
+    }
+    if (
+      period &&
+      (!Number.isInteger(period.days) ||
+        period.days < 1 ||
+        period.days > 3660 ||
+        !config.semantic.dimensions.includes(period.dimension) ||
+        !config.columns.some(
+          (column) =>
+            column.target_column === period.dimension &&
+            ['date', 'timestamp', 'timestamptz'].includes(column.target_type) &&
+            ['NONE', 'LOW'].includes(column.pii_classification),
+        ))
+    )
+      add(`${path}.default_period`, 'Pilih dimensi tanggal publik dan jumlah hari integer 1..3660.')
+    if (
+      synonyms.length > 20 ||
+      synonyms.some((value) => !value || value.length > 100) ||
+      new Set(synonyms.map((value) => value.toLocaleLowerCase())).size !== synonyms.length
+    )
+      add(
+        `${path}.synonyms`,
+        'Maksimal 20 sinonim, masing-masing 1..100 karakter dan unik tanpa membedakan kapital.',
+      )
+    for (const term of [metric.code, metric.label, ...synonyms]) {
+      const normalized = term.replace(/\s+/g, ' ').trim().toLocaleLowerCase()
+      if (!normalized) continue
+      const owner = metricTerms.get(normalized)
+      if (owner && owner !== metric.code)
+        add(`${path}.synonyms`, `Istilah “${term}” juga mengidentifikasi metrik ${owner}.`)
+      else metricTerms.set(normalized, metric.code)
+    }
+    const policy = metric.null_handling ?? 'PRESERVE'
+    const type = config.columns.find((c) => c.target_column === metric.column)?.target_type
+    if (
+      !['PRESERVE', 'ZERO_RESULT'].includes(policy) ||
+      (policy === 'ZERO_RESULT' &&
+        !['count', 'count_distinct'].includes(metric.aggregation) &&
+        !['integer', 'bigint', 'numeric'].includes(type || ''))
+    ) {
+      add(
+        `semantic.metrics[${index}].null_handling`,
+        'ZERO_RESULT hanya untuk hasil agregat numerik. Gunakan PRESERVE untuk min/max teks atau tanggal.',
+      )
+    }
   }
   return issues
 }

@@ -128,10 +128,21 @@ export interface Quality {
   default_value: string | number | boolean | null
 }
 export interface Metric {
+  null_handling?: 'PRESERVE' | 'ZERO_RESULT'
+  unit?: string | null
+  synonyms?: string[]
+  description?: string
+  default_period?: { dimension: string; days: number } | null
+  filters?: MetricFilter[]
   code: string
   label: string
   column: string
   aggregation: string
+}
+export interface MetricFilter {
+  field: string
+  operator: 'eq' | 'in' | 'between' | 'gte' | 'lte' | 'gt' | 'lt'
+  value: string | number | boolean | Array<string | number>
 }
 export interface ETL {
   schema_version: string

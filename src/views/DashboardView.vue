@@ -2,9 +2,17 @@
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
+import ProductMetadata from '@/components/ProductMetadata.vue'
 import { api, downloadFile, type ApiEnvelope } from '@/lib/api'
 import { call, user, roles } from '@/lib/etl'
-import { emptyPlan, type Product, type QueryPlan, type Row, type SavedQuery } from '@/lib/catalog'
+import {
+  emptyPlan,
+  type Product,
+  type QueryPlan,
+  type Row,
+  type SavedQuery,
+  type VisualizationSpec,
+} from '@/lib/catalog'
 import { useTask } from '@/lib/tasks'
 const ResultChart = defineAsyncComponent(() => import('@/components/charts/ResultChart.vue'))
 const { busy, error, notice, run } = useTask()
@@ -126,6 +134,15 @@ async function runTemplate(template: SavedQuery) {
   )
   rows.value = result.data.data
   meta.value = result.data.meta
+  plan.value = structuredClone(template.plan)
+}
+function updateVisualization(spec: VisualizationSpec) {
+  const previous = lastQuery.value
+  plan.value.visualization = spec
+  if (previous) {
+    previous.plan.visualization = spec
+    lastQuery.value = previous
+  }
 }
 async function reportQuery() {
   if (
@@ -214,6 +231,18 @@ watch(
         >
         <template v-if="product">
           <p>{{ product.description }}</p>
+          <ProductMetadata
+            :key="product.id"
+            :product="product"
+            :disabled="busy"
+            @saved="
+              (updated) => {
+                products = products.map((p) => (p.id === updated.id ? updated : p))
+                lastQuery = null
+              }
+            "
+            @reload="run(load)"
+          />
           <p class="muted">
             Versi {{ product.version }} · pembaruan data {{ product.freshness_version }}
           </p>
@@ -239,6 +268,31 @@ watch(
                   :disabled="plan.metrics.length >= 20 && !plan.metrics.includes(metric.code)"
                 />{{ metric.label || metric.code }}</label
               >
+              <p
+                v-for="metric in product.metrics.filter(
+                  (m) => m.unit || m.synonyms?.length || m.default_period || m.filters?.length,
+                )"
+                :key="`metadata-${metric.code}`"
+                class="muted"
+              >
+                {{ metric.code }}: unit {{ metric.unit || 'belum diisi' }}; sinonim
+                {{ metric.synonyms?.join(', ') || 'belum diisi' }}; periode default
+                {{
+                  metric.default_period
+                    ? `${metric.default_period.days} hari via ${metric.default_period.dimension}`
+                    : 'tidak ada'
+                }}; filter tetap
+                {{
+                  metric.filters?.length
+                    ? metric.filters
+                        .map(
+                          (filter) =>
+                            `${filter.field} ${filter.operator} ${JSON.stringify(filter.value)}`,
+                        )
+                        .join(', ')
+                    : 'tidak ada'
+                }}.
+              </p>
             </div>
           </div>
           <h3>Filter (semua kondisi harus sesuai)</h3>
@@ -325,7 +379,12 @@ watch(
       <p v-if="meta.query_source">
         Sumber: {{ meta.query_source }} · cache: {{ meta.cached ? 'ya' : 'tidak' }}
       </p>
-      <ResultChart v-if="rows.length" :rows="rows" />
+      <ResultChart
+        v-if="rows.length"
+        :rows="rows"
+        :visualization="plan.visualization"
+        @change="updateVisualization"
+      />
       <div v-if="lastQuery" class="toolbar">
         <button
           :disabled="busy || lastQuery.plan.offset === 0"

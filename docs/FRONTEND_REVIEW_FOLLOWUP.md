@@ -25,3 +25,25 @@ sudah ditangani di frontend.
 
 Pengujian browser menggunakan mock API. Kredensial/kualitas provider, masking aktual,
 otorisasi tenant dan deployment backend tetap memerlukan pengujian integrasi lingkungan tujuan.
+
+## Default DQ bertipe (BE12)
+
+- Input default memakai JSON scalar secara eksplisit. `null` atau input kosong
+  menonaktifkan default; `""` adalah string kosong. `"0"`, `"false"`, dan `"null"`
+  tetap string setelah simpan dan muat ulang.
+- Array, object, JSON rusak, angka non-finite dan integer di luar batas aman JavaScript
+  ditolak sebelum request simpan. Gunakan string untuk angka besar/presisi exact.
+- Input yang belum valid menahan simpan, dry-run, dan submission; pesan muncul di
+  field terkait. Menghapus rule juga menghapus blocker field tersebut.
+- Tes unit memeriksa parsing/round-trip scalar; tes browser memeriksa payload PATCH,
+  reload dan pemulihan input. Pengujian browser menggunakan mock API.
+
+## Pemulihan draft versi BE13
+
+Konflik revision, versi dasar stale, atau snapshot immutable menahan simpan/publikasi
+ulang tanpa membuang edit lokal. Muat ulang snapshot untuk mengambil revision aktual
+dan meninjau kembali; tidak ada retry mutation otomatis. Draft dengan base_version
+berbeda dari registry aktif tidak dapat disimpan atau dipublikasikan.
+Konfirmasi publikasi direset ketika diff registry atau versi aktif berubah. Respons
+snapshot/mutation dari sesi atau komponen lama tidak mengisi state baru.
+Tes browser memakai mock API; otorisasi dan konkurensi PostgreSQL tetap diuji di backend.

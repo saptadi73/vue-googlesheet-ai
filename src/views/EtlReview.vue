@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { formatDefaultScalar, parseDefaultScalar } from '@/lib/defaultScalar'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
@@ -53,6 +54,8 @@ import {
   type Preview,
   type Config,
   type Job,
+  type Metric,
+  type MetricFilter,
   type Validation,
 } from '@/lib/etl'
 const route = useRoute(),
@@ -72,6 +75,14 @@ const error = ref(''),
   step = ref(0),
   comment = ref('')
 const fieldIssues = ref<ConfigurationIssue[]>([])
+const defaultInputs = ref(new Map<Quality, string>())
+const hasInvalidDefaults = computed(
+  () => draft.value?.data_quality_rules.some((q) => !!defaultValueError(q)) ?? false,
+)
+function defaultValueError(q: Quality) {
+  const result = parseDefaultScalar(defaultValueText(q))
+  return result.valid ? '' : result.error
+}
 const answers = ref<Record<string, string>>({}),
   resolved = ref<string[]>([])
 const checkedColumns = ref<string[]>([]),
@@ -92,7 +103,8 @@ const reviewer = computed(() => !!user.value && reviewRoles.includes(user.value.
 const dirty = computed(
   () =>
     !!draft.value &&
-    (JSON.stringify(draft.value) !== JSON.stringify(record.value?.configuration_json) ||
+    (hasInvalidDefaults.value ||
+      JSON.stringify(draft.value) !== JSON.stringify(record.value?.configuration_json) ||
       resolved.value.length > 0 ||
       Object.values(answers.value).some(Boolean)),
 )
@@ -120,6 +132,13 @@ const appendPolicyAvailable = computed(
 )
 const publicColumns = computed(
   () => draft.value?.columns.filter((c) => ['NONE', 'LOW'].includes(c.pii_classification)) || [],
+)
+const temporalDimensions = computed(() =>
+  publicColumns.value.filter(
+    (column) =>
+      draft.value?.semantic.dimensions.includes(column.target_column) &&
+      ['date', 'timestamp', 'timestamptz'].includes(column.target_type),
+  ),
 )
 const unusedHeaders = computed(
   () =>
@@ -155,6 +174,7 @@ async function load() {
   if (epoch !== generation) return
   details.value = result
   parameterCatalog.value = catalog
+  defaultInputs.value.clear()
   draft.value = copy(result.configuration.configuration_json)
   answers.value = {}
   resolved.value = []
@@ -165,6 +185,8 @@ async function load() {
 }
 function payload() {
   if (!draft.value || !record.value) throw new Error('Draft belum tersedia.')
+  if (hasInvalidDefaults.value)
+    throw new Error('Perbaiki default value yang tidak valid sebelum menyimpan.')
   const configuration = normalizeConfiguration(draft.value),
     question_answers: Record<string, string> = {}
   fieldIssues.value = configurationIssues(configuration)
@@ -366,27 +388,49 @@ function qualityValue(q: Quality, event: Event) {
         : Number(value)
 }
 function defaultValueInput(q: Quality, event: Event) {
-  const value = (event.target as HTMLInputElement).value
-  if (value === '') {
-    q.default_value = null
-    return
-  }
-  try {
-    const parsed: unknown = JSON.parse(value)
-    q.default_value =
-      typeof parsed === 'string' || typeof parsed === 'number' || typeof parsed === 'boolean'
-        ? parsed
-        : value
-  } catch {
-    q.default_value = value
-  }
+  const text = (event.target as HTMLInputElement).value
+  defaultInputs.value.set(q, text)
+  const result = parseDefaultScalar(text)
+  if (result.valid) q.default_value = result.value
 }
 function defaultValueText(q: Quality) {
-  return q.default_value === null || q.default_value === undefined
-    ? ''
-    : typeof q.default_value === 'string'
-      ? q.default_value
-      : JSON.stringify(q.default_value)
+  return defaultInputs.value.get(q) ?? formatDefaultScalar(q.default_value)
+}
+function metricSynonymsInput(metric: Metric, event: Event) {
+  metric.synonyms = (event.target as HTMLTextAreaElement).value
+    .split('\n')
+    .map((value) => value.trim())
+    .filter(Boolean)
+}
+function metricPeriodDimension(metric: Metric, event: Event) {
+  const dimension = (event.target as HTMLSelectElement).value
+  metric.default_period = dimension ? { dimension, days: metric.default_period?.days || 30 } : null
+}
+function metricFilterText(value: MetricFilter['value']) {
+  return typeof value === 'string' ? value : JSON.stringify(value)
+}
+function metricFilterValue(filter: MetricFilter, event: Event) {
+  const text = (event.target as HTMLInputElement).value
+  try {
+    const parsed: unknown = JSON.parse(text)
+    filter.value =
+      typeof parsed === 'string' ||
+      typeof parsed === 'number' ||
+      typeof parsed === 'boolean' ||
+      (Array.isArray(parsed) && parsed.every((item) => ['string', 'number'].includes(typeof item)))
+        ? (parsed as MetricFilter['value'])
+        : text
+  } catch {
+    filter.value = text
+  }
+}
+function addMetricFilter(metric: Metric) {
+  metric.filters ||= []
+  metric.filters.push({
+    field: publicColumns.value[0]?.target_column || '',
+    operator: 'eq',
+    value: '',
+  })
 }
 function setConversion(c: Column, kind: 'none' | 'unit' | 'currency') {
   c.unit_conversion =
@@ -441,6 +485,7 @@ watch(
     clearTimeout(timer)
     details.value = null
     fieldIssues.value = []
+    defaultInputs.value.clear()
     draft.value = null
     preview.value = null
     job.value = null
@@ -916,10 +961,19 @@ onBeforeRouteUpdate(confirmLeave)
               /></label>
               <label
                 >Default value (JSON scalar)<input
+                  aria-label="Default value (JSON scalar)"
                   :value="defaultValueText(q)"
-                  @change="defaultValueInput(q, $event)"
+                  :aria-invalid="!!defaultValueError(q)"
+                  :aria-describedby="`default-help-${i}`"
+                  @input="defaultValueInput(q, $event)"
                   placeholder='0, false, "teks", null'
-              /></label>
+                /><span :id="`default-help-${i}`" :class="defaultValueError(q) ? 'error' : 'muted'">
+                  {{
+                    defaultValueError(q) ||
+                    'Kosong atau null menonaktifkan default. Gunakan tanda kutip untuk teks, termasuk "0", "false", dan string kosong "".'
+                  }}
+                </span></label
+              >
             </div>
             <button class="danger" @click="draft.data_quality_rules.splice(i, 1)">
               Hapus aturan
@@ -1005,7 +1059,7 @@ onBeforeRouteUpdate(confirmLeave)
           <div v-for="(m, i) in draft.semantic.metrics" :key="i" class="card-row">
             <div class="grid">
               <label>Kode metrik<input v-model="m.code" /></label
-              ><label>Label<input v-model="m.label" /></label
+              ><label>Label<input v-model="m.label" maxlength="200" /></label
               ><label
                 >Kolom<select v-model="m.column">
                   <option v-for="c in publicColumns" :key="c.target_column">
@@ -1023,6 +1077,100 @@ onBeforeRouteUpdate(confirmLeave)
                 </select></label
               >
             </div>
+            <label
+              >Definisi bisnis<textarea
+                v-model="m.description"
+                rows="2"
+                maxlength="1000"
+                placeholder="Contoh: total nilai transaksi setelah diskon"
+              />
+            </label>
+            <div class="grid">
+              <label
+                >Unit<input v-model="m.unit" maxlength="40" placeholder="IDR, KG, persen" /></label
+              ><label
+                >Sinonim, satu per baris<textarea
+                  :value="(m.synonyms || []).join('\n')"
+                  rows="3"
+                  placeholder="Pendapatan bersih&#10;Net revenue"
+                  @input="metricSynonymsInput(m, $event)"
+                />
+              </label>
+            </div>
+            <div class="grid">
+              <label
+                >Dimensi periode default<select
+                  :value="m.default_period?.dimension || ''"
+                  @change="metricPeriodDimension(m, $event)"
+                >
+                  <option value="">Tanpa periode default</option>
+                  <option v-for="column in temporalDimensions" :key="column.target_column">
+                    {{ column.target_column }}
+                  </option>
+                </select></label
+              ><label v-if="m.default_period"
+                >Jumlah hari default<input
+                  v-model.number="m.default_period.days"
+                  type="number"
+                  min="1"
+                  max="3660"
+              /></label>
+            </div>
+            <p v-if="m.default_period" class="muted">
+              Dihitung menurut tanggal UTC dan hanya diterapkan saat dimensi ini belum memiliki
+              filter eksplisit.
+            </p>
+            <h4>Filter tetap metrik</h4>
+            <div v-for="(filter, filterIndex) in m.filters || []" :key="filterIndex" class="grid">
+              <label
+                >Kolom filter<select v-model="filter.field">
+                  <option v-for="column in publicColumns" :key="column.target_column">
+                    {{ column.target_column }}
+                  </option>
+                </select></label
+              ><label
+                >Operator filter<select v-model="filter.operator">
+                  <option
+                    v-for="operator in ['eq', 'in', 'between', 'gte', 'lte', 'gt', 'lt']"
+                    :key="operator"
+                  >
+                    {{ operator }}
+                  </option>
+                </select></label
+              ><label
+                >Nilai filter<input
+                  :value="metricFilterText(filter.value)"
+                  placeholder='Jakarta atau ["A","B"]'
+                  @input="metricFilterValue(filter, $event)"
+              /></label>
+              <button class="danger" @click="m.filters?.splice(filterIndex, 1)">
+                Hapus filter
+              </button>
+            </div>
+            <button
+              :disabled="(m.filters?.length || 0) >= 10 || !publicColumns.length"
+              @click="addMetricFilter(m)"
+            >
+              Tambah filter metrik
+            </button>
+            <label
+              >Hasil agregat null
+              <select
+                :value="m.null_handling || 'PRESERVE'"
+                @change="
+                  m.null_handling = ($event.target as HTMLSelectElement).value as
+                    'PRESERVE' | 'ZERO_RESULT'
+                "
+              >
+                <option value="PRESERVE">Pertahankan null</option>
+                <option value="ZERO_RESULT">Tampilkan 0 untuk hasil numerik</option>
+              </select>
+            </label>
+            <p class="muted">
+              ZERO_RESULT mengganti hasil agregat null dengan 0. Baris null tetap diabaikan saat
+              AVG; tidak membuat kelompok data yang hilang. Perubahan berlaku setelah review dan
+              deployment konfigurasi.
+            </p>
             <button class="danger" @click="draft.semantic.metrics.splice(i, 1)">
               Hapus metrik
             </button>
@@ -1032,8 +1180,14 @@ onBeforeRouteUpdate(confirmLeave)
               draft.semantic.metrics.push({
                 code: '',
                 label: '',
+                description: '',
+                synonyms: [],
+                unit: null,
+                default_period: null,
+                filters: [],
                 column: publicColumns[0]?.target_column || '',
                 aggregation: 'count',
+                null_handling: 'PRESERVE',
               })
             "
           >
@@ -1235,7 +1389,9 @@ onBeforeRouteUpdate(confirmLeave)
         </p>
         <p>
           Mapping taxonomy ada di tab 04 (U/V/W); simpan dan approve binding registry lebih dahulu.
-          Rule in_taxonomy ada di tab 05. Policy APPEND tanpa key ada di 14 Review!B8. Gunakan
+          Rule in_taxonomy ada di tab 05. Metadata metrik ada di tab 11: C definisi bisnis, D
+          sinonim array JSON, H filter JSON, I dimensi tanggal, J jumlah hari default, K unit, dan M
+          null handling PRESERVE/ZERO_RESULT. Policy APPEND tanpa key ada di 14 Review!B8. Gunakan
           workbook terbaru dari backend; sel identitas dan normalisasi tetap dilindungi.
         </p>
         <div class="toolbar">
@@ -1317,7 +1473,12 @@ onBeforeRouteUpdate(confirmLeave)
       <div class="toolbar sticky-actions">
         <button v-if="step > 0" @click="step--">Sebelumnya</button
         ><button v-if="step < 6" @click="step++">Berikutnya</button
-        ><button v-if="canEdit" class="primary" :disabled="busy || !dirty" @click="run(save)">
+        ><button
+          v-if="canEdit"
+          class="primary"
+          :disabled="busy || !dirty || hasInvalidDefaults"
+          @click="run(save)"
+        >
           <Spinner v-if="busy" :size="14" /><Save v-else class="icon" :size="14" />Simpan draft</button
         ><button :disabled="busy || dirty" @click="run(validate)">
           <RefreshCw class="icon" :size="14" />Dry-run ulang
