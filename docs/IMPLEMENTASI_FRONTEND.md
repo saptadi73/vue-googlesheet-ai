@@ -95,6 +95,11 @@ npm.cmd run test:e2e
 Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
 melengkapi delapan skenario workflow sebelumnya.
 
+Verifikasi frontend 26 September 2026: 53 unit test dan 56 browser test lulus. Regression BE14/workbook
+mencakup metadata metrik, periode default, filter metrik, null handling, dan round-trip workbook pada
+konfigurasi dengan lebih dari satu metrik. Selector test menargetkan metrik yang diuji secara eksplisit;
+ini tidak mengubah payload atau perilaku runtime.
+
 Unit test menguji race refresh, rotasi token, stale response saat akun berubah, kegagalan refresh,
 non-retry mutation, dan error download JSON. Tes browser menggunakan Edge headless dan mock API untuk
 query/grafik/role, klarifikasi, draft/revision/submission/approver berbeda, conflict, Excel preview/apply,

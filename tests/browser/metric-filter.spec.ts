@@ -8,7 +8,7 @@ test('reviewed metric filter saves structured allowlisted values and blocks inva
   await page.goto(`/configurations/${configId}/review`)
   await login(page)
   await page.getByRole('button', { name: '6. Analitik & akses' }).click()
-  await page.getByRole('button', { name: 'Tambah filter metrik' }).click()
+  await page.getByRole('button', { name: 'Tambah filter metrik' }).first().click()
   await page.getByRole('combobox', { name: 'Kolom filter' }).selectOption('branch_name')
   await page.getByRole('combobox', { name: 'Operator filter' }).selectOption('in')
   await page.getByRole('textbox', { name: 'Nilai filter' }).fill('["Jakarta","Bandung"]')

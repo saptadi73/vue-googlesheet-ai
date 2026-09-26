@@ -9,10 +9,14 @@ test('metric metadata is saved in the reviewed ETL configuration and conflicts s
   await login(page)
   await page.getByRole('button', { name: '6. Analitik & akses' }).click()
 
-  await page.getByRole('textbox', { name: 'Definisi bisnis' }).fill(' Total setelah diskon ')
-  await page.getByRole('textbox', { name: 'Unit', exact: true }).fill(' IDR ')
+  await page
+    .getByRole('textbox', { name: 'Definisi bisnis' })
+    .first()
+    .fill(' Total setelah diskon ')
+  await page.getByRole('textbox', { name: 'Unit', exact: true }).first().fill(' IDR ')
   await page
     .getByRole('textbox', { name: 'Sinonim, satu per baris' })
+    .first()
     .fill('Pendapatan   bersih\nNet revenue')
   await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Draft tersimpan' })).toBeVisible()
@@ -24,7 +28,7 @@ test('metric metadata is saved in the reviewed ETL configuration and conflicts s
     unit: 'IDR',
     synonyms: ['Pendapatan bersih', 'Net revenue'],
   })
-  await expect(page.getByRole('textbox', { name: 'Definisi bisnis' })).toHaveValue(
+  await expect(page.getByRole('textbox', { name: 'Definisi bisnis' }).first()).toHaveValue(
     'Total setelah diskon',
   )
 

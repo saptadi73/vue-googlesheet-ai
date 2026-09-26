@@ -25,6 +25,7 @@ test('metric default period is saved in reviewed configuration and invalid days 
 
   await page
     .getByRole('combobox', { name: 'Dimensi periode default' })
+    .first()
     .selectOption('transaction_date')
   await page.getByRole('spinbutton', { name: 'Jumlah hari default' }).fill('30')
   await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()

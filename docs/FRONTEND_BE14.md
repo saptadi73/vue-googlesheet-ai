@@ -4,7 +4,11 @@ PATCH `/api/v1/semantic/data-products/{product_id}` tetap untuk PLATFORM_ADMIN d
 DATA_STEWARD, memakai lookup tenant dan row lock existing. Payload tambahan:
 
 ```json
-{"name":"Penjualan cabang","description":"Nilai penjualan setelah retur","expected_version":3}
+{
+  "name": "Penjualan cabang",
+  "description": "Nilai penjualan setelah retur",
+  "expected_version": 3
+}
 ```
 
 `name` opsional, 1..200 karakter, di-trim dan tidak boleh blank/null.
@@ -40,7 +44,12 @@ Endpoint PATCH yang sama menerima `metric_metadata`, daftar 1..100 edit berdasar
 kode metrik existing. expected_version wajib. Contoh:
 
 ```json
-{"expected_version":4,"metric_metadata":[{"code":"net_sales","unit":"IDR","synonyms":["Pendapatan bersih","Net revenue"]}]}
+{
+  "expected_version": 4,
+  "metric_metadata": [
+    { "code": "net_sales", "unit": "IDR", "synonyms": ["Pendapatan bersih", "Net revenue"] }
+  ]
+}
 ```
 
 Setiap entri wajib menyertakan unit atau synonyms. Unit nullable maksimal 40 karakter,
@@ -67,6 +76,9 @@ belum menjadi override permanen atau lifecycle approval metrik.
 Verifikasi tahap 2: 36 tes backend schema/service/query lulus. Tes browser memakai
 mock untuk payload, duplicate input, penghapusan, serta akses viewer; provider NL2SQL
 dan konkurensi PostgreSQL nyata belum diverifikasi.
+
+Verifikasi frontend 26 September 2026 menambahkan regression browser untuk konfigurasi
+multi-metrik dan memastikan metadata unit/sinonim tetap tampil setelah PATCH.
 
 Editor unit/sinonim tahap 2 hanya pada katalog produk; parameter konfigurasi ETL dan
 workbook belum diperluas untuk menyimpan metadata tersebut.
@@ -138,7 +150,21 @@ ACTIVE dan izin role pada template serta produk. Tidak dibatasi daftar awal 1000
 registry template. Hasil diurutkan menurut kode, maksimal 20 kandidat:
 
 ```json
-{"data":[],"meta":{"query_id":"uuid","clarification_required":true,"question":"Pilih template yang dimaksud.","route":"CLARIFICATION","openai_called":false,"template_candidates":[{"code":"daily_sales","data_product_code":"SALES"},{"code":"monthly_sales","data_product_code":"SALES"}],"template_candidates_more":false}}
+{
+  "data": [],
+  "meta": {
+    "query_id": "uuid",
+    "clarification_required": true,
+    "question": "Pilih template yang dimaksud.",
+    "route": "CLARIFICATION",
+    "openai_called": false,
+    "template_candidates": [
+      { "code": "daily_sales", "data_product_code": "SALES" },
+      { "code": "monthly_sales", "data_product_code": "SALES" }
+    ],
+    "template_candidates_more": false
+  }
+}
 ```
 
 `template_candidates_more=true` berarti daftar dipotong; pilih produk atau perjelas

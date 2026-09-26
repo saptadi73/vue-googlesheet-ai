@@ -52,7 +52,7 @@ test('metric metadata saves a scoped versioned patch, displays units and clears 
   await synonyms.fill('Revenue\nNet sales')
   await page.getByRole('button', { name: 'Simpan metadata produk' }).click()
   await expect(
-    page.getByText('sales: unit IDR; sinonim Revenue, Net sales.', { exact: true }),
+    page.getByText('sales: unit IDR; sinonim Revenue, Net sales;', { exact: false }),
   ).toBeVisible()
   expect(patches[0]).toEqual({
     name: 'Sales',

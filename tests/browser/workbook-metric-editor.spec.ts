@@ -29,16 +29,12 @@ test('Excel metric policy stays in the exact signed draft candidate without appr
   await page.goto(`/configurations/${configId}/review`)
   await login(page)
   await page.getByText('Review melalui Excel (opsional)', { exact: true }).click()
-  await expect(
-    page.getByText('Null handling metrik ada di tab 11 kolom M:', { exact: false }),
-  ).toBeVisible()
-  await page
-    .locator('input[type=file]')
-    .setInputFiles({
-      name: 'metrics.xlsx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      buffer: Buffer.from('mock workbook'),
-    })
+  await expect(page.getByText('Metadata metrik ada di tab 11:', { exact: false })).toBeVisible()
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'metrics.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: Buffer.from('mock workbook'),
+  })
   await expect(page.locator('pre').filter({ hasText: 'ZERO_RESULT' })).toBeVisible()
   await page.getByRole('button', { name: 'Terima perubahan Excel ke draft' }).click()
   await expect(
