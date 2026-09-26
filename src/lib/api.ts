@@ -290,6 +290,14 @@ export function getApiErrorMessage(error: unknown): string {
       MASTER_MAPPING_INVALID:
         'Mapping tipe, nullability, PII dan key harus mengikuti snapshot master approved.',
       MASTER_BINDING_INVALID: 'Perbaiki error dry-run sebelum approval binding.',
+      JOIN_RELATIONSHIP_REVISION_CONFLICT:
+        'Muat ulang relationship; hanya draft dengan revision terbaru yang dapat diubah atau diputuskan.',
+      JOIN_PRODUCT_INVALID: 'Pilih dua produk data aktif yang berbeda.',
+      JOIN_COLUMN_INVALID: 'Pilih kolom yang tersedia pada metadata produk terbaru.',
+      AI_TASK_POLICY_REVISION_CONFLICT:
+        'Muat ulang AI task policy; hanya draft dengan revision terbaru yang dapat diputuskan.',
+      AI_MODEL_NOT_ALLOWLISTED:
+        'Pilih model yang terdaftar pada allowlist server. API key tetap dikelola melalui environment.',
       CONFIGURATION_CONFLICT: 'Muat ulang revisi terbaru sebelum menyimpan kembali.',
       WORKBOOK_STALE: 'Unduh workbook dari draft terbaru.',
       WORKBOOK_PREVIEW_STALE: 'Lakukan preview ulang sebelum menerapkan Excel.',

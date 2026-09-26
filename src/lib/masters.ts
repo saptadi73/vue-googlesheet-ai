@@ -177,12 +177,15 @@ export function validateDefinition(definition: MasterDefinition) {
       fields.get(period.valid_from_column)?.type !== fields.get(period.valid_to_column)?.type)
   )
     throw new Error('Masa berlaku membutuhkan dua field tanggal/waktu berbeda dengan tipe sama.')
-  if (period && (
-    !definition.business_key.includes(period.valid_from_column) ||
-    !definition.business_key.some((key) => key !== period.valid_from_column) ||
-    definition.business_key.includes(period.valid_to_column)
-  ))
-    throw new Error('Business key versi wajib mencakup awal masa berlaku dan key entitas; akhir masa berlaku tidak boleh menjadi key.')
+  if (
+    period &&
+    (!definition.business_key.includes(period.valid_from_column) ||
+      !definition.business_key.some((key) => key !== period.valid_from_column) ||
+      definition.business_key.includes(period.valid_to_column))
+  )
+    throw new Error(
+      'Business key versi wajib mencakup awal masa berlaku dan key entitas; akhir masa berlaku tidak boleh menjadi key.',
+    )
   if (
     definition.policy.source_conflict_policy === 'AUTHORITATIVE_SOURCE' &&
     !definition.policy.authoritative_source_sheet_id
@@ -213,6 +216,7 @@ export function bindingColumns(
       is_business_key: definition.business_key.includes(field.name),
       is_primary_key: false,
       transformation_codes: [...choice.transforms],
+      transform_parameters: [],
       business_name: field.name,
       confidence: 1,
       reason: 'Mapping direview pengguna terhadap versi master approved.',

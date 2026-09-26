@@ -56,6 +56,7 @@ export function normalizeConfiguration(draft: ETL): ETL {
         : value
   const result = clone(draft) as ETL
   for (const column of result.columns) {
+    column.transform_parameters ||= []
     for (const key of [
       'numeric_precision',
       'numeric_scale',
@@ -93,6 +94,49 @@ export function configurationIssues(config: ETL): ConfigurationIssue[] {
   }
   for (const [index, c] of config.columns.entries()) {
     const path = `columns[${index}] (${c.source_column})`
+    const parameters = c.transform_parameters || []
+    const parameterized = ['prefix', 'suffix', 'replace']
+    const operations = parameters.map((item) => item.operation)
+    if (parameters.length > 10)
+      add(`${path}.transform_parameters`, 'Maksimal 10 parameter transform.')
+    if (parameters.length && !['text', 'varchar'].includes(c.target_type))
+      add(`${path}.transform_parameters`, 'Parameter transform hanya untuk target text/varchar.')
+    if (new Set(operations).size !== operations.length)
+      add(`${path}.transform_parameters`, 'Setiap operasi parameter hanya boleh muncul sekali.')
+    for (const operation of parameterized) {
+      const inCodes = c.transformation_codes.includes(operation)
+      const parameter = parameters.find((item) => item.operation === operation)
+      if (inCodes && !parameter)
+        add(`${path}.transform_parameters`, `Transform ${operation} memerlukan parameter.`)
+      if (!inCodes && parameter)
+        add(
+          `${path}.transform_parameters`,
+          `Parameter ${operation} tidak memiliki langkah transform.`,
+        )
+      if (!parameter) continue
+      if (parameter.value.length > 500)
+        add(`${path}.transform_parameters.${operation}.value`, 'Nilai maksimal 500 karakter.')
+      if (operation === 'replace') {
+        if (parameter.replacement == null)
+          add(
+            `${path}.transform_parameters.replace.replacement`,
+            'Replacement wajib diisi; string kosong diperbolehkan.',
+          )
+        else if (parameter.replacement.length > 500)
+          add(
+            `${path}.transform_parameters.replace.replacement`,
+            'Replacement maksimal 500 karakter.',
+          )
+      } else if (parameter.replacement != null) {
+        add(
+          `${path}.transform_parameters.${operation}.replacement`,
+          'Replacement hanya berlaku untuk replace.',
+        )
+      }
+    }
+    for (const operation of operations)
+      if (!parameterized.includes(operation))
+        add(`${path}.transform_parameters`, `Operasi parameter ${operation} tidak didukung.`)
     integer(c.numeric_precision, 1, 100, `${path}.numeric_precision`)
     integer(c.numeric_scale, 0, 50, `${path}.numeric_scale`)
     integer(c.varchar_length, 1, 10485760, `${path}.varchar_length`)

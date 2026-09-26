@@ -28,6 +28,11 @@ const router = createRouter({
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
     },
     {
+      path: '/governance',
+      component: () => import('@/views/GovernanceView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
+    },
+    {
       path: '/import-reviews',
       component: () => import('@/views/ImportReviewsView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },

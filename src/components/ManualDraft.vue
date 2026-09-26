@@ -26,6 +26,7 @@ async function create() {
       is_business_key: false,
       is_primary_key: false,
       transformation_codes: [],
+      transform_parameters: [],
       pii_classification: column.pii_suspected ? 'HIGH' : 'NONE',
       confidence: 1,
       reason: 'Mapping awal manual; periksa tipe, key, sensitivitas, dan transformasi.',

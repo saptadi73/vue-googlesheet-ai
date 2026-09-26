@@ -56,6 +56,7 @@ import {
   type Job,
   type Metric,
   type MetricFilter,
+  type TransformParameter,
   type Validation,
 } from '@/lib/etl'
 const route = useRoute(),
@@ -351,6 +352,7 @@ function addColumn() {
     is_primary_key: false,
     is_business_key: false,
     transformation_codes: [],
+    transform_parameters: [],
     pii_classification: 'NONE',
     confidence: 1,
     reason: 'Ditambahkan pengguna; periksa tipe dan sensitivitas data.',
@@ -460,6 +462,35 @@ function setConversion(c: Column, kind: 'none' | 'unit' | 'currency') {
 }
 function conversionKind(c: Column) {
   return c.unit_conversion ? 'unit' : c.currency_conversion ? 'currency' : 'none'
+}
+const parameterizedTransforms = ['prefix', 'suffix', 'replace'] as const
+type ParameterizedTransform = (typeof parameterizedTransforms)[number]
+function syncTransformParameters(c: Column) {
+  c.transform_parameters ||= []
+  c.transform_parameters = c.transform_parameters.filter((item) =>
+    c.transformation_codes.includes(item.operation),
+  )
+  for (const operation of parameterizedTransforms) {
+    if (
+      c.transformation_codes.includes(operation) &&
+      !c.transform_parameters.some((item) => item.operation === operation)
+    )
+      c.transform_parameters.push({
+        operation,
+        value: '',
+        replacement: operation === 'replace' ? '' : null,
+      })
+  }
+}
+function activeParameterizedTransforms(c: Column) {
+  return parameterizedTransforms.filter((operation) => c.transformation_codes.includes(operation))
+}
+function transformParameter(c: Column, operation: ParameterizedTransform): TransformParameter {
+  return c.transform_parameters!.find((item) => item.operation === operation)!
+}
+function removeTransform(c: Column, index: number) {
+  c.transformation_codes.splice(index, 1)
+  syncTransformParameters(c)
 }
 watch(
   draft,
@@ -845,6 +876,7 @@ onBeforeRouteUpdate(confirmLeave)
               ><select
                 v-model="c.transformation_codes[i]"
                 :aria-label="`Transformasi ${c.source_column} urutan ${i + 1}`"
+                @change="syncTransformParameters(c)"
               >
                 <option v-for="t in transforms" :key="t">{{ t }}</option></select
               ><button
@@ -861,7 +893,7 @@ onBeforeRouteUpdate(confirmLeave)
                 "
               >
                 Turun</button
-              ><button @click="c.transformation_codes.splice(i, 1)">Hapus</button>
+              ><button @click="removeTransform(c, i)">Hapus</button>
             </div>
             <button
               :disabled="c.transformation_codes.length >= 10"
@@ -869,6 +901,35 @@ onBeforeRouteUpdate(confirmLeave)
             >
               Tambah langkah
             </button>
+            <div
+              v-for="operation in activeParameterizedTransforms(c)"
+              :key="operation"
+              class="card-row"
+            >
+              <h4>Parameter {{ operation }}</h4>
+              <p class="muted">
+                Nilai statis ini dijalankan mengikuti urutan transformasi di atas.
+              </p>
+              <label v-if="operation === 'replace'"
+                >Teks yang dicari<input
+                  v-model="transformParameter(c, operation).value"
+                  :aria-label="`Nilai ${operation} ${c.source_column}`"
+                  maxlength="500"
+              /></label>
+              <label v-else
+                >Nilai {{ operation
+                }}<input
+                  v-model="transformParameter(c, operation).value"
+                  :aria-label="`Nilai ${operation} ${c.source_column}`"
+                  maxlength="500"
+              /></label>
+              <label v-if="operation === 'replace'"
+                >Teks pengganti<input
+                  v-model="transformParameter(c, operation).replacement"
+                  :aria-label="`Replacement ${c.source_column}`"
+                  maxlength="500"
+              /></label>
+            </div>
           </div>
         </template>
         <template v-if="step === 3"

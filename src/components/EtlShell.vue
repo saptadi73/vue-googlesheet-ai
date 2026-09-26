@@ -10,6 +10,7 @@ import {
   ListTree,
   LogOut,
   MessageSquare,
+  Settings2,
   ShieldCheck,
   Sparkles,
   User,
@@ -62,6 +63,9 @@ async function signOut() {
       >
       <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/taxonomies"
         ><ListTree class="icon" :size="16" />Taxonomy</RouterLink
+      >
+      <RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/governance"
+        ><Settings2 class="icon" :size="16" />Governance</RouterLink
       >
       <RouterLink
         v-if="user && [...editRoles, ...reviewRoles].includes(user.role)"

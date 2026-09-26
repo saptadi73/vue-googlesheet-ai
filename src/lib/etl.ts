@@ -52,6 +52,9 @@ export const transforms = [
   'uppercase',
   'lowercase',
   'null_if_empty',
+  'prefix',
+  'suffix',
+  'replace',
 ]
 export const roundings = ['HALF_UP', 'HALF_EVEN', 'DOWN']
 export const numberLocales = ['ID', 'US']
@@ -92,6 +95,11 @@ export interface CurrencyConversion {
   rounding: string
   on_error: string
 }
+export interface TransformParameter {
+  operation: 'prefix' | 'suffix' | 'replace'
+  value: string
+  replacement: string | null
+}
 export interface Column {
   taxonomy_id?: string | null
   taxonomy_version?: number | null
@@ -104,6 +112,7 @@ export interface Column {
   is_business_key: boolean
   is_primary_key: boolean
   transformation_codes: string[]
+  transform_parameters?: TransformParameter[]
   pii_classification: string
   confidence: number
   reason: string

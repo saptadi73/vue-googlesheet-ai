@@ -1,11 +1,12 @@
-# Implementasi frontend — 8 September 2026
+# Implementasi frontend — 26 September 2026
 
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
 Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; lihat
 [implementasi BE02/BE03](FRONTEND_BE02_BE03.md). Storage dan pencarian record BE04 tersedia melalui `/masters/:id/storage`; lihat
-[frontend BE04](FRONTEND_BE04.md). Import data master dan relasi FK otomatis
-belum tersedia pada runtime backend saat ini.
+[frontend BE04](FRONTEND_BE04.md). Import review, preview/approval/apply master,
+resolver referensi, dependency plan, pemeriksaan orphan, dan deployment FK tersedia
+melalui halaman batch, master, serta binding terkait.
 
 Binding kolom referensi master tersedia dari Workspace ETL melalui tautan **Atur
 referensi master**. Editor membuat draft per header sumber terhadap field master
@@ -24,8 +25,8 @@ parameter yang ditandai backend sebagai supported.
 
 Halaman `/taxonomies` mengelola registry taxonomy BE13: editor dapat membuat draft
 dan menambahkan term bertingkat, sedangkan reviewer dapat menyetujui taxonomy dan
-menerbitkan versi baru. Mapping otomatis dan validasi DQ taxonomy belum diekspos
-karena endpoint backend-nya belum tersedia.
+menerbitkan versi baru. Resolver, validasi nilai, rekomendasi deterministic/AI,
+mapping kolom, rule `in_taxonomy`, dan pertanyaan taxonomy pada batch sudah diekspos.
 
 Binding taxonomy per kolom tersedia melalui Workspace ETL. Editor hanya dapat memilih
 taxonomy yang aktif dan `APPROVED`, menyimpan draft dengan `revision_no` terbaru, lalu
@@ -41,6 +42,17 @@ apply dengan `preview_token` yang sama.
 
 Detail batch menampilkan evidence BE10 dari checkpoint: coverage review AI, jumlah baris
 direview, daftar field yang dimasking, dan metadata model/prompt tanpa menampilkan nilai PII.
+
+Editor konfigurasi BE12 mendukung parameter transform statis `prefix`, `suffix`, dan
+`replace`. Parameter terikat operasi, maksimal 500 karakter, hanya untuk target text/varchar,
+dan ikut payload konfigurasi serta round-trip workbook backend. Expression bebas tetap ditolak.
+
+Halaman `/governance` mengelola registry join relationship BE14 dan AI task policy BE15.
+Join relationship mendukung create/edit/approve/reject, revision, product/column,
+cardinality, join type, dan duplicate policy. Approval saat ini hanya metadata; UI
+menjelaskan bahwa structured query tetap single-product. AI policy mendukung
+create/approve/reject untuk purpose, prompt terdaftar, model aktif, dan allowlist model.
+API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan frontend.
 
 ## Perilaku penting
 
@@ -71,7 +83,9 @@ direview, daftar field yang dimasking, dan metadata model/prompt tanpa menampilk
 - **Query:** dimensi/metrik dari katalog, filter AND, tipe scalar/list/null, urutan field output, time grain,
   limit/offset. Nilai null ditampilkan sebagai — dan tidak diubah menjadi nol. CSV mengekspor halaman query
   yang ditampilkan; mengubah pilihan membatalkan tombol export sampai query dijalankan lagi.
-- **Grafik:** bar chart dari hasil API, memilih dimensi/metrik, maksimal 50 baris yang sudah dimuat.
+- **Grafik:** renderer tervalidasi untuk table, KPI, bar, line, area, pie/donut, combo,
+  scatter, dan heatmap pada Dashboard/Chat. Override manual tidak mengubah SQL/cache dan
+  renderer membatasi data yang digambar.
 - **Template:** create DRAFT, validate, activate, run ACTIVE, edit allowlist/status produk. Produk SUSPENDED
   hilang dari katalog aktif sesuai kontrak. Tidak ada edit/delete template yang tidak didukung API.
 - **Chat:** timeout 90 detik. `meta.clarification_required` ditangani sebelum empty state. Klarifikasi
@@ -95,7 +109,9 @@ npm.cmd run test:e2e
 Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
 melengkapi delapan skenario workflow sebelumnya.
 
-Verifikasi frontend 26 September 2026: 53 unit test dan 56 browser test lulus. Regression BE14/workbook
+Verifikasi frontend 26 September 2026: 54 unit test dan 58 browser test lulus. Regression BE12/BE14/BE15
+mencakup transform parameter statis, lifecycle join relationship dan AI task policy tanpa API key.
+Regression BE14/workbook
 mencakup metadata metrik, periode default, filter metrik, null handling, dan round-trip workbook pada
 konfigurasi dengan lebih dari satu metrik. Selector test menargetkan metrik yang diuji secara eksplisit;
 ini tidak mengubah payload atau perilaku runtime.

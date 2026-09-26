@@ -178,4 +178,35 @@ describe('BE12 configuration validation', () => {
       true,
     )
   })
+  it('validates and normalizes static transform parameters', () => {
+    const value = draft(),
+      column = value.columns[0]!
+    column.target_type = 'text'
+    column.numeric_precision = null
+    column.numeric_scale = null
+    column.currency_conversion = null
+    column.transformation_codes = ['trim', 'prefix', 'replace']
+    column.transform_parameters = [
+      { operation: 'prefix', value: 'ID-', replacement: null },
+      { operation: 'replace', value: 'lama', replacement: 'baru' },
+    ]
+    expect(configurationIssues(value)).toEqual([])
+    expect(normalizeConfiguration(value).columns[0]!.transform_parameters).toEqual(
+      column.transform_parameters,
+    )
+    column.transform_parameters[1]!.replacement = null
+    expect(configurationIssues(value).some((issue) => issue.field.includes('replacement'))).toBe(
+      true,
+    )
+    column.transform_parameters[1]!.replacement = ''
+    column.transformation_codes = ['trim', 'prefix']
+    expect(
+      configurationIssues(value).some((issue) => issue.message.includes('tidak memiliki langkah')),
+    ).toBe(true)
+    column.transformation_codes = ['trim', 'prefix', 'replace']
+    column.target_type = 'numeric'
+    expect(configurationIssues(value).some((issue) => issue.message.includes('text/varchar'))).toBe(
+      true,
+    )
+  })
 })
