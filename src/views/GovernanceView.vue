@@ -16,6 +16,7 @@ const products = ref<Product[]>([])
 const relationships = ref<JoinRelationship[]>([])
 const policies = ref<AITaskPolicy[]>([])
 const selectedRelationship = ref<JoinRelationship | null>(null)
+const selectedPolicy = ref<AITaskPolicy | null>(null)
 const joinForm = ref(blankJoin())
 const aiForm = ref(blankPolicy())
 const allowedModelsText = ref('')
@@ -40,9 +41,27 @@ function blankJoin() {
     duplicate_policy: 'REJECT_AMBIGUOUS' as JoinRelationship['duplicate_policy'],
   }
 }
-function blankPolicy() {
+function blankPolicy(): {
+  code: string
+  purpose: AIPurpose
+  prompt_version: string
+  model: string
+  data_product_code: string | null
+  max_context_chars: number
+  daily_budget_usd: number | null
+  fallback_model: string | null
+} {
   const purpose: AIPurpose = 'ETL_CONFIG'
-  return { code: '', purpose, prompt_version: promptByPurpose[purpose], model: '' }
+  return {
+    code: '',
+    purpose,
+    prompt_version: promptByPurpose[purpose],
+    model: '',
+    data_product_code: null,
+    max_context_chars: 200_000,
+    daily_budget_usd: null,
+    fallback_model: null,
+  }
 }
 function columnsFor(code: string) {
   return (
@@ -60,6 +79,7 @@ function selectRightProduct() {
 }
 function selectPurpose() {
   aiForm.value.prompt_version = promptByPurpose[aiForm.value.purpose]
+  if (aiForm.value.purpose !== 'NL2SQL') aiForm.value.data_product_code = null
 }
 function editRelationship(item: JoinRelationship) {
   selectedRelationship.value = item
@@ -77,6 +97,25 @@ function editRelationship(item: JoinRelationship) {
 function resetJoin() {
   selectedRelationship.value = null
   joinForm.value = blankJoin()
+}
+function editPolicy(item: AITaskPolicy) {
+  selectedPolicy.value = item
+  aiForm.value = {
+    code: item.code,
+    purpose: item.purpose,
+    prompt_version: item.prompt_version,
+    model: item.model,
+    data_product_code: item.data_product_code,
+    max_context_chars: item.max_context_chars,
+    daily_budget_usd: item.daily_budget_usd,
+    fallback_model: item.fallback_model,
+  }
+  allowedModelsText.value = item.allowed_models.join('\n')
+}
+function resetPolicy() {
+  selectedPolicy.value = null
+  aiForm.value = blankPolicy()
+  allowedModelsText.value = ''
 }
 async function load() {
   const result = await Promise.all([
@@ -99,7 +138,7 @@ async function saveRelationship() {
       { ...body, code: undefined, revision_no: selectedRelationship.value.revision_no },
     )
   else await call<JoinRelationship>('POST', '/semantic/join-relationships', body)
-  notice.value = 'Draft relationship tersimpan. JOIN query tetap belum aktif.'
+  notice.value = 'Draft relationship tersimpan.'
   resetJoin()
   await load()
 }
@@ -107,24 +146,36 @@ async function decideRelationship(item: JoinRelationship, action: 'approve' | 'r
   await call<JoinRelationship>('POST', `/semantic/join-relationships/${item.id}/${action}`, {
     revision_no: item.revision_no,
   })
-  notice.value = `Relationship ${action === 'approve' ? 'disetujui' : 'ditolak'} sebagai metadata.`
+  notice.value = `Relationship ${action === 'approve' ? 'disetujui' : 'ditolak'}.`
   await load()
 }
-async function createPolicy() {
+async function savePolicy() {
   const allowedModels = allowedModelsText.value
     .split('\n')
     .map((value) => value.trim())
     .filter((value, index, all) => value && all.indexOf(value) === index)
   if (!allowedModels.includes(aiForm.value.model.trim()))
     throw new Error('Model aktif harus tercantum pada allowlist policy.')
-  await call<AITaskPolicy>('POST', '/ai-task-policies', {
+  const fallbackModel = aiForm.value.fallback_model?.trim() || null
+  if (fallbackModel === aiForm.value.model.trim())
+    throw new Error('Fallback model harus berbeda dari model aktif.')
+  if (fallbackModel && !allowedModels.includes(fallbackModel))
+    throw new Error('Fallback model harus tercantum pada allowlist policy.')
+  const body = {
     ...aiForm.value,
     code: aiForm.value.code.trim(),
     model: aiForm.value.model.trim(),
     allowed_models: allowedModels,
-  })
-  aiForm.value = blankPolicy()
-  allowedModelsText.value = ''
+    daily_budget_usd: aiForm.value.daily_budget_usd || null,
+    fallback_model: fallbackModel,
+  }
+  if (selectedPolicy.value)
+    await call<AITaskPolicy>('PATCH', `/ai-task-policies/${selectedPolicy.value.id}`, {
+      ...body,
+      revision_no: selectedPolicy.value.revision_no,
+    })
+  else await call<AITaskPolicy>('POST', '/ai-task-policies', body)
+  resetPolicy()
   notice.value = 'AI task policy disimpan sebagai draft tanpa API key.'
   await load()
 }
@@ -145,8 +196,7 @@ watch(
     relationships.value = []
     policies.value = []
     resetJoin()
-    aiForm.value = blankPolicy()
-    allowedModelsText.value = ''
+    resetPolicy()
     comment.value = ''
     if (allowed.value) void run(load)
   },
@@ -159,8 +209,8 @@ watch(
     <p class="eyebrow">GOVERNANCE</p>
     <h1>Semantic join &amp; kebijakan AI</h1>
     <p class="muted">
-      Relationship approved saat ini hanya metadata allowlist. Structured query masih single-product
-      dan backend tetap menolak JOIN sampai compiler multi-product selesai.
+      Relationship APPROVED dapat dipilih pada Dashboard untuk structured query multi-product.
+      Backend tetap memeriksa arah path, akses produk, tenant dan row scope, PII, serta risiko agregasi.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
@@ -299,7 +349,22 @@ watch(
           {{ item.purpose }} · {{ item.prompt_version }} · model {{ item.model }} · revisi
           {{ item.revision_no }}
         </p>
+        <p class="muted">
+          Scope dataset: {{ item.data_product_code || 'global untuk purpose' }}
+        </p>
         <p class="muted">Allowlist: {{ item.allowed_models.join(', ') }}</p>
+        <p class="muted">
+          Batas konteks: {{ item.max_context_chars.toLocaleString('id-ID') }} karakter &middot; budget
+          harian: {{ item.daily_budget_usd === null ? 'tanpa batas policy' : `$${item.daily_budget_usd}` }}
+          &middot; fallback: {{ item.fallback_model || 'tidak ada' }}
+        </p>
+        <button
+          v-if="policyEditor && item.status === 'DRAFT'"
+          :disabled="busy"
+          @click="editPolicy(item)"
+        >
+          Edit AI policy
+        </button>
         <div v-if="policyReviewer && item.status === 'DRAFT'" class="toolbar">
           <button
             class="primary"
@@ -318,8 +383,8 @@ watch(
       </label>
     </section>
 
-    <form v-if="policyEditor" class="panel" @submit.prevent="run(createPolicy)">
-      <h2>Buat AI task policy</h2>
+    <form v-if="policyEditor" class="panel" @submit.prevent="run(savePolicy)">
+      <h2>{{ selectedPolicy ? 'Edit AI task policy' : 'Buat AI task policy' }}</h2>
       <fieldset :disabled="busy">
         <div class="grid">
           <label
@@ -338,6 +403,37 @@ watch(
           >
           <label>Prompt version<input v-model="aiForm.prompt_version" readonly /></label>
           <label>Model aktif<input v-model="aiForm.model" required maxlength="100" /></label>
+          <label
+            >Fallback model<input
+              v-model="aiForm.fallback_model"
+              maxlength="100"
+              placeholder="Opsional; harus ada di allowlist"
+          /></label>
+          <label
+            >Batas konteks (karakter)<input
+              v-model.number="aiForm.max_context_chars"
+              type="number"
+              min="1000"
+              max="2000000"
+              required
+          /></label>
+          <label
+            >Budget harian policy (USD)<input
+              v-model.number="aiForm.daily_budget_usd"
+              type="number"
+              min="0.01"
+              max="1000000"
+              step="0.01"
+              placeholder="Opsional"
+          /></label>
+          <label v-if="aiForm.purpose === 'NL2SQL'"
+            >Data product<select v-model="aiForm.data_product_code">
+              <option :value="null">Global untuk NL2SQL</option>
+              <option v-for="product in products" :key="product.id" :value="product.code">
+                {{ product.code }} · {{ product.name }}
+              </option>
+            </select></label
+          >
         </div>
         <label
           >Model yang diizinkan (satu per baris)<textarea
@@ -346,7 +442,10 @@ watch(
             placeholder="gpt-5.1"
           />
         </label>
-        <button class="primary">Simpan draft AI policy</button>
+        <div class="toolbar">
+          <button class="primary">Simpan draft AI policy</button>
+          <button v-if="selectedPolicy" type="button" @click="resetPolicy">Batal edit policy</button>
+        </div>
       </fieldset>
     </form>
   </EtlShell>

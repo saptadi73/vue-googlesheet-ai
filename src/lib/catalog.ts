@@ -13,6 +13,7 @@ export interface Product {
   freshness_version: number
 }
 export interface QueryPlan {
+  join_relationships: string[]
   metrics: string[]
   dimensions: string[]
   filters: { field: string; operator: string; value: unknown }[]
@@ -43,6 +44,7 @@ export interface SavedQuery {
 export type Row = Record<string, unknown>
 export function emptyPlan(): QueryPlan {
   return {
+    join_relationships: [],
     metrics: [],
     dimensions: [],
     filters: [],

@@ -27,6 +27,10 @@ export interface AITaskPolicy {
   prompt_version: string
   model: string
   allowed_models: string[]
+  data_product_code: string | null
+  max_context_chars: number
+  daily_budget_usd: number | null
+  fallback_model: string | null
   revision_no: number
   status: 'DRAFT' | 'APPROVED' | 'REJECTED'
   created_by: string

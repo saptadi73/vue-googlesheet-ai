@@ -4,6 +4,7 @@ export const configId = '77777777-7777-4777-8777-777777777777'
 export const sheetId = '22222222-2222-4222-8222-222222222222'
 export const sourceId = '11111111-1111-4111-8111-111111111111'
 export const jobId = '33333333-3333-4333-8333-333333333333'
+export const notificationId = '44444444-4444-4444-8444-444444444444'
 const product = {
   id: 'product-id',
   code: 'SALES',
@@ -30,6 +31,7 @@ export async function setup(page: Page) {
   let conflict = false
   let binaryError = false
   let failedJob = true
+  let notificationAcknowledged = false
   const roles: Record<string, string> = {
     editor: 'DATA_STEWARD',
     approver: 'TECHNICAL_APPROVER',
@@ -43,6 +45,18 @@ export async function setup(page: Page) {
     status: 'ACTIVE',
     paused: false,
     sync_schedule: null,
+    schedule_timezone: 'UTC',
+    concurrency_policy: 'QUEUE_LATEST',
+    schedule_revision: 1,
+    dependency_source_ids: [] as string[],
+  }
+  const upstreamSource = {
+    ...source,
+    id: '99999999-9999-4999-8999-999999999999',
+    source_code: 'master_product',
+    name: 'Master produk',
+    schedule_revision: 1,
+    dependency_source_ids: [] as string[],
   }
   const sheet = {
     id: sheetId,
@@ -58,6 +72,11 @@ export async function setup(page: Page) {
     classification_revision: 2,
     classification_confirmed_by: 'editor-id',
     classification_confirmed_at: '2026-09-08T00:00:00Z',
+    watermark_source_column: null as string | null,
+    watermark_kind: null as 'INTEGER' | 'DECIMAL' | 'DATE' | 'DATETIME' | null,
+    watermark_value: null as string | null,
+    watermark_updated_at: null as string | null,
+    watermark_revision: 1,
   }
   function classification() {
     return {
@@ -182,6 +201,7 @@ export async function setup(page: Page) {
     if (path === `/configurations/${configId}/validate`)
       return ok({ ...validation, ready_for_review: true })
     if (path === '/semantic/query-templates') return ok([])
+    if (path === '/semantic/join-relationships') return ok([])
     if (path === '/data-products/SALES/query')
       return ok(
         [
@@ -241,7 +261,14 @@ export async function setup(page: Page) {
       }
       return ok(classification())
     }
-    if (path === '/sources' || path === '/etl-jobs') return ok([source])
+    if (path === `/sources/${sourceId}/schedule` && method === 'PATCH') {
+      if (body.revision_no !== source.schedule_revision)
+        return fail(409, 'SOURCE_SCHEDULE_CONFLICT', 'Jadwal berubah')
+      Object.assign(source, body, { schedule_revision: source.schedule_revision + 1 })
+      return ok(source)
+    }
+    if (path === '/etl-jobs') return ok([source, upstreamSource])
+    if (path === '/sources') return ok([source])
     if (path === `/sources/${sourceId}/sheets`) return ok([sheet])
     if (path === `/sources/${sourceId}/profiling-runs`)
       return ok([
@@ -262,11 +289,31 @@ export async function setup(page: Page) {
                 null_ratio: 0,
                 distinct_ratio: 1,
               },
+              {
+                source_column: 'Total',
+                normalized_name: 'net_amount',
+                inferred_type: 'bigint',
+                pii_suspected: false,
+                null_ratio: 0,
+                distinct_ratio: 1,
+              },
             ],
           },
         },
       ])
     if (path === `/source-sheets/${sheetId}/configurations`) return ok([record])
+    if (path === `/source-sheets/${sheetId}/watermark` && method === 'PATCH') {
+      if (body.revision_no !== sheet.watermark_revision)
+        return fail(409, 'WATERMARK_REVISION_CONFLICT', 'Watermark berubah')
+      Object.assign(sheet, {
+        watermark_source_column: body.source_column,
+        watermark_kind: body.kind,
+        watermark_value: null,
+        watermark_updated_at: null,
+        watermark_revision: sheet.watermark_revision + 1,
+      })
+      return ok(sheet)
+    }
     if (path === `/source-sheets/${sheetId}` && method === 'PATCH') {
       Object.assign(sheet, body, { last_fingerprint: null })
       return ok(sheet)
@@ -334,6 +381,37 @@ export async function setup(page: Page) {
       return ok([
         { id: jobId, status: failedJob ? 'FAILED' : 'SUCCEEDED', kind: 'ETL', source_id: sourceId },
       ])
+    if (path === '/operations/summary')
+      return ok({
+        jobs: { FAILED: failedJob ? 1 : 0 },
+        import_reviews: { NEEDS_INPUT: 1 },
+        unacknowledged_notifications: notificationAcknowledged ? 0 : 1,
+        generated_at: '2026-09-27T00:00:00Z',
+      })
+    if (path === '/notifications' && method === 'GET')
+      return ok(
+        notificationAcknowledged
+          ? []
+          : [
+              {
+                id: notificationId,
+                kind: 'IMPORT_NEEDS_INPUT',
+                severity: 'WARN',
+                resource_type: 'IMPORT_REVIEW',
+                resource_id: '55555555-5555-4555-8555-555555555555',
+                title: 'Batch import memerlukan input',
+                message: 'Periksa pertanyaan dan blocker sebelum batch dapat dilanjutkan.',
+                details: { status: 'NEEDS_INPUT' },
+                acknowledged_by: null,
+                acknowledged_at: null,
+                created_at: '2026-09-27T00:00:00Z',
+              },
+            ],
+      )
+    if (path === `/notifications/${notificationId}/acknowledge` && method === 'POST') {
+      notificationAcknowledged = true
+      return ok({ id: notificationId, acknowledged_at: '2026-09-27T00:01:00Z' })
+    }
     if (path === `/jobs/${jobId}`)
       return ok({
         id: jobId,

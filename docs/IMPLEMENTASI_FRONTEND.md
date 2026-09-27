@@ -49,9 +49,11 @@ dan ikut payload konfigurasi serta round-trip workbook backend. Expression bebas
 
 Halaman `/governance` mengelola registry join relationship BE14 dan AI task policy BE15.
 Join relationship mendukung create/edit/approve/reject, revision, product/column,
-cardinality, join type, dan duplicate policy. Approval saat ini hanya metadata; UI
-menjelaskan bahwa structured query tetap single-product. AI policy mendukung
-create/approve/reject untuk purpose, prompt terdaftar, model aktif, dan allowlist model.
+cardinality, join type, dan duplicate policy. Dashboard dapat memilih relationship
+APPROVED, dimensi/metrik produk sekunder qualified, lalu mengirim path structured query.
+AI policy mendukung create/edit DRAFT/approve/reject untuk purpose, prompt terdaftar,
+model aktif, allowlist dan fallback model, batas konteks, budget harian policy,
+optimistic revision, serta scope DataProduct untuk NL2SQL.
 API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan frontend.
 
 ## Perilaku penting
@@ -78,11 +80,16 @@ API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan
 - **Monitoring:** jeda polling setelah respons, berhenti saat terminal/unmount/logout, batas dua menit,
   route menyimpan job ID untuk melanjutkan. Berhenti memantau bukan cancel job. FAILED dari HTTP 200
   ditampilkan sebagai kegagalan job; hasil per tab tetap terlihat. Retry eksplisit dan disesuaikan role jenis job.
+  Editor jadwal source mendukung cron, timezone IANA, optimistic revision, serta policy antre/lewati saat job aktif.
+  Workspace menyediakan editor incremental watermark per tab dari kolom profil dan menampilkan nilai terakhir.
+  Jobs menampilkan statistik status serta inbox persisten untuk NEEDS_INPUT/FAILED. Acknowledge
+  teraudit menghapus item dari inbox aktif tanpa mengubah status atau me-retry resource.
 - **Kualitas data:** resolve hanya menyimpan catatan; reprocess terpisah dan memakai Sheet terkini.
   Raw quarantine hanya pada admin/data steward. Daftar memakai pagination yang tersedia; tidak membuat total fiktif.
 - **Query:** dimensi/metrik dari katalog, filter AND, tipe scalar/list/null, urutan field output, time grain,
   limit/offset. Nilai null ditampilkan sebagai — dan tidak diubah menjadi nol. CSV mengekspor halaman query
-  yang ditampilkan; mengubah pilihan membatalkan tombol export sampai query dijalankan lagi.
+  yang ditampilkan; mengubah pilihan membatalkan tombol export sampai query dijalankan lagi. Relationship
+  APPROVED dapat dipilih dari produk utama; field produk sekunder memakai `PRODUCT.field`.
 - **Grafik:** renderer tervalidasi untuk table, KPI, bar, line, area, pie/donut, combo,
   scatter, dan heatmap pada Dashboard/Chat. Override manual tidak mengubah SQL/cache dan
   renderer membatasi data yang digambar.
@@ -109,11 +116,14 @@ npm.cmd run test:e2e
 Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
 melengkapi delapan skenario workflow sebelumnya.
 
-Verifikasi frontend 26 September 2026: 54 unit test dan 58 browser test lulus. Regression BE12/BE14/BE15
+Verifikasi frontend 27 September 2026: 54 unit test dan 62 skenario browser lulus.
+Regresi terarah notifikasi operasional dan source schedule lulus. Regression BE12/BE14/BE15
 mencakup transform parameter statis, lifecycle join relationship dan AI task policy tanpa API key.
-Regression BE14/workbook
+Regression BE15 Governance juga memeriksa payload batas konteks, budget harian, dan
+pergantian model utama/fallback saat edit. Regression BE14/workbook
 mencakup metadata metrik, periode default, filter metrik, null handling, dan round-trip workbook pada
-konfigurasi dengan lebih dari satu metrik. Selector test menargetkan metrik yang diuji secara eksplisit;
+konfigurasi dengan lebih dari satu metrik. Regression join memeriksa relationship APPROVED, field qualified,
+dan payload QueryPlan. Selector test menargetkan metrik yang diuji secara eksplisit;
 ini tidak mengubah payload atau perilaku runtime.
 
 Unit test menguji race refresh, rotasi token, stale response saat akun berubah, kegagalan refresh,

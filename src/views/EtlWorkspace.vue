@@ -45,14 +45,23 @@ const currentProfile = computed(
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0],
 )
 const sheetSettings = ref({ range_a1: '', header_row: 1, data_start_row: 2, enabled: true })
+const watermarkSettings = ref({
+  source_column: null as string | null,
+  kind: null as Sheet['watermark_kind'],
+})
 watch(selectedSheet, (sheet) => {
-  if (sheet)
+  if (sheet) {
     sheetSettings.value = {
       range_a1: sheet.range_a1,
       header_row: sheet.header_row,
       data_start_row: sheet.data_start_row,
       enabled: sheet.enabled,
     }
+    watermarkSettings.value = {
+      source_column: sheet.watermark_source_column,
+      kind: sheet.watermark_kind,
+    }
+  }
 })
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const blockers = computed(() => (sourceId.value ? sourceBlockers(sheets.value) : []))
@@ -102,6 +111,17 @@ async function updateSheet() {
   await call('PATCH', `/source-sheets/${sheetId.value}`, sheetSettings.value)
   sheets.value = await call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`)
   profiles.value = []
+}
+async function updateWatermark() {
+  if (!selectedSheet.value) return
+  const enabled = Boolean(watermarkSettings.value.source_column)
+  await call('PATCH', `/source-sheets/${sheetId.value}/watermark`, {
+    revision_no: selectedSheet.value.watermark_revision,
+    source_column: enabled ? watermarkSettings.value.source_column : null,
+    kind: enabled ? watermarkSettings.value.kind : null,
+  })
+  sheets.value = await call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`)
+  notice.value = 'Incremental watermark diperbarui dan nilainya direset.'
 }
 async function syncReview() {
   const result = await call<{ reviews: unknown[] }>(
@@ -394,6 +414,43 @@ onBeforeUnmount(() => {
           Pengaturan tidak dapat diubah jika sudah ada konfigurasi aktif. Setelah perubahan,
           jalankan profiling ulang.
         </p>
+      </details>
+      <details v-if="canEdit && currentProfile">
+        <summary>Incremental watermark</summary>
+        <form @submit.prevent="run(updateWatermark)">
+          <div class="grid">
+            <label
+              >Kolom watermark<select v-model="watermarkSettings.source_column">
+                <option :value="null">Nonaktif</option>
+                <option
+                  v-for="column in currentProfile.profile_json.columns"
+                  :key="column.source_column"
+                  :value="column.source_column"
+                >
+                  {{ column.source_column }}
+                </option>
+              </select></label
+            >
+            <label
+              >Jenis watermark<select
+                v-model="watermarkSettings.kind"
+                :required="Boolean(watermarkSettings.source_column)"
+                :disabled="!watermarkSettings.source_column"
+              >
+                <option :value="null" disabled>Pilih jenis</option>
+                <option>INTEGER</option>
+                <option>DECIMAL</option>
+                <option>DATE</option>
+                <option>DATETIME</option>
+              </select></label
+            >
+          </div>
+          <p class="muted">
+            Nilai tersimpan: {{ selectedSheet.watermark_value || 'belum ada' }}. Hanya nilai yang
+            lebih besar diproses; watermark maju setelah load/apply sukses.
+          </p>
+          <button :disabled="busy">Simpan watermark</button>
+        </form>
       </details>
       <template v-if="currentProfile"
         ><p>

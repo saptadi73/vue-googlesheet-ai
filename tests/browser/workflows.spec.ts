@@ -211,7 +211,10 @@ test('source tab profile enables manual draft creation without an AI call', asyn
   expect(mock.requests.find((r) => r.path === '/configurations')?.body).toMatchObject({
     source_sheet_id: sheetId,
     configuration: {
-      columns: [{ source_column: 'Cabang', target_column: 'branch_name', target_type: 'text' }],
+      columns: [
+        { source_column: 'Cabang', target_column: 'branch_name', target_type: 'text' },
+        { source_column: 'Total', target_column: 'net_amount', target_type: 'text' },
+      ],
     },
   })
   expect(mock.requests.some((r) => r.path.endsWith('/ai-configurations'))).toBe(false)

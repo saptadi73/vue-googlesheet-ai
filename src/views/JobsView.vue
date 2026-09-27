@@ -3,7 +3,16 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
-import { call, user, editRoles, reviewRoles, type Job } from '@/lib/etl'
+import {
+  call,
+  user,
+  editRoles,
+  reviewRoles,
+  type Job,
+  type OperationalNotification,
+  type OperationalSummary,
+  type Source,
+} from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type { Row } from '@/lib/catalog'
 import { ensureSourceReady } from '@/lib/classification'
@@ -11,8 +20,10 @@ const { busy, error, notice, run } = useTask()
 const route = useRoute(),
   router = useRouter()
 const jobs = ref<Job[]>([]),
-  sources = ref<Row[]>([]),
-  runs = ref<Row[]>([])
+  sources = ref<Source[]>([]),
+  runs = ref<Row[]>([]),
+  notifications = ref<OperationalNotification[]>([]),
+  summary = ref<OperationalSummary | null>(null)
 const offset = ref(0),
   runOffset = ref(0),
   selected = ref<Job | null>(null),
@@ -22,6 +33,13 @@ const runDetail = ref<Row | null>(null),
   lineage = ref<Row | null>(null),
   lineageOffset = ref(0)
 const monitoring = ref(false)
+const editingSchedule = ref<Source | null>(null)
+const scheduleForm = ref({
+  sync_schedule: '',
+  schedule_timezone: 'UTC',
+  concurrency_policy: 'QUEUE_LATEST' as Source['concurrency_policy'],
+  dependency_source_ids: [] as string[],
+})
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
@@ -41,12 +59,43 @@ function stop() {
 async function load() {
   const result = await Promise.all([
     call<Job[]>('GET', `/jobs?offset=${offset.value}&limit=25`),
-    call<Row[]>('GET', '/etl-jobs'),
+    call<Source[]>('GET', '/etl-jobs'),
     call<Row[]>('GET', `/etl-runs?offset=${runOffset.value}&limit=25`),
+    call<OperationalSummary>('GET', '/operations/summary'),
+    call<OperationalNotification[]>('GET', '/notifications?unacknowledged_only=true&offset=0&limit=50'),
   ])
   jobs.value = result[0]
   sources.value = result[1]
   runs.value = result[2]
+  summary.value = result[3]
+  notifications.value = result[4]
+}
+async function acknowledge(notification: OperationalNotification) {
+  await call('POST', `/notifications/${notification.id}/acknowledge`)
+  notice.value = 'Notifikasi diakui dan audit tersimpan.'
+  await load()
+}
+function editSchedule(source: Source) {
+  editingSchedule.value = source
+  scheduleForm.value = {
+    sync_schedule: source.sync_schedule || '',
+    schedule_timezone: source.schedule_timezone,
+    concurrency_policy: source.concurrency_policy,
+    dependency_source_ids: [...source.dependency_source_ids],
+  }
+}
+async function saveSchedule() {
+  if (!editingSchedule.value) return
+  await call<Source>('PATCH', `/sources/${editingSchedule.value.id}/schedule`, {
+    revision_no: editingSchedule.value.schedule_revision,
+    sync_schedule: scheduleForm.value.sync_schedule.trim() || null,
+    schedule_timezone: scheduleForm.value.schedule_timezone.trim(),
+    concurrency_policy: scheduleForm.value.concurrency_policy,
+    dependency_source_ids: scheduleForm.value.dependency_source_ids,
+  })
+  editingSchedule.value = null
+  notice.value = 'Jadwal sumber diperbarui.'
+  await load()
 }
 async function monitor(id: string) {
   stop()
@@ -121,10 +170,13 @@ watch(
     jobs.value = []
     sources.value = []
     runs.value = []
+    notifications.value = []
+    summary.value = null
     selected.value = null
     runDetail.value = null
     runErrors.value = []
     lineage.value = null
+    editingSchedule.value = null
     offset.value = 0
     runOffset.value = 0
     if (canRead.value)
@@ -143,6 +195,50 @@ onBeforeUnmount(stop)
     <h1>Job &amp; riwayat ETL</h1>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+    <section class="panel">
+      <h2>Ringkasan proses</h2>
+      <div v-if="summary" class="card-row">
+        <p>
+          Job antre: <strong>{{ summary.jobs.QUEUED || 0 }}</strong> &middot; berjalan:
+          <strong>{{ summary.jobs.RUNNING || 0 }}</strong> &middot; gagal:
+          <strong>{{ summary.jobs.FAILED || 0 }}</strong>
+        </p>
+        <p>
+          Batch perlu input: <strong>{{ summary.import_reviews.NEEDS_INPUT || 0 }}</strong> &middot;
+          notifikasi belum diakui: <strong>{{ summary.unacknowledged_notifications }}</strong>
+        </p>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Notifikasi operasional</h2>
+      <p v-if="!notifications.length">Tidak ada notifikasi yang perlu ditindaklanjuti.</p>
+      <article v-for="notification in notifications" :key="notification.id" class="card-row">
+        <p>
+          <span class="tag">{{ notification.severity }}</span>
+          <strong>{{ notification.title }}</strong>
+        </p>
+        <p>{{ notification.message }}</p>
+        <p class="muted">{{ notification.kind }} &middot; {{ notification.created_at }}</p>
+        <div class="toolbar">
+          <RouterLink
+            v-if="notification.resource_type === 'IMPORT_REVIEW'"
+            class="button"
+            :to="`/import-reviews/${notification.resource_id}`"
+            >Buka batch import</RouterLink
+          >
+          <button
+            v-if="notification.resource_type === 'JOB'"
+            :disabled="busy"
+            @click="run(() => monitor(notification.resource_id))"
+          >
+            Pantau job
+          </button>
+          <button :disabled="busy" @click="run(() => acknowledge(notification))">
+            Tandai sudah dibaca
+          </button>
+        </div>
+      </article>
+    </section>
     <section class="panel">
       <h2>Pantau job</h2>
       <form class="toolbar" @submit.prevent="run(() => monitor(jobId))">
@@ -225,8 +321,12 @@ onBeforeUnmount(stop)
       <div v-for="source in sources" :key="String(source.id)" class="card-row">
         <h3>{{ source.name }}</h3>
         <p>
-          {{ source.sync_schedule || 'Tanpa jadwal' }} · {{ source.paused ? 'Dijeda' : 'Aktif' }} ·
-          cron UTC
+          {{ source.sync_schedule || 'Tanpa jadwal' }} &middot;
+          {{ source.paused ? 'Dijeda' : 'Aktif' }} &middot; {{ source.schedule_timezone }} &middot;
+          {{ source.concurrency_policy }} &middot; revisi {{ source.schedule_revision }}
+        </p>
+        <p class="muted">
+          Dependency: {{ source.dependency_source_ids.length ? source.dependency_source_ids.join(', ') : 'tidak ada' }}
         </p>
         <div v-if="editor" class="toolbar">
           <button
@@ -245,7 +345,51 @@ onBeforeUnmount(stop)
           >
             {{ source.paused ? 'Lanjutkan jadwal' : 'Jeda sumber' }}
           </button>
+          <button :disabled="busy" @click="editSchedule(source)">Edit jadwal</button>
         </div>
+        <form
+          v-if="editingSchedule?.id === source.id"
+          class="grid"
+          @submit.prevent="run(saveSchedule)"
+        >
+          <label
+            >Cron lima field<input
+              v-model="scheduleForm.sync_schedule"
+              placeholder="0 7 * * 1-5"
+          /></label>
+          <label
+            >Timezone IANA<input
+              v-model="scheduleForm.schedule_timezone"
+              required
+              list="schedule-timezones"
+          /></label>
+          <datalist id="schedule-timezones">
+            <option value="UTC" />
+            <option value="Asia/Jakarta" />
+            <option value="Asia/Bangkok" />
+          </datalist>
+          <label
+            >Saat job masih berjalan<select v-model="scheduleForm.concurrency_policy">
+              <option value="QUEUE_LATEST">Jalankan sekali setelah job selesai</option>
+              <option value="SKIP_IF_RUNNING">Lewati jadwal ini</option>
+            </select></label
+          >
+          <label
+            >Dependency upstream<select v-model="scheduleForm.dependency_source_ids" multiple>
+              <option
+                v-for="candidate in sources.filter((item) => item.id !== source.id)"
+                :key="candidate.id"
+                :value="candidate.id"
+              >
+                {{ candidate.name }} ({{ candidate.source_code }})
+              </option>
+            </select></label
+          >
+          <div class="toolbar">
+            <button class="primary" :disabled="busy">Simpan jadwal</button>
+            <button type="button" :disabled="busy" @click="editingSchedule = null">Batal</button>
+          </div>
+        </form>
       </div>
     </section>
     <section class="panel">

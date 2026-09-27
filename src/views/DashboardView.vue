@@ -14,10 +14,12 @@ import {
   type VisualizationSpec,
 } from '@/lib/catalog'
 import { useTask } from '@/lib/tasks'
+import type { JoinRelationship } from '@/lib/governance'
 const ResultChart = defineAsyncComponent(() => import('@/components/charts/ResultChart.vue'))
 const { busy, error, notice, run } = useTask()
 const products = ref<Product[]>([]),
   templates = ref<SavedQuery[]>([]),
+  relationships = ref<JoinRelationship[]>([]),
   code = ref('')
 const product = computed(() => products.value.find((p) => p.code === code.value))
 const manager = computed(() => ['PLATFORM_ADMIN', 'DATA_STEWARD'].includes(user.value?.role || ''))
@@ -40,6 +42,54 @@ const report = ref('sales/summary'),
   startDate = ref(''),
   endDate = ref('')
 const outputFields = computed(() => [...plan.value.dimensions, ...plan.value.metrics])
+const approvedRelationships = computed(() =>
+  relationships.value.filter(
+    (item) =>
+      item.status === 'APPROVED' &&
+      products.value.some((product) => product.code === item.left_product_code) &&
+      products.value.some((product) => product.code === item.right_product_code),
+  ),
+)
+const availableRelationships = computed(() => {
+  const selected = new Set(plan.value.join_relationships || [])
+  const included = new Set(code.value ? [code.value] : [])
+  for (const relationshipCode of plan.value.join_relationships || []) {
+    const item = approvedRelationships.value.find((relationship) => relationship.code === relationshipCode)
+    if (item && included.has(item.left_product_code)) included.add(item.right_product_code)
+  }
+  return approvedRelationships.value.filter(
+    (item) =>
+      selected.has(item.code) ||
+      (included.has(item.left_product_code) && !included.has(item.right_product_code)),
+  )
+})
+const joinedProducts = computed(() =>
+  (plan.value.join_relationships || [])
+    .map((relationshipCode) =>
+      approvedRelationships.value.find((item) => item.code === relationshipCode),
+    )
+    .filter((item): item is JoinRelationship => !!item)
+    .map((item) => products.value.find((product) => product.code === item.right_product_code))
+    .filter((item): item is Product => !!item),
+)
+const availableDimensions = computed(() => [
+  ...(product.value?.dimensions || []).map((name) => ({ value: name, label: name })),
+  ...joinedProducts.value.flatMap((joined) =>
+    joined.dimensions.map((name) => ({ value: `${joined.code}.${name}`, label: `${joined.code} · ${name}` })),
+  ),
+])
+const availableMetrics = computed(() => [
+  ...(product.value?.metrics || []).map((metric) => ({
+    value: metric.code,
+    label: metric.label || metric.code,
+  })),
+  ...joinedProducts.value.flatMap((joined) =>
+    joined.metrics.map((metric) => ({
+      value: `${joined.code}.${metric.code}`,
+      label: `${joined.code} · ${metric.label || metric.code}`,
+    })),
+  ),
+])
 const lastQuery = ref<{ code: string; plan: QueryPlan } | null>(null)
 function requestPlan(): QueryPlan {
   if (!product.value) throw new Error('Pilih produk data.')
@@ -62,6 +112,7 @@ function requestPlan(): QueryPlan {
   }
   return {
     ...plan.value,
+    join_relationships: [...(plan.value.join_relationships || [])],
     metrics: [...plan.value.metrics],
     dimensions: [...plan.value.dimensions],
     filters: filters.value.map((f) => {
@@ -87,9 +138,11 @@ async function load() {
   const results = await Promise.all([
     call<Product[]>('GET', '/data-products'),
     call<SavedQuery[]>('GET', '/semantic/query-templates'),
+    call<JoinRelationship[]>('GET', '/semantic/join-relationships'),
   ])
   products.value = results[0]
   templates.value = results[1]
+  relationships.value = results[2]
 }
 async function query(offset = 0) {
   rows.value = []
@@ -134,7 +187,11 @@ async function runTemplate(template: SavedQuery) {
   )
   rows.value = result.data.data
   meta.value = result.data.meta
-  plan.value = structuredClone(template.plan)
+  plan.value = {
+    ...emptyPlan(),
+    ...structuredClone(template.plan),
+    join_relationships: [...(template.plan.join_relationships || [])],
+  }
 }
 function updateVisualization(spec: VisualizationSpec) {
   const previous = lastQuery.value
@@ -177,6 +234,32 @@ watch(code, () => {
   productStatus.value = product.value?.status || 'ACTIVE'
 })
 watch(
+  () => [...(plan.value.join_relationships || [])],
+  () => {
+    const validRelationships: string[] = []
+    const included = new Set(code.value ? [code.value] : [])
+    for (const relationshipCode of plan.value.join_relationships || []) {
+      const item = approvedRelationships.value.find(
+        (relationship) => relationship.code === relationshipCode,
+      )
+      if (!item || !included.has(item.left_product_code) || included.has(item.right_product_code))
+        continue
+      validRelationships.push(item.code)
+      included.add(item.right_product_code)
+    }
+    if (validRelationships.length !== (plan.value.join_relationships || []).length) {
+      plan.value.join_relationships = validRelationships
+      return
+    }
+    const dimensions = new Set(availableDimensions.value.map((item) => item.value))
+    const metrics = new Set(availableMetrics.value.map((item) => item.value))
+    plan.value.dimensions = plan.value.dimensions.filter((item) => dimensions.has(item))
+    plan.value.metrics = plan.value.metrics.filter((item) => metrics.has(item))
+    filters.value = filters.value.filter((item) => dimensions.has(item.field))
+    if (sortField.value && !outputFields.value.includes(sortField.value)) sortField.value = ''
+  },
+)
+watch(
   [plan, filters, sortField, sortDirection],
   () => {
     lastQuery.value = null
@@ -188,6 +271,7 @@ watch(
   () => {
     products.value = []
     templates.value = []
+    relationships.value = []
     rows.value = []
     meta.value = {}
     code.value = ''
@@ -222,7 +306,7 @@ watch(
       </p>
       <fieldset :disabled="busy">
         <label
-          >Produk data<select v-model="code">
+          >Produk data<select id="data-product" v-model="code">
             <option value="">Pilih produk</option>
             <option v-for="p in products" :key="p.id" :value="p.code">
               {{ p.name }} · {{ p.code }}
@@ -246,27 +330,48 @@ watch(
           <p class="muted">
             Versi {{ product.version }} · pembaruan data {{ product.freshness_version }}
           </p>
+          <details v-if="availableRelationships.length">
+            <summary>Gabungkan produk melalui relationship approved</summary>
+            <p class="muted">
+              Join mengikuti arah registry. Backend tetap memeriksa akses kedua produk, row scope,
+              sensitivitas kolom, dan risiko agregasi ganda.
+            </p>
+            <label v-for="item in availableRelationships" :key="item.id" class="check">
+              <input
+                v-model="plan.join_relationships"
+                type="checkbox"
+                :value="item.code"
+                :disabled="
+                  plan.join_relationships.length >= 5 &&
+                  !plan.join_relationships.includes(item.code)
+                "
+              />{{ item.code }}: {{ item.left_product_code }}.{{ item.left_column }} →
+              {{ item.right_product_code }}.{{ item.right_column }} · {{ item.cardinality }}
+            </label>
+          </details>
           <div class="grid">
             <div>
               <h3>Dimensi</h3>
-              <label v-for="dimension in product.dimensions" :key="dimension" class="check"
+              <label v-for="dimension in availableDimensions" :key="dimension.value" class="check"
                 ><input
                   v-model="plan.dimensions"
                   type="checkbox"
-                  :value="dimension"
-                  :disabled="plan.dimensions.length >= 20 && !plan.dimensions.includes(dimension)"
-                />{{ dimension }}</label
+                  :value="dimension.value"
+                  :disabled="
+                    plan.dimensions.length >= 20 && !plan.dimensions.includes(dimension.value)
+                  "
+                />{{ dimension.label }}</label
               >
             </div>
             <div>
               <h3>Metrik</h3>
-              <label v-for="metric in product.metrics" :key="metric.code" class="check"
+              <label v-for="metric in availableMetrics" :key="metric.value" class="check"
                 ><input
                   v-model="plan.metrics"
                   type="checkbox"
-                  :value="metric.code"
-                  :disabled="plan.metrics.length >= 20 && !plan.metrics.includes(metric.code)"
-                />{{ metric.label || metric.code }}</label
+                  :value="metric.value"
+                  :disabled="plan.metrics.length >= 20 && !plan.metrics.includes(metric.value)"
+                />{{ metric.label }}</label
               >
               <p
                 v-for="metric in product.metrics.filter(
@@ -299,7 +404,9 @@ watch(
           <div v-for="(filter, index) in filters" :key="index" class="card-row grid">
             <label
               >Dimensi<select v-model="filter.field">
-                <option v-for="d in product.dimensions" :key="d">{{ d }}</option>
+                <option v-for="d in availableDimensions" :key="d.value" :value="d.value">
+                  {{ d.label }}
+                </option>
               </select></label
             >
             <label
@@ -326,10 +433,10 @@ watch(
             ><button @click="filters.splice(index, 1)">Hapus filter</button>
           </div>
           <button
-            :disabled="filters.length >= 20 || !product.dimensions.length"
+            :disabled="filters.length >= 20 || !availableDimensions.length"
             @click="
               filters.push({
-                field: product.dimensions[0] || '',
+                field: availableDimensions[0]?.value || '',
                 operator: 'eq',
                 value: '',
                 end: '',

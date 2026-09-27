@@ -203,7 +203,7 @@ test('stale classification evidence disables deployment and source-wide sync cat
   await login(page)
   mock.sheet.dataset_kind = 'MASTER'
   await page.getByRole('link', { name: 'Job & ETL' }).click()
-  await page.getByRole('button', { name: 'Jalankan sync', exact: true }).click()
+  await page.getByRole('button', { name: 'Jalankan sync', exact: true }).first().click()
   await expect(page.getByRole('alert')).toContainText('MASTER_RUNTIME_PENDING')
   expect(mock.requests.filter((r) => r.path === `/etl-jobs/${sourceId}/run`)).toHaveLength(0)
   expect(mock.errors).toEqual([])

@@ -42,9 +42,9 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | `/sources/:sourceId/sheets/:sheetId/master-binding`  | Mapping master dari profil, dry-run dan approval binding                                                              |
 | `/sources/:sourceId/sheets/:sheetId/column-bindings` | Binding kolom sumber ke referensi master, review dan approval                                                         |
 | `/sources/:sourceId/sheets/:sheetId/taxonomy-bindings` | Binding kolom ke taxonomy approved, review dan approval                                                            |
-| `/workspace`                                         | Registrasi sumber, klasifikasi MASTER/NON_MASTER per tab, jadwal UTC, profil dan draft manual/AI                      |
+| `/workspace`                                         | Registrasi sumber, klasifikasi per tab, profil, watermark incremental, dan draft manual/AI                           |
 | `/configurations/:id/review`                         | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback |
-| `/jobs?job=UUID`                                     | Polling terbatas dua menit dan dapat dilanjutkan, retry FAILED, jadwal sumber, ETL run, error dan lineage             |
+| `/jobs?job=UUID`                                     | Polling/retry, jadwal timezone/dependency/concurrency, statistik, inbox NEEDS_INPUT/FAILED, acknowledge, run dan lineage |
 | `/quality`                                           | Daftar issue, resolve dengan catatan, karantina dan reprocess                                                         |
 | `/dashboard`                                         | Katalog, query dengan filter/pengurutan, grafik, CSV halaman hasil, laporan, template dan akses produk                |
 | `/chat`                                              | NL2SQL, klarifikasi lengkap, feedback, detail request dan promosi template                                            |
@@ -101,6 +101,10 @@ Storage BE04: [Frontend storage master](docs/FRONTEND_BE04.md).
 Implementasi BE02/BE03: [Klasifikasi dan registry master BE02/BE03](docs/FRONTEND_BE02_BE03.md).
 
 Panduan cakupan, batasan, dan rollout: [Implementasi frontend](docs/IMPLEMENTASI_FRONTEND.md).
+
+Operasional BE15: [jadwal sumber](docs/FRONTEND_SCHEDULING_BE15.md),
+[watermark incremental](docs/FRONTEND_WATERMARK_BE15.md), dan
+[statistik/notifikasi](docs/FRONTEND_OPERATIONS_BE15.md).
 
 ## Production
 

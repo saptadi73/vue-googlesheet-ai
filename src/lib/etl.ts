@@ -190,6 +190,12 @@ export interface Source {
   name: string
   source_code: string
   status: string
+  paused: boolean
+  sync_schedule: string | null
+  schedule_timezone: string
+  concurrency_policy: 'QUEUE_LATEST' | 'SKIP_IF_RUNNING'
+  schedule_revision: number
+  dependency_source_ids: string[]
 }
 export interface Sheet {
   id: string
@@ -205,6 +211,11 @@ export interface Sheet {
   classification_revision: number
   classification_confirmed_by: string | null
   classification_confirmed_at: string | null
+  watermark_source_column: string | null
+  watermark_kind: 'INTEGER' | 'DECIMAL' | 'DATE' | 'DATETIME' | null
+  watermark_value: string | null
+  watermark_updated_at: string | null
+  watermark_revision: number
 }
 export interface Profile {
   id: string
@@ -284,6 +295,25 @@ export interface Job {
   kind?: string
   source_id?: string
   created_at?: string
+}
+export interface OperationalNotification {
+  id: string
+  kind: 'JOB_FAILED' | 'IMPORT_NEEDS_INPUT' | 'IMPORT_FAILED' | string
+  severity: 'INFO' | 'WARN' | 'ERROR'
+  resource_type: 'JOB' | 'IMPORT_REVIEW' | string
+  resource_id: string
+  title: string
+  message: string
+  details: Record<string, unknown>
+  acknowledged_by: string | null
+  acknowledged_at: string | null
+  created_at: string
+}
+export interface OperationalSummary {
+  jobs: Record<string, number>
+  import_reviews: Record<string, number>
+  unacknowledged_notifications: number
+  generated_at: string
 }
 export async function call<T>(method: string, url: string, data?: unknown): Promise<T> {
   return (await api.request<ApiEnvelope<T>>({ method, url, data })).data.data

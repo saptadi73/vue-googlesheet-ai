@@ -144,6 +144,26 @@ export function getApiErrorMessage(error: unknown): string {
       NL2SQL_QUOTA_EXCEEDED:
         'Kuota harian tercapai. Tunggu kuota tersedia atau hubungi pengelola; jangan retry berulang.',
       AI_BUDGET_EXCEEDED: 'Budget AI tercapai. Tunggu budget tersedia atau hubungi pengelola.',
+      AI_TASK_BUDGET_EXCEEDED:
+        'Budget harian policy AI tercapai. Tunggu periode berikutnya atau hubungi pengelola.',
+      AI_CONTEXT_LIMIT_EXCEEDED:
+        'Konteks terlalu besar untuk policy AI ini. Kurangi cakupan data atau minta pengelola menaikkan batas.',
+      SOURCE_SCHEDULE_CONFLICT:
+        'Jadwal sumber telah berubah. Muat ulang daftar sebelum menyimpan kembali.',
+      SOURCE_DEPENDENCY_CYCLE:
+        'Dependency source membentuk siklus. Hapus salah satu hubungan upstream.',
+      SOURCE_DEPENDENCY_INVALID:
+        'Pilih source upstream lain yang masih tersedia dan dapat diakses.',
+      WATERMARK_REVISION_CONFLICT:
+        'Watermark tab telah berubah. Muat ulang tab sebelum menyimpan kembali.',
+      WATERMARK_VALUE_INVALID:
+        'Nilai pada kolom watermark tidak sesuai dengan jenis yang dipilih.',
+      WATERMARK_COLUMN_INVALID:
+        'Kolom watermark tidak tersedia pada profil tab terbaru.',
+      WATERMARK_STRATEGY_INVALID:
+        'Incremental watermark hanya dapat dipakai dengan strategi APPEND atau UPSERT.',
+      WATERMARK_STALE:
+        'Watermark berubah sejak batch dibuat. Buat batch review baru.',
       OPENAI_NOT_CONFIGURED:
         'Penyedia AI belum siap. Hubungi pengelola atau gunakan saran kemiripan melalui aksi terpisah.',
       AI_UPSTREAM_FAILED:
@@ -294,6 +314,20 @@ export function getApiErrorMessage(error: unknown): string {
         'Muat ulang relationship; hanya draft dengan revision terbaru yang dapat diubah atau diputuskan.',
       JOIN_PRODUCT_INVALID: 'Pilih dua produk data aktif yang berbeda.',
       JOIN_COLUMN_INVALID: 'Pilih kolom yang tersedia pada metadata produk terbaru.',
+      QUERY_JOIN_NOT_FOUND:
+        'Muat ulang katalog. Relationship harus berstatus APPROVED sebelum dipakai dalam query.',
+      QUERY_JOIN_PATH_INVALID:
+        'Pilih relationship sesuai arah dan urutan path dari produk utama.',
+      QUERY_JOIN_STALE:
+        'Kolom relationship berubah. Minta steward memperbarui dan approve relationship.',
+      QUERY_JOIN_FORBIDDEN:
+        'Relationship memakai kolom sensitif dan tidak dapat dijalankan.',
+      QUERY_FIELD_FORBIDDEN:
+        'Hapus field sensitif dari dimensi, metrik, atau filter query.',
+      QUERY_AGGREGATION_AMBIGUOUS:
+        'Pilih metrik dari sisi yang aman atau gunakan relationship dan duplicate policy yang sesuai.',
+      QUERY_JOIN_DEFAULT_PERIOD_REQUIRED:
+        'Tambahkan filter periode eksplisit untuk metrik yang memiliki default period.',
       AI_TASK_POLICY_REVISION_CONFLICT:
         'Muat ulang AI task policy; hanya draft dengan revision terbaru yang dapat diputuskan.',
       AI_MODEL_NOT_ALLOWLISTED:

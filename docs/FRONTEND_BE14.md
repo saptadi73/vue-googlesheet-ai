@@ -234,3 +234,17 @@ Dashboard dan Chat memuat renderer yang sama. Pengguna dapat mengganti jenis, me
 dimension, judul, dan sumbu kedua sesuai bentuk hasil. Grafik memakai maksimal 100
 baris dari halaman hasil; tabel tetap tersedia. Perubahan chart tidak menjalankan ulang
 SQL dan spec dapat disimpan bersama saved query template.
+
+## Tahap 10: structured query multi-product
+
+Dashboard memuat `/semantic/join-relationships` dan menawarkan relationship APPROVED
+secara bertahap dari produk utama selama kedua produk ada dalam katalog akses pengguna.
+Pilihan dikirim melalui `QueryPlan.join_relationships`; dimensi, metrik,
+filter, dan sort produk sekunder memakai `PRODUCT.field`.
+
+Ketika relationship dilepas, field sekundernya dibersihkan dari plan. Saved plan lama
+tanpa field join dinormalisasi ke array kosong. Error path, relationship stale, PII,
+agregasi ambigu, dan default period memiliki arahan pemulihan di client. Backend tetap
+menjadi sumber pemeriksaan akses, tenant/row scope, dan cardinality. Backend juga dapat
+memberikan graph relationship APPROVED yang aman kepada NL2SQL AI; Chat memakai hasil
+dan metadata query existing tanpa kontrol join tambahan. Editor workbook tab 13 belum tersedia.

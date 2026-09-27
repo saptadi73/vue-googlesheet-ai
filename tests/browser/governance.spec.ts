@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { login, setup } from './fixtures'
 
-test('admin manages join metadata and AI task policy without enabling query joins or storing keys', async ({
+test('admin manages join metadata and AI task policy without storing keys', async ({
   page,
 }) => {
   const state = await setup(page)
@@ -86,8 +86,20 @@ test('admin manages join metadata and AI task policy without enabling query join
       })
       return respond(route, policies[0])
     }
+    if (path === '/ai-task-policies/policy-id' && method === 'PATCH') {
+      Object.assign(policies[0], body, {
+        revision_no: policies[0].revision_no + 1,
+        approved_by: null,
+        approved_at: null,
+      })
+      return respond(route, policies[0])
+    }
     if (path === '/ai-task-policies/policy-id/approve') {
-      Object.assign(policies[0], { status: 'APPROVED', revision_no: 2, approved_by: 'admin-id' })
+      Object.assign(policies[0], {
+        status: 'APPROVED',
+        revision_no: policies[0].revision_no + 1,
+        approved_by: 'admin-id',
+      })
       return respond(route, policies[0])
     }
     throw new Error(`Unhandled AI policy route ${method} ${path}`)
@@ -100,19 +112,26 @@ test('admin manages join metadata and AI task policy without enabling query join
   await page.getByLabel('Produk kanan').selectOption('PRODUCT')
   await page.getByRole('button', { name: 'Simpan draft relationship' }).click()
   await expect(page.getByRole('heading', { name: /sales_product/ })).toBeVisible()
-  await expect(
-    page.getByText('Structured query masih single-product', { exact: false }),
-  ).toBeVisible()
+  await expect(page.getByText('structured query multi-product', { exact: false })).toBeVisible()
   await page.getByRole('button', { name: 'Setujui relationship' }).click()
   await expect(page.getByText('APPROVED', { exact: true }).first()).toBeVisible()
 
   await page.getByLabel('Kode policy').fill('etl_primary')
-  await page.getByLabel('Purpose').selectOption('ETL_CONFIG')
-  await expect(page.getByLabel('Prompt version')).toHaveValue('etl_configuration_v1.md')
+  await page.getByLabel('Purpose').selectOption('NL2SQL')
+  await expect(page.getByLabel('Prompt version')).toHaveValue('nl2sql_v1.md')
+  await page.getByLabel('Data product').selectOption('SALES')
   await page.getByLabel('Model aktif').fill('gpt-5.1')
+  await page.getByLabel('Fallback model').fill('gpt-5-mini')
+  await page.getByLabel('Batas konteks (karakter)').fill('50000')
+  await page.getByLabel('Budget harian policy (USD)').fill('2.5')
   await page.getByLabel('Model yang diizinkan (satu per baris)').fill('gpt-5.1\ngpt-5-mini')
   await page.getByRole('button', { name: 'Simpan draft AI policy' }).click()
   await expect(page.getByRole('heading', { name: /etl_primary/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Edit AI policy' }).click()
+  await page.getByLabel('Model aktif').fill('gpt-5-mini')
+  await page.getByLabel('Fallback model').fill('gpt-5.1')
+  await page.getByRole('button', { name: 'Simpan draft AI policy' }).click()
+  await expect(page.getByText(/model gpt-5-mini · revisi 2/)).toBeVisible()
   await page.getByRole('button', { name: 'Setujui AI policy' }).click()
   await expect(page.getByText('APPROVED', { exact: true }).last()).toBeVisible()
 
@@ -133,12 +152,32 @@ test('admin manages join metadata and AI task policy without enabling query join
   )?.body
   expect(policyBody).toEqual({
     code: 'etl_primary',
-    purpose: 'ETL_CONFIG',
-    prompt_version: 'etl_configuration_v1.md',
+    purpose: 'NL2SQL',
+    prompt_version: 'nl2sql_v1.md',
     model: 'gpt-5.1',
     allowed_models: ['gpt-5.1', 'gpt-5-mini'],
+    data_product_code: 'SALES',
+    max_context_chars: 50000,
+    daily_budget_usd: 2.5,
+    fallback_model: 'gpt-5-mini',
   })
   expect(JSON.stringify(policyBody)).not.toContain('api_key')
+  expect(
+    governanceRequests.find(
+      (request) => request.method === 'PATCH' && request.path === '/ai-task-policies/policy-id',
+    )?.body,
+  ).toEqual({
+    code: 'etl_primary',
+    purpose: 'NL2SQL',
+    prompt_version: 'nl2sql_v1.md',
+    model: 'gpt-5-mini',
+    allowed_models: ['gpt-5.1', 'gpt-5-mini'],
+    data_product_code: 'SALES',
+    max_context_chars: 50000,
+    daily_budget_usd: 2.5,
+    fallback_model: 'gpt-5.1',
+    revision_no: 1,
+  })
   expect(state.errors).toEqual([])
   expect(state.unexpected).toEqual([])
 })
