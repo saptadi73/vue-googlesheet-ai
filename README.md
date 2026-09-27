@@ -106,6 +106,13 @@ Operasional BE15: [jadwal sumber](docs/FRONTEND_SCHEDULING_BE15.md),
 [watermark incremental](docs/FRONTEND_WATERMARK_BE15.md), dan
 [statistik/notifikasi](docs/FRONTEND_OPERATIONS_BE15.md).
 
+BE16 parsial: halaman Administrasi mengelola atribut/assignment, permission bundle,
+policy dan preview keputusan; Workspace mendaftarkan/mereview metadata sumber dan
+mengaktifkan policy SOURCE. Dashboard/Chat memakai katalog backend yang menahan produk
+sumber BE16 pending. Sumber legacy masih memakai kontrol lama; capability global,
+row/column policy, masking, dan access request belum tersedia. Rincian:
+[Frontend kontrol akses BE16](docs/FRONTEND_ACCESS_JURISDICTION_BE16.md).
+
 ## Production
 
 Proxy Vite hanya berlaku saat development. Untuk production/preview, sediakan reverse proxy `/api`

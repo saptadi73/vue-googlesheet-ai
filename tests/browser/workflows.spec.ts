@@ -36,6 +36,168 @@ test('dashboard sends catalog query, charts nulls and handles authenticated down
   expect(mock.unexpected).toEqual([])
 })
 
+test('editor registers a source with assigned BE16 metadata', async ({ page }) => {
+  const mock = await setup(page)
+  await page.goto('/workspace')
+  await login(page)
+  await page.getByText('Hubungkan Google Sheet baru').click()
+  await page.getByLabel('Kode sumber').fill('scoped_sales')
+  await page.getByLabel('Nama sumber').fill('Penjualan scoped')
+  await page.getByLabel('URL / ID spreadsheet').fill('fake_sheet_12345')
+  await page.getByLabel('Unit pemilik').selectOption(sourceId)
+  await page.getByLabel('Domain bisnis').selectOption(sheetId)
+  await page.getByLabel('Yurisdiksi').selectOption(jobId)
+  await page.getByLabel('Purpose').selectOption('44444444-4444-4444-8444-444444444444')
+  await page.getByLabel('Data owner').selectOption('editor-id')
+  await page.getByLabel('Data steward').selectOption('steward-id')
+  await page.getByLabel('Sensitivitas').selectOption('MEDIUM')
+  await page.getByRole('button', { name: 'Hubungkan & profiling' }).click()
+  expect(mock.requests.find((request) => request.path === '/sources/google-sheets')?.body).toMatchObject({
+    source_code: 'scoped_sales',
+    access_metadata: {
+      owner_unit_id: sourceId,
+      business_domain_id: sheetId,
+      jurisdiction_id: jobId,
+      purpose_id: '44444444-4444-4444-8444-444444444444',
+      data_owner_user_id: 'editor-id',
+      data_steward_user_id: 'steward-id',
+      sensitivity: 'MEDIUM',
+    },
+  })
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
+test('editor repairs legacy source metadata without approving access', async ({ page }) => {
+  const mock = await setup(page)
+  await page.goto('/workspace')
+  await login(page)
+  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  await page.getByLabel('Unit pemilik sumber').selectOption(sourceId)
+  await page.getByLabel('Domain bisnis sumber').selectOption(sheetId)
+  await page.getByLabel('Yurisdiksi sumber').selectOption(jobId)
+  await page.getByLabel('Purpose sumber').selectOption('44444444-4444-4444-8444-444444444444')
+  await page.getByLabel('Data owner sumber').selectOption('editor-id')
+  await page.getByLabel('Data steward sumber').selectOption('steward-id')
+  await page.getByLabel('Sensitivitas sumber').selectOption('HIGH')
+  await page.getByRole('button', { name: 'Simpan metadata akses' }).click()
+  expect(mock.requests.find((request) => request.path === `/sources/${sourceId}/access-metadata`)?.body).toEqual({
+    revision_no: 1,
+    access_metadata: {
+      owner_unit_id: sourceId,
+      business_domain_id: sheetId,
+      jurisdiction_id: jobId,
+      purpose_id: '44444444-4444-4444-8444-444444444444',
+      data_owner_user_id: 'editor-id',
+      data_steward_user_id: 'steward-id',
+      sensitivity: 'HIGH',
+    },
+  })
+  await expect(page.getByRole('status').filter({ hasText: 'Metadata akses sumber tersimpan' })).toBeVisible()
+  await expect(page.getByText('Status akses: Perlu policy akses')).toBeVisible()
+  mock.source.access_revision++
+  await page.getByLabel('Sensitivitas sumber').selectOption('MEDIUM')
+  await page.getByRole('button', { name: 'Simpan metadata akses' }).click()
+  await expect(page.getByRole('alert')).toContainText('Metadata berubah')
+  await expect(page.getByLabel('Sensitivitas sumber')).toHaveValue('MEDIUM')
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
+test('separate admin reviews source metadata without granting data access', async ({ page }) => {
+  const mock = await setup(page)
+  mock.source.access_metadata = {
+    owner_unit_id: sourceId,
+    business_domain_id: sheetId,
+    jurisdiction_id: jobId,
+    purpose_id: '44444444-4444-4444-8444-444444444444',
+    data_owner_user_id: 'editor-id',
+    data_steward_user_id: 'steward-id',
+    sensitivity: 'HIGH',
+  }
+  mock.source.access_metadata_editor_id = 'editor-id'
+  mock.source.access_revision = 2
+  await page.goto('/workspace')
+  await login(page, 'admin')
+  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  await page.getByRole('button', { name: 'Tinjau metadata' }).click()
+  await expect(page.locator('dd').filter({ hasText: 'REPORTING · Reporting' })).toBeVisible()
+  await page.getByRole('button', { name: 'Setujui metadata' }).click()
+  expect(mock.requests.find((request) => request.path === `/sources/${sourceId}/access-review` && request.method === 'POST')?.body).toEqual({
+    revision_no: 2,
+    decision: 'APPROVE',
+    reason: 'METADATA_VERIFIED',
+  })
+  await expect(page.getByText('Review metadata: APPROVED')).toBeVisible()
+  await expect(page.getByText('Status akses: Perlu policy akses')).toBeVisible()
+  await page.getByRole('button', { name: 'Muat policy SOURCE' }).click()
+  await page.getByLabel('Policy sumber').selectOption('66666666-6666-4666-8666-666666666666')
+  await page.getByRole('button', { name: 'Aktifkan policy sumber' }).click()
+  expect(mock.requests.find((request) => request.path === `/sources/${sourceId}/access-activate`)?.body).toEqual({
+    revision_no: 3,
+    policy_id: '66666666-6666-4666-8666-666666666666',
+  })
+  await expect(page.getByText('Status akses: Policy approved')).toBeVisible()
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
+test('reviewer rejects invalid source scope without granting access', async ({ page }) => {
+  const mock = await setup(page)
+  mock.source.access_metadata = {
+    owner_unit_id: sourceId,
+    business_domain_id: sheetId,
+    jurisdiction_id: jobId,
+    purpose_id: '44444444-4444-4444-8444-444444444444',
+    data_owner_user_id: 'editor-id',
+    data_steward_user_id: 'steward-id',
+    sensitivity: 'HIGH',
+  }
+  mock.source.access_metadata_editor_id = 'editor-id'
+  mock.setReviewScopeInvalid()
+  await page.goto('/workspace')
+  await login(page, 'admin')
+  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  await page.getByRole('button', { name: 'Tinjau metadata' }).click()
+  await expect(page.getByRole('button', { name: 'Setujui metadata' })).toBeDisabled()
+  await page.getByLabel('Alasan penolakan').selectOption('SCOPE_MISMATCH')
+  await page.getByRole('button', { name: 'Tolak metadata' }).click()
+  expect(mock.requests.find((request) => request.path === `/sources/${sourceId}/access-review` && request.method === 'POST')?.body).toEqual({
+    revision_no: 1,
+    decision: 'REJECT',
+    reason: 'SCOPE_MISMATCH',
+  })
+  await expect(page.getByText(/Review metadata: REJECTED/)).toBeVisible()
+  await expect(page.getByText('Status akses: Perlu policy akses')).toBeVisible()
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
+test('pending BE16 source is absent from data product choices', async ({ page }) => {
+  const mock = await setup(page)
+  mock.source.access_metadata = {
+    owner_unit_id: sourceId,
+    business_domain_id: sheetId,
+    jurisdiction_id: jobId,
+    purpose_id: '44444444-4444-4444-8444-444444444444',
+    data_owner_user_id: 'editor-id',
+    data_steward_user_id: 'steward-id',
+    sensitivity: 'HIGH',
+  }
+  await page.goto('/workspace')
+  await login(page)
+  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  await expect(page.getByText('Produk data sumber ini belum tersedia sampai policy akses disetujui.')).toBeVisible()
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
+  await expect.poll(() => mock.requests.filter((request) => request.path === '/data-products').length).toBeGreaterThan(0)
+  await expect(page.getByRole('combobox', { name: 'Produk data', exact: true }).getByRole('option', { name: /SALES/ })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Chat data', exact: true }).click()
+  await expect.poll(() => mock.requests.filter((request) => request.path === '/data-products').length).toBeGreaterThan(1)
+  await expect(page.getByRole('combobox', { name: 'Produk data', exact: true }).getByRole('option', { name: /SALES/ })).toHaveCount(0)
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
 test('chat treats clarification as a successful conversation step and sends a full question', async ({
   page,
 }) => {
@@ -96,6 +258,7 @@ test('ETL review saves full draft, resets checklist and approves with a separate
   await expect(page).toHaveURL(/\/workspace$/)
   await login(page, 'approver')
   await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  await expect(page.getByRole('status').filter({ hasText: 'Status akses: Perlu policy akses' })).toBeVisible()
   await page.getByRole('combobox', { name: 'Tab Google Sheet', exact: true }).selectOption(sheetId)
   await page.getByRole('link', { name: 'Buka review', exact: true }).click()
   await page.getByRole('button', { name: '7. Validasi & persetujuan' }).click()

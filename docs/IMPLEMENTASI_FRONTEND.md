@@ -1,4 +1,4 @@
-# Implementasi frontend — 26 September 2026
+# Implementasi frontend — ditinjau ulang 27 September 2026
 
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
@@ -64,7 +64,10 @@ API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan
 - **Role:** menu dan request awal memakai kelompok hak S/E/R/D/A dari reference. Halaman yang tidak
   diizinkan menampilkan pesan akses ditolak. Backend tetap sumber otorisasi, termasuk product allowlist.
 - **Sumber:** kode lowercase, deskripsi, credential reference, cron UTC, pengaturan tab dan profil sesuai
-  `source_sheet_id`. Perubahan tab mengharuskan profiling ulang. Konfigurasi aktif mengunci tab.
+  `source_sheet_id`. Registrasi baru BE16 meminta unit/domain/yurisdiksi assignment aktif,
+  PURPOSE, owner/steward dan sensitivitas; sumber legacy dapat dikoreksi dengan
+  `access_revision`. Admin berbeda mereview metadata lalu memilih policy SOURCE approved
+  untuk aktivasi. Perubahan tab mengharuskan profiling ulang. Konfigurasi aktif mengunci tab.
 - **Draft manual:** mapping dibuat dari header profil dengan tipe awal text. PII terindikasi dimulai HIGH;
   pengguna memeriksa mapping/tipe/sensitivitas/key di wizard. APPEND/FULL_REFRESH tersedia sebagai
   strategi awal; UPSERT dipilih di wizard setelah key ditentukan. Pembuatan draft tidak memuat data.
@@ -101,7 +104,24 @@ API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan
   karena endpoint daftar NL2SQL tidak tersedia.
 - **Admin:** buat user, update role/is_active/row_scope. Row scope diganti utuh dan harus diterapkan pada
   form sebelum simpan. Role/aktif diri sendiri dikunci. Summary AI tenant tanpa tanggal atau klaim lintas
-  tenant; estimasi null tidak dianggap nol. Password change meminta login ulang.
+  tenant; estimasi null tidak dianggap nol. Password change meminta login ulang. Fondasi BE16 menambah
+  registry departemen/domain/yurisdiksi/clearance/PURPOSE, assignment bertanggal, revoke, histori, dan preview
+  effective access role + assignment pada halaman yang sama. Tahap 2 menambah registry permission bundle,
+  aksi baku, grant/revoke bertanggal, alasan, dan larangan mengubah permission sendiri. Tahap 3 menambah
+  policy DRAFT, binding resource, submit/approve/revoke, serta preview keputusan default-deny.
+  Preview bukan bukti user mempunyai akses ke semua resource; backend memakai evaluator
+  SOURCE hanya pada jalur DataProduct dari sumber BE16 yang diaktifkan.
+
+## Status kontrol akses yurisdiksi BE16
+
+Registry/assignment, izin tindakan, policy preview, metadata sumber, review, aktivasi,
+dan status akses produk BE16 sudah terhubung ke backend. Dashboard dan Chat mengambil
+produk dari katalog terotorisasi; sumber dengan metadata yang masih pending tidak
+menawarkan produk. Izin `DISCOVER`/`QUERY`/`EXPORT` sumber yang diaktifkan tetap
+diputuskan backend per permintaan, bukan oleh status tombol. Sumber legacy tanpa metadata
+masih mengikuti akses lama. Clearance, row/column security, masking, capability lintas
+halaman, access request, dan rollout production belum selesai. Lihat
+[batas frontend BE-16](FRONTEND_ACCESS_JURISDICTION_BE16.md).
 
 ## Menjalankan dan verifikasi
 
@@ -116,7 +136,9 @@ npm.cmd run test:e2e
 Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
 melengkapi delapan skenario workflow sebelumnya.
 
-Verifikasi frontend 27 September 2026: 54 unit test dan 62 skenario browser lulus.
+Verifikasi frontend 27 September 2026 setelah BE16: 54 unit test dan 68 skenario browser lulus;
+typecheck serta build production lulus (warning ukuran chunk chart tetap ada).
+Angka 63 skenario browser adalah baseline sebelum tes BE16 ditambahkan.
 Regresi terarah notifikasi operasional dan source schedule lulus. Regression BE12/BE14/BE15
 mencakup transform parameter statis, lifecycle join relationship dan AI task policy tanpa API key.
 Regression BE15 Governance juga memeriksa payload batas konteks, budget harian, dan

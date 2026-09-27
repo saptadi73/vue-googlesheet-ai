@@ -32,6 +32,7 @@ export async function setup(page: Page) {
   let binaryError = false
   let failedJob = true
   let notificationAcknowledged = false
+  let reviewScopeValid = true
   const roles: Record<string, string> = {
     editor: 'DATA_STEWARD',
     approver: 'TECHNICAL_APPROVER',
@@ -43,6 +44,13 @@ export async function setup(page: Page) {
     source_code: 'sales',
     name: 'Penjualan cabang',
     status: 'ACTIVE',
+    access_status: 'ACCESS_POLICY_REQUIRED',
+    access_revision: 1,
+    access_metadata: null as Record<string, string> | null,
+    access_metadata_editor_id: null as string | null,
+    access_review_status: 'PENDING',
+    access_reviewed_by: null as string | null,
+    access_review_reason: '',
     paused: false,
     sync_schedule: null,
     schedule_timezone: 'UTC',
@@ -195,14 +203,17 @@ export async function setup(page: Page) {
         row_scope: {},
       })
     if (path === '/auth/logout' || path === '/auth/change-password') return ok({ message: 'OK' })
-    if (path === '/data-products') return ok([product])
+    if (path === '/data-products')
+      return ok(source.access_metadata && source.access_status !== 'POLICY_APPROVED' ? [] : [product])
     if (path === '/configurations/parameter-catalog')
       return ok({ schema_version: '1.0', parameters: [], operations: [], capabilities: {} })
     if (path === `/configurations/${configId}/validate`)
       return ok({ ...validation, ready_for_review: true })
     if (path === '/semantic/query-templates') return ok([])
     if (path === '/semantic/join-relationships') return ok([])
-    if (path === '/data-products/SALES/query')
+    if (path === '/data-products/SALES/query') {
+      if (source.access_metadata && source.access_status !== 'POLICY_APPROVED')
+        return fail(404, 'DATA_PRODUCT_NOT_FOUND', 'Produk data belum tersedia')
       return ok(
         [
           {
@@ -224,7 +235,10 @@ export async function setup(page: Page) {
         ],
         { row_count: 2, query_source: 'OPERATIONAL', cached: false },
       )
+    }
     if (path === '/data-products/SALES/export') {
+      if (source.access_metadata && source.access_status !== 'POLICY_APPROVED')
+        return fail(404, 'DATA_PRODUCT_NOT_FOUND', 'Produk data belum tersedia')
       if (binaryError) return fail(403, 'FORBIDDEN', 'Ekspor tidak diizinkan')
       return route.fulfill({
         contentType: 'text/csv',
@@ -269,6 +283,61 @@ export async function setup(page: Page) {
     }
     if (path === '/etl-jobs') return ok([source, upstreamSource])
     if (path === '/sources') return ok([source])
+    if (path === `/sources/${sourceId}/access-metadata` && method === 'PATCH') {
+      if (body.revision_no !== source.access_revision)
+        return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata berubah')
+      source.access_metadata = body.access_metadata
+      source.access_metadata_editor_id = `${username}-id`
+      source.access_revision++
+      source.access_status = 'ACCESS_POLICY_REQUIRED'
+      source.access_review_status = 'PENDING'
+      source.access_reviewed_by = null
+      source.access_review_reason = ''
+      return ok(source)
+    }
+    if (path === `/sources/${sourceId}/access-review-context` && method === 'GET')
+      return ok({
+        source_id: sourceId,
+        access_revision: source.access_revision,
+        review_status: source.access_review_status,
+        attributes: {
+          owner_unit_id: source.access_metadata ? { code: 'SALES', label: 'Sales', is_active: reviewScopeValid } : null,
+          business_domain_id: source.access_metadata ? { code: 'COMMERCE', label: 'Commerce', is_active: true } : null,
+          jurisdiction_id: source.access_metadata ? { code: 'JATIM', label: 'Jawa Timur', is_active: true } : null,
+          purpose_id: source.access_metadata ? { code: 'REPORTING', label: 'Reporting', is_active: true } : null,
+        },
+        people: {
+          data_owner_user_id: source.access_metadata ? { username: 'editor', is_active: true } : null,
+          data_steward_user_id: source.access_metadata ? { username: 'steward', is_active: true } : null,
+        },
+        sensitivity: source.access_metadata?.sensitivity || null,
+      })
+    if (path === `/sources/${sourceId}/access-review` && method === 'POST') {
+      if (body.revision_no !== source.access_revision)
+        return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata berubah')
+      if (source.access_metadata_editor_id === `${username}-id`)
+        return fail(403, 'SOURCE_METADATA_SELF_REVIEW', 'Editor tidak dapat mereview')
+      source.access_review_status = body.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'
+      source.access_reviewed_by = `${username}-id`
+      source.access_review_reason = body.reason
+      source.access_revision++
+      return ok(source)
+    }
+    if (path === `/sources/${sourceId}/access-policy-options` && method === 'GET')
+      return ok(source.access_review_status === 'APPROVED' ? [{
+        id: '66666666-6666-4666-8666-666666666666', code: 'SALES_SOURCE',
+        label: 'Sales source policy', actions: ['DISCOVER', 'QUERY'],
+      }] : [])
+    if (path === `/sources/${sourceId}/access-activate` && method === 'POST') {
+      if (body.revision_no !== source.access_revision)
+        return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata berubah')
+      if (source.access_review_status !== 'APPROVED' ||
+          body.policy_id !== '66666666-6666-4666-8666-666666666666')
+        return fail(409, 'SOURCE_ACCESS_POLICY_REQUIRED', 'Policy tidak siap')
+      source.access_status = 'POLICY_APPROVED'
+      source.access_revision++
+      return ok(source)
+    }
     if (path === `/sources/${sourceId}/sheets`) return ok([sheet])
     if (path === `/sources/${sourceId}/profiling-runs`)
       return ok([
@@ -444,6 +513,27 @@ export async function setup(page: Page) {
       ])
     if (path === '/users' && method === 'POST')
       return ok({ id: 'new-user', ...body, password: undefined })
+    if (path === '/access/registration-options' && method === 'GET')
+      return ok({
+        scopes: [
+          { id: sourceId, kind: 'DEPARTMENT', code: 'SALES', label: 'Sales' },
+          { id: sheetId, kind: 'BUSINESS_DOMAIN', code: 'COMMERCE', label: 'Commerce' },
+          { id: jobId, kind: 'JURISDICTION', code: 'JATIM', label: 'Jawa Timur' },
+        ],
+        purposes: [{ id: notificationId, kind: 'PURPOSE', code: 'REPORTING', label: 'Reporting' }],
+        people: [
+          { id: `${username}-id`, username, role: roles[username] },
+          { id: 'steward-id', username: 'steward', role: 'DATA_STEWARD' },
+        ],
+        sensitivities: ['LOW', 'MEDIUM', 'HIGH'],
+      })
+    if (path === '/sources/google-sheets' && method === 'POST')
+      return ok({ source, job_id: jobId })
+    if (path === '/access/resources' && method === 'GET') return ok([])
+    if (path === '/access/attributes' && method === 'GET') return ok([])
+    if (path === '/access/permission-bundles' && method === 'GET') return ok([])
+    if (path.endsWith('/permission-grants') && method === 'GET') return ok([])
+    if (path === '/access/policies' && method === 'GET') return ok([])
     if (path === '/admin/audit-events')
       return ok([{ event: 'auth.login', user_id: 'admin-id', details: {} }])
     if (path.startsWith('/admin/ai-usage/')) return ok([{ requests: 0, estimated_cost_usd: null }])
@@ -464,6 +554,9 @@ export async function setup(page: Page) {
     },
     setBinaryError: () => {
       binaryError = true
+    },
+    setReviewScopeInvalid: () => {
+      reviewScopeValid = false
     },
   }
 }

@@ -11,6 +11,9 @@ import {
   type Config,
   type Job,
   type Profile,
+  type AccessAttribute,
+  type AccessKind,
+  type SourceAccessMetadata,
 } from '@/lib/etl'
 import ManualDraft from '@/components/ManualDraft.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
@@ -26,6 +29,12 @@ const sourceId = ref(''),
   busy = ref(false),
   job = ref<Job | null>(null)
 const offset = ref(0)
+function emptyAccessMetadata() {
+  return {
+    owner_unit_id: '', business_domain_id: '', jurisdiction_id: '', purpose_id: '',
+    data_owner_user_id: '', data_steward_user_id: '', sensitivity: '',
+  }
+}
 const registration = ref({
   source_code: '',
   name: '',
@@ -33,10 +42,45 @@ const registration = ref({
   description: '',
   credential_ref: 'default',
   sync_schedule: '',
+  access_metadata: emptyAccessMetadata(),
 })
+const metadataEdit = ref(emptyAccessMetadata())
+type ReviewContext = {
+  source_id: string
+  access_revision: number
+  review_status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  attributes: Record<string, { code: string; label: string; is_active: boolean } | null>
+  people: Record<string, { username: string; is_active: boolean } | null>
+  sensitivity: string | null
+}
+const reviewContext = ref<ReviewContext | null>(null)
+const policyOptions = ref<{ id: string; code: string; label: string; actions: string[] }[] | null>(null)
+const selectedPolicyId = ref('')
+const rejectReason = ref<'SCOPE_MISMATCH' | 'OWNER_UNCONFIRMED' | 'OTHER'>('SCOPE_MISMATCH')
+const reviewAttributes = [
+  { key: 'owner_unit_id', label: 'Unit pemilik' },
+  { key: 'business_domain_id', label: 'Domain bisnis' },
+  { key: 'jurisdiction_id', label: 'Yurisdiksi' },
+  { key: 'purpose_id', label: 'Purpose' },
+]
+const reviewPeople = [
+  { key: 'data_owner_user_id', label: 'Data owner' },
+  { key: 'data_steward_user_id', label: 'Data steward' },
+]
+type RegistrationOptions = {
+  scopes: AccessAttribute[]
+  purposes: AccessAttribute[]
+  people: { id: string; username: string; role: string }[]
+  sensitivities: string[]
+}
+const registrationOptions = ref<RegistrationOptions | null>(null)
+function scopeOptions(kind: AccessKind) {
+  return registrationOptions.value?.scopes.filter((scope) => scope.kind === kind) || []
+}
 const profiles = ref<Profile[]>([])
 const syncReviews = ref<unknown[] | null>(null)
 const migrationPreview = ref<Record<string, unknown> | null>(null)
+const selectedSource = computed(() => sources.value.find((source) => source.id === sourceId.value))
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value))
 const currentProfile = computed(
   () =>
@@ -63,9 +107,28 @@ watch(selectedSheet, (sheet) => {
     }
   }
 })
+watch(selectedSource, (source) => {
+  reviewContext.value = null
+  policyOptions.value = null
+  selectedPolicyId.value = ''
+  metadataEdit.value = source?.access_metadata
+    ? { ...source.access_metadata }
+    : emptyAccessMetadata()
+})
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const blockers = computed(() => (sourceId.value ? sourceBlockers(sheets.value) : []))
 const canEdit = computed(() => !!user.value && editRoles.includes(user.value.role))
+const canDecideReview = computed(() => Boolean(
+  reviewContext.value && selectedSource.value?.access_metadata &&
+  selectedSource.value.access_review_status === 'PENDING' &&
+  reviewContext.value.access_revision === selectedSource.value.access_revision &&
+  selectedSource.value.access_metadata_editor_id !== user.value?.id,
+))
+const canApproveReview = computed(() => Boolean(
+  canDecideReview.value && reviewContext.value &&
+  Object.values(reviewContext.value.attributes).every((item) => item?.is_active) &&
+  Object.values(reviewContext.value.people).every((item) => item?.is_active),
+))
 let timer: ReturnType<typeof setTimeout> | undefined
 let generation = 0
 let pollDeadline = 0
@@ -87,6 +150,71 @@ async function changePage(delta: number) {
 }
 async function load() {
   sources.value = await call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`)
+}
+async function loadRegistrationOptions() {
+  const accountId = user.value?.id
+  const options = await call<RegistrationOptions>('GET', '/access/registration-options')
+  if (user.value?.id === accountId) registrationOptions.value = options
+}
+async function saveAccessMetadata() {
+  const source = selectedSource.value
+  const accountId = user.value?.id
+  if (!source || source.access_revision === undefined) return
+  const updated = await call<Source>('PATCH', `/sources/${source.id}/access-metadata`, {
+    revision_no: source.access_revision,
+    access_metadata: metadataEdit.value as SourceAccessMetadata,
+  })
+  if (sourceId.value !== source.id || user.value?.id !== accountId) return
+  sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
+  notice.value = 'Metadata akses sumber tersimpan. Policy akses perlu ditinjau.'
+}
+async function loadReviewContext() {
+  const source = selectedSource.value
+  const accountId = user.value?.id
+  if (!source) return
+  const context = await call<ReviewContext>('GET', `/sources/${source.id}/access-review-context`)
+  if (sourceId.value === source.id && user.value?.id === accountId &&
+      selectedSource.value?.access_revision === context.access_revision) {
+    reviewContext.value = context
+  }
+}
+async function decideReview(decision: 'APPROVE' | 'REJECT') {
+  const source = selectedSource.value
+  const accountId = user.value?.id
+  if (!source || !canDecideReview.value) return
+  const updated = await call<Source>('POST', `/sources/${source.id}/access-review`, {
+    revision_no: source.access_revision,
+    decision,
+    reason: decision === 'APPROVE' ? 'METADATA_VERIFIED' : rejectReason.value,
+  })
+  if (sourceId.value !== source.id || user.value?.id !== accountId) return
+  sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
+  notice.value = 'Review metadata tersimpan. Akses data tetap memerlukan policy.'
+}
+async function loadPolicyOptions() {
+  const source = selectedSource.value
+  const accountId = user.value?.id
+  if (!source) return
+  const options = await call<{ id: string; code: string; label: string; actions: string[] }[]>(
+    'GET', `/sources/${source.id}/access-policy-options`,
+  )
+  if (sourceId.value === source.id && user.value?.id === accountId &&
+      selectedSource.value?.access_revision === source.access_revision) {
+    policyOptions.value = options
+    selectedPolicyId.value = ''
+  }
+}
+async function activateSourceAccess() {
+  const source = selectedSource.value
+  const accountId = user.value?.id
+  if (!source || source.access_revision === undefined || !selectedPolicyId.value) return
+  const updated = await call<Source>('POST', `/sources/${source.id}/access-activate`, {
+    revision_no: source.access_revision,
+    policy_id: selectedPolicyId.value,
+  })
+  if (sourceId.value !== source.id || user.value?.id !== accountId) return
+  sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
+  notice.value = 'Policy sumber aktif. Izin pengguna tetap diperiksa pada setiap akses data.'
 }
 async function selectSource() {
   sheetId.value = ''
@@ -184,8 +312,16 @@ watch(
     profiles.value = []
     syncReviews.value = null
     migrationPreview.value = null
+    registrationOptions.value = null
+    reviewContext.value = null
+    policyOptions.value = null
+    selectedPolicyId.value = ''
+    rejectReason.value = 'SCOPE_MISMATCH'
+    registration.value.access_metadata = emptyAccessMetadata()
     offset.value = 0
-    if (canRead.value) void run(load)
+    if (canRead.value) void run(async () => {
+      await Promise.all([load(), ...(canEdit.value ? [loadRegistrationOptions()] : [])])
+    })
   },
   { immediate: true },
 )
@@ -241,11 +377,55 @@ onBeforeUnmount(() => {
               placeholder="0 */6 * * *"
           /></label>
         </div>
+        <div class="grid">
+          <label>Unit pemilik<select v-model="registration.access_metadata.owner_unit_id" required>
+            <option value="" disabled>Pilih unit</option>
+            <option v-for="scope in scopeOptions('DEPARTMENT')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Domain bisnis<select v-model="registration.access_metadata.business_domain_id" required>
+            <option value="" disabled>Pilih domain</option>
+            <option v-for="scope in scopeOptions('BUSINESS_DOMAIN')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Yurisdiksi<select v-model="registration.access_metadata.jurisdiction_id" required>
+            <option value="" disabled>Pilih yurisdiksi</option>
+            <option v-for="scope in scopeOptions('JURISDICTION')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Purpose<select v-model="registration.access_metadata.purpose_id" required>
+            <option value="" disabled>Pilih purpose</option>
+            <option v-for="purpose in registrationOptions?.purposes || []" :key="purpose.id" :value="purpose.id">
+              {{ purpose.code }} · {{ purpose.label }}
+            </option>
+          </select></label>
+          <label>Data owner<select v-model="registration.access_metadata.data_owner_user_id" required>
+            <option value="" disabled>Pilih owner</option>
+            <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
+              {{ person.username }} · {{ person.role }}
+            </option>
+          </select></label>
+          <label>Data steward<select v-model="registration.access_metadata.data_steward_user_id" required>
+            <option value="" disabled>Pilih steward</option>
+            <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
+              {{ person.username }} · {{ person.role }}
+            </option>
+          </select></label>
+          <label>Sensitivitas<select v-model="registration.access_metadata.sensitivity" required>
+            <option value="" disabled>Pilih sensitivitas</option>
+            <option v-for="level in registrationOptions?.sensitivities || []" :key="level" :value="level">
+              {{ level }}
+            </option>
+          </select></label>
+        </div>
         <p class="muted">
           Bagikan spreadsheet ke email service account backend dengan akses Viewer sebelum
           menghubungkan.
         </p>
-        <button class="primary" :disabled="busy">Hubungkan &amp; profiling</button>
+        <button class="primary" :disabled="busy || !registrationOptions">Hubungkan &amp; profiling</button>
       </form>
     </details>
     <section class="panel">
@@ -268,6 +448,16 @@ onBeforeUnmount(() => {
           </select></label
         >
       </div>
+      <p v-if="selectedSource" role="status">
+        Status akses: {{ selectedSource.access_status === 'POLICY_APPROVED' ? 'Policy approved' : 'Perlu policy akses' }}
+      </p>
+      <p v-if="selectedSource?.access_metadata && selectedSource.access_status !== 'POLICY_APPROVED'" class="notice" role="status">
+        Produk data sumber ini belum tersedia sampai policy akses disetujui.
+      </p>
+      <p v-if="selectedSource" role="status">
+        Review metadata: {{ selectedSource.access_review_status || 'PENDING' }}
+        <span v-if="selectedSource.access_review_reason"> · {{ selectedSource.access_review_reason }}</span>
+      </p>
       <div class="toolbar">
         <button :disabled="busy || offset === 0" @click="changePage(-50)">Sumber sebelumnya</button
         ><button :disabled="busy || sources.length < 50" @click="changePage(50)">
@@ -321,6 +511,99 @@ onBeforeUnmount(() => {
         >
           Rekomendasikan konfigurasi AI
         </button>
+      </div>
+    </section>
+    <section v-if="selectedSource && canEdit" class="panel">
+      <h2>Metadata akses sumber</h2>
+      <form @submit.prevent="run(saveAccessMetadata)">
+        <div class="grid">
+          <label>Unit pemilik sumber<select v-model="metadataEdit.owner_unit_id" required>
+            <option value="" disabled>Pilih unit</option>
+            <option v-for="scope in scopeOptions('DEPARTMENT')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Domain bisnis sumber<select v-model="metadataEdit.business_domain_id" required>
+            <option value="" disabled>Pilih domain</option>
+            <option v-for="scope in scopeOptions('BUSINESS_DOMAIN')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Yurisdiksi sumber<select v-model="metadataEdit.jurisdiction_id" required>
+            <option value="" disabled>Pilih yurisdiksi</option>
+            <option v-for="scope in scopeOptions('JURISDICTION')" :key="scope.id" :value="scope.id">
+              {{ scope.code }} · {{ scope.label }}
+            </option>
+          </select></label>
+          <label>Purpose sumber<select v-model="metadataEdit.purpose_id" required>
+            <option value="" disabled>Pilih purpose</option>
+            <option v-for="purpose in registrationOptions?.purposes || []" :key="purpose.id" :value="purpose.id">
+              {{ purpose.code }} · {{ purpose.label }}
+            </option>
+          </select></label>
+          <label>Data owner sumber<select v-model="metadataEdit.data_owner_user_id" required>
+            <option value="" disabled>Pilih owner</option>
+            <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
+              {{ person.username }} · {{ person.role }}
+            </option>
+          </select></label>
+          <label>Data steward sumber<select v-model="metadataEdit.data_steward_user_id" required>
+            <option value="" disabled>Pilih steward</option>
+            <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
+              {{ person.username }} · {{ person.role }}
+            </option>
+          </select></label>
+          <label>Sensitivitas sumber<select v-model="metadataEdit.sensitivity" required>
+            <option value="" disabled>Pilih sensitivitas</option>
+            <option v-for="level in registrationOptions?.sensitivities || []" :key="level" :value="level">
+              {{ level }}
+            </option>
+          </select></label>
+        </div>
+        <button class="primary" :disabled="busy || !registrationOptions || selectedSource.access_revision === undefined">
+          Simpan metadata akses
+        </button>
+      </form>
+    </section>
+    <section v-if="selectedSource && user?.role === 'PLATFORM_ADMIN'" class="panel">
+      <h2>Review metadata sumber</h2>
+      <button :disabled="busy" @click="run(loadReviewContext)">Tinjau metadata</button>
+      <template v-if="reviewContext">
+        <dl class="grid">
+          <div v-for="item in reviewAttributes" :key="item.key">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ reviewContext.attributes[item.key]?.code || 'Tidak tersedia' }} · {{ reviewContext.attributes[item.key]?.label || 'Tidak tersedia' }}</dd>
+          </div>
+          <div v-for="item in reviewPeople" :key="item.key">
+            <dt>{{ item.label }}</dt>
+            <dd>{{ reviewContext.people[item.key]?.username || 'Tidak tersedia' }}</dd>
+          </div>
+          <div><dt>Sensitivitas</dt><dd>{{ reviewContext.sensitivity || 'Tidak tersedia' }}</dd></div>
+        </dl>
+        <div class="toolbar">
+          <button class="primary" :disabled="busy || !canApproveReview" @click="run(() => decideReview('APPROVE'))">
+            Setujui metadata
+          </button>
+          <label>Alasan penolakan<select v-model="rejectReason">
+            <option value="SCOPE_MISMATCH">Scope tidak sesuai</option>
+            <option value="OWNER_UNCONFIRMED">Owner belum dikonfirmasi</option>
+            <option value="OTHER">Alasan lain</option>
+          </select></label>
+          <button :disabled="busy || !canDecideReview" @click="run(() => decideReview('REJECT'))">
+            Tolak metadata
+          </button>
+        </div>
+      </template>
+      <div v-if="selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
+        <button :disabled="busy" @click="run(loadPolicyOptions)">Muat policy SOURCE</button>
+        <label v-if="policyOptions">Policy sumber<select v-model="selectedPolicyId">
+          <option value="">Pilih policy approved</option>
+          <option v-for="policy in policyOptions" :key="policy.id" :value="policy.id">
+            {{ policy.code }} · {{ policy.label }}
+          </option>
+        </select></label>
+        <button class="primary" :disabled="busy || !selectedPolicyId || selectedSource.access_metadata_editor_id === user?.id"
+          @click="run(activateSourceAccess)">Aktifkan policy sumber</button>
       </div>
     </section>
     <section v-if="sourceId" class="panel">

@@ -16,6 +16,85 @@ export interface User {
   is_active?: boolean
   row_scope?: Record<string, Record<string, unknown[]>>
 }
+export type AccessKind = 'DEPARTMENT' | 'BUSINESS_DOMAIN' | 'JURISDICTION' | 'CLEARANCE' | 'PURPOSE'
+export interface AccessAttribute {
+  id: string
+  kind: AccessKind
+  code: string
+  label: string
+  parent_id: string | null
+  is_active: boolean
+  revision: number
+  attribute_data: Record<string, unknown>
+}
+export interface UserAssignment {
+  id: string
+  user_id: string
+  attribute_id: string
+  valid_from: string
+  valid_to: string | null
+  status: 'ACTIVE' | 'REVOKED'
+  revision: number
+  note: string
+  revoked_at: string | null
+  attribute: AccessAttribute
+}
+export type AccessAction =
+  'DISCOVER' | 'READ' | 'QUERY' | 'EXPORT' | 'EDIT' | 'APPROVE' | 'OPERATE' | 'ADMIN'
+export interface PermissionBundle {
+  id: string
+  code: string
+  label: string
+  description: string
+  actions: AccessAction[]
+  is_active: boolean
+  revision: number
+}
+export interface PermissionGrant {
+  id: string
+  user_id: string
+  bundle_id: string
+  valid_from: string
+  valid_to: string | null
+  status: 'ACTIVE' | 'REVOKED'
+  revision: number
+  note: string
+  revoked_at: string | null
+  bundle: PermissionBundle
+}
+export interface AccessPolicy {
+  id: string
+  code: string
+  label: string
+  description: string
+  effect: 'ALLOW' | 'DENY'
+  actions: AccessAction[]
+  required_attribute_ids: string[]
+  row_scope: Record<string, string[]>
+  column_rules: Record<string, 'VISIBLE' | 'MASKED' | 'HIDDEN'>
+  export_allowed: boolean
+  status: 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REVOKED'
+  revision: number
+  valid_from: string
+  valid_to: string | null
+  created_by: string
+}
+export interface AccessDecision {
+  allowed: boolean
+  reason_code: 'POLICY_MATCH' | 'EXPLICIT_DENY' | 'DEFAULT_DENY' | 'ACTION_NOT_GRANTED'
+  policy_ids: string[]
+  row_scope: Record<string, string[]>
+  columns: Record<string, 'VISIBLE' | 'MASKED' | 'HIDDEN'>
+  export_allowed: boolean
+}
+export interface EffectiveAccess {
+  user: Pick<User, 'id' | 'username' | 'role' | 'is_active'>
+  as_of: string
+  actions: string[]
+  dimensions: Partial<Record<AccessKind, string[]>>
+  assignments: UserAssignment[]
+  permission_grants: PermissionGrant[]
+}
 export const user = ref<User | null>(null)
 onSessionCleared(() => {
   user.value = null
@@ -185,11 +264,27 @@ export interface Config {
     answers?: Record<string, { answer: string }>
   }
 }
+export interface SourceAccessMetadata {
+  owner_unit_id: string
+  business_domain_id: string
+  jurisdiction_id: string
+  purpose_id: string
+  data_owner_user_id: string
+  data_steward_user_id: string
+  sensitivity: 'LOW' | 'MEDIUM' | 'HIGH'
+}
 export interface Source {
   id: string
   name: string
   source_code: string
   status: string
+  access_status?: 'ACCESS_POLICY_REQUIRED' | 'POLICY_APPROVED'
+  access_revision?: number
+  access_metadata?: SourceAccessMetadata | null
+  access_metadata_editor_id?: string | null
+  access_review_status?: 'PENDING' | 'APPROVED' | 'REJECTED'
+  access_reviewed_by?: string | null
+  access_review_reason?: string
   paused: boolean
   sync_schedule: string | null
   schedule_timezone: string
