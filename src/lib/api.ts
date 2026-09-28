@@ -328,6 +328,22 @@ export function getApiErrorMessage(error: unknown): string {
         'Pilih metrik dari sisi yang aman atau gunakan relationship dan duplicate policy yang sesuai.',
       QUERY_JOIN_DEFAULT_PERIOD_REQUIRED:
         'Tambahkan filter periode eksplisit untuk metrik yang memiliki default period.',
+      DATA_PRODUCT_NOT_FOUND:
+        'Data product tidak tersedia untuk akun ini, masih menunggu policy, atau tidak dapat diakses pada scope Anda.',
+      ETL_RUN_NOT_FOUND:
+        'ETL run tidak tersedia untuk akun ini atau sumbernya tidak berada dalam scope akses Anda.',
+      SOURCE_ACCESS_POLICY_REQUIRED:
+        'Sumber belum diaktifkan oleh policy akses yang berlaku. Hubungi data owner atau administrator.',
+      SOURCE_METADATA_REVIEW_REQUIRED:
+        'Metadata sumber belum selesai direview oleh administrator yang berwenang.',
+      ACCESS_POLICY_REQUIRED:
+        'Akses resource memerlukan policy yang disetujui dan masih berlaku.',
+      ACCESS_ATTRIBUTE_INACTIVE:
+        'Atribut akses sudah tidak aktif. Muat ulang pilihan scope sebelum mencoba lagi.',
+      SELF_ACCESS_CHANGE: 'Perubahan akses diri sendiri harus dilakukan oleh admin lain.',
+      ACTION_NOT_GRANTED: 'Aksi ini tidak termasuk kewenangan akun Anda pada resource tersebut.',
+      DEFAULT_DENY: 'Akses ke resource ini tidak diberikan oleh policy yang berlaku.',
+      EXPLICIT_DENY: 'Akses ke resource ini ditolak oleh policy yang berlaku.',
       AI_TASK_POLICY_REVISION_CONFLICT:
         'Muat ulang AI task policy; hanya draft dengan revision terbaru yang dapat diputuskan.',
       AI_MODEL_NOT_ALLOWLISTED:

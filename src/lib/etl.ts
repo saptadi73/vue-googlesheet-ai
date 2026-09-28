@@ -10,6 +10,7 @@ import {
 
 export interface User {
   id: string
+  tenant_id?: string
   username: string
   role: string
   full_name?: string
@@ -62,6 +63,32 @@ export interface PermissionGrant {
   revoked_at: string | null
   bundle: PermissionBundle
 }
+export interface AccessRequest {
+  id: string
+  requester_id: string
+  subject_user_id: string
+  request_type: 'ATTRIBUTE' | 'PERMISSION_BUNDLE'
+  attribute_id: string | null
+  bundle_id: string | null
+  valid_from: string
+  valid_to: string
+  business_reason: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'REVOKED'
+  revision: number
+  decision_note: string
+  assignment_id: string | null
+  permission_grant_id: string | null
+  requester: { id: string; username: string; full_name?: string }
+  subject_user: { id: string; username: string; full_name?: string; role: string }
+  attribute: AccessAttribute | null
+  bundle: PermissionBundle | null
+}
+export interface AccessRequestOptions {
+  attributes: AccessAttribute[]
+  permission_bundles: PermissionBundle[]
+  requestable_users: Pick<User, 'id' | 'username' | 'full_name' | 'role'>[]
+  max_duration_days: number
+}
 export interface AccessPolicy {
   id: string
   code: string
@@ -83,6 +110,7 @@ export interface AccessDecision {
   allowed: boolean
   reason_code: 'POLICY_MATCH' | 'EXPLICIT_DENY' | 'DEFAULT_DENY' | 'ACTION_NOT_GRANTED'
   policy_ids: string[]
+  policy_revisions: Array<{ id: string; revision: number }>
   row_scope: Record<string, string[]>
   columns: Record<string, 'VISIBLE' | 'MASKED' | 'HIDDEN'>
   export_allowed: boolean
@@ -193,6 +221,7 @@ export interface Column {
   transformation_codes: string[]
   transform_parameters?: TransformParameter[]
   pii_classification: string
+  access_visibility?: 'VISIBLE' | 'MASKED'
   confidence: number
   reason: string
   numeric_precision: number | null
@@ -400,6 +429,7 @@ export interface OperationalNotification {
   title: string
   message: string
   details: Record<string, unknown>
+  recipient_user_id: string | null
   acknowledged_by: string | null
   acknowledged_at: string | null
   created_at: string

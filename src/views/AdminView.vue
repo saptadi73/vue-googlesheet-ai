@@ -78,6 +78,7 @@ const policyForm = ref({
   resource_type: 'DATA_PRODUCT' as 'DATA_PRODUCT' | 'SOURCE' | 'MASTER' | 'TAXONOMY',
   resource_id: '',
 })
+const selectedIsCurrentUser = computed(() => selected.value?.id === user.value?.id)
 const evaluationForm = ref({
   action: 'QUERY' as AccessAction,
   resource_type: 'DATA_PRODUCT' as 'DATA_PRODUCT' | 'SOURCE' | 'MASTER' | 'TAXONOMY',
@@ -205,6 +206,8 @@ async function loadUserAccess(userId: string) {
 }
 async function grantAssignment() {
   if (!selected.value) return
+  if (selectedIsCurrentUser.value)
+    throw new Error('Assignment harus diberikan oleh admin lain.')
   const payload: Record<string, unknown> = {
     attribute_id: assignmentForm.value.attribute_id,
     note: assignmentForm.value.note,
@@ -221,6 +224,8 @@ async function grantAssignment() {
 }
 async function revokeAssignment(item: UserAssignment) {
   if (!selected.value) return
+  if (selectedIsCurrentUser.value)
+    throw new Error('Assignment harus dicabut oleh admin lain.')
   await call('POST', `/access/assignments/${item.id}/revoke`, {
     revision: item.revision,
     note: 'Dicabut melalui administrasi pengguna',
@@ -527,6 +532,9 @@ watch(() => policyForm.value.resource_type, () => {
     </section>
     <section v-if="selected" class="panel">
       <h2>Yurisdiksi {{ selected.username }}</h2>
+      <p v-if="selectedIsCurrentUser" class="notice">
+        Assignment milik sendiri harus diberikan atau dicabut oleh admin lain.
+      </p>
       <form class="grid" @submit.prevent="run(grantAssignment)">
         <label
           >Atribut<select v-model="assignmentForm.attribute_id" required>
@@ -544,7 +552,9 @@ watch(() => policyForm.value.resource_type, () => {
         ><label
           >Berlaku sampai<input v-model="assignmentForm.valid_to" type="datetime-local" /></label
         ><label>Catatan<input v-model="assignmentForm.note" maxlength="500" /></label
-        ><button class="primary" :disabled="busy">Berikan assignment</button>
+        ><button class="primary" :disabled="busy || selectedIsCurrentUser">
+          Berikan assignment
+        </button>
       </form>
       <div v-for="item in assignments" :key="item.id" class="toolbar">
         <strong>{{ item.attribute.kind }} · {{ item.attribute.code }}</strong>
@@ -554,7 +564,7 @@ watch(() => policyForm.value.resource_type, () => {
         >
         <button
           v-if="item.status === 'ACTIVE'"
-          :disabled="busy"
+          :disabled="busy || selectedIsCurrentUser"
           @click="run(() => revokeAssignment(item))"
         >
           Cabut
@@ -722,6 +732,10 @@ watch(() => policyForm.value.resource_type, () => {
       </form>
       <template v-if="accessDecision">
         <p role="status">{{ accessDecision.allowed ? 'Diizinkan' : 'Ditolak' }} · {{ accessDecision.reason_code }}</p>
+        <p class="muted">
+          Policy revision:
+          {{ accessDecision.policy_revisions.map((item) => `${item.id}#${item.revision}`).join(', ') || 'tidak ada' }}
+        </p>
         <p v-if="evaluationForm.action === 'EXPORT'" role="status">
           Ekspor {{ accessDecision.export_allowed ? 'diizinkan' : 'tidak diizinkan' }}
         </p>

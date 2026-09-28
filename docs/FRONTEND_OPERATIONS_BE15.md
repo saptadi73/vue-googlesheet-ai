@@ -7,6 +7,8 @@ Ringkasan menampilkan job antre/berjalan/gagal, batch yang memerlukan input, dan
 notifikasi belum diakui. Kartu notifikasi menyediakan:
 
 - tautan `Buka batch import` untuk resource `IMPORT_REVIEW`;
+- tautan `Tinjau permintaan akses` untuk notifikasi BE-16 `ACCESS_REQUEST_PENDING` yang
+  ditujukan kepada admin reviewer;
 - aksi `Pantau job` untuk resource `JOB`; dan
 - `Tandai sudah dibaca`, yang memanggil
   `POST /notifications/{notification_id}/acknowledge` lalu memuat ulang summary/inbox.
@@ -16,4 +18,5 @@ aksi retry, jawaban pertanyaan, atau resume yang sesuai pada resource aslinya. I
 tidak menampilkan raw data, prompt, atau nilai PII.
 
 Browser regression `operations-notifications.spec.ts` memeriksa summary, tampilan event,
-request acknowledge, audit notice, dan hilangnya item dari inbox mock setelah diakui.
+request acknowledge, audit notice, hilangnya item dari inbox mock setelah diakui, serta
+navigasi notifikasi reviewer ke halaman Access Requests.

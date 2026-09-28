@@ -204,7 +204,9 @@ export async function setup(page: Page) {
       })
     if (path === '/auth/logout' || path === '/auth/change-password') return ok({ message: 'OK' })
     if (path === '/data-products')
-      return ok(source.access_metadata && source.access_status !== 'POLICY_APPROVED' ? [] : [product])
+      return ok(
+        source.access_metadata && source.access_status !== 'POLICY_APPROVED' ? [] : [product],
+      )
     if (path === '/configurations/parameter-catalog')
       return ok({ schema_version: '1.0', parameters: [], operations: [], capabilities: {} })
     if (path === `/configurations/${configId}/validate`)
@@ -301,14 +303,26 @@ export async function setup(page: Page) {
         access_revision: source.access_revision,
         review_status: source.access_review_status,
         attributes: {
-          owner_unit_id: source.access_metadata ? { code: 'SALES', label: 'Sales', is_active: reviewScopeValid } : null,
-          business_domain_id: source.access_metadata ? { code: 'COMMERCE', label: 'Commerce', is_active: true } : null,
-          jurisdiction_id: source.access_metadata ? { code: 'JATIM', label: 'Jawa Timur', is_active: true } : null,
-          purpose_id: source.access_metadata ? { code: 'REPORTING', label: 'Reporting', is_active: true } : null,
+          owner_unit_id: source.access_metadata
+            ? { code: 'SALES', label: 'Sales', is_active: reviewScopeValid }
+            : null,
+          business_domain_id: source.access_metadata
+            ? { code: 'COMMERCE', label: 'Commerce', is_active: true }
+            : null,
+          jurisdiction_id: source.access_metadata
+            ? { code: 'JATIM', label: 'Jawa Timur', is_active: true }
+            : null,
+          purpose_id: source.access_metadata
+            ? { code: 'REPORTING', label: 'Reporting', is_active: true }
+            : null,
         },
         people: {
-          data_owner_user_id: source.access_metadata ? { username: 'editor', is_active: true } : null,
-          data_steward_user_id: source.access_metadata ? { username: 'steward', is_active: true } : null,
+          data_owner_user_id: source.access_metadata
+            ? { username: 'editor', is_active: true }
+            : null,
+          data_steward_user_id: source.access_metadata
+            ? { username: 'steward', is_active: true }
+            : null,
         },
         sensitivity: source.access_metadata?.sensitivity || null,
       })
@@ -324,15 +338,25 @@ export async function setup(page: Page) {
       return ok(source)
     }
     if (path === `/sources/${sourceId}/access-policy-options` && method === 'GET')
-      return ok(source.access_review_status === 'APPROVED' ? [{
-        id: '66666666-6666-4666-8666-666666666666', code: 'SALES_SOURCE',
-        label: 'Sales source policy', actions: ['DISCOVER', 'QUERY'],
-      }] : [])
+      return ok(
+        source.access_review_status === 'APPROVED'
+          ? [
+              {
+                id: '66666666-6666-4666-8666-666666666666',
+                code: 'SALES_SOURCE',
+                label: 'Sales source policy',
+                actions: ['DISCOVER', 'QUERY'],
+              },
+            ]
+          : [],
+      )
     if (path === `/sources/${sourceId}/access-activate` && method === 'POST') {
       if (body.revision_no !== source.access_revision)
         return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata berubah')
-      if (source.access_review_status !== 'APPROVED' ||
-          body.policy_id !== '66666666-6666-4666-8666-666666666666')
+      if (
+        source.access_review_status !== 'APPROVED' ||
+        body.policy_id !== '66666666-6666-4666-8666-666666666666'
+      )
         return fail(409, 'SOURCE_ACCESS_POLICY_REQUIRED', 'Policy tidak siap')
       source.access_status = 'POLICY_APPROVED'
       source.access_revision++
@@ -471,6 +495,7 @@ export async function setup(page: Page) {
                 title: 'Batch import memerlukan input',
                 message: 'Periksa pertanyaan dan blocker sebelum batch dapat dilanjutkan.',
                 details: { status: 'NEEDS_INPUT' },
+                recipient_user_id: null,
                 acknowledged_by: null,
                 acknowledged_at: null,
                 created_at: '2026-09-27T00:00:00Z',
@@ -527,8 +552,7 @@ export async function setup(page: Page) {
         ],
         sensitivities: ['LOW', 'MEDIUM', 'HIGH'],
       })
-    if (path === '/sources/google-sheets' && method === 'POST')
-      return ok({ source, job_id: jobId })
+    if (path === '/sources/google-sheets' && method === 'POST') return ok({ source, job_id: jobId })
     if (path === '/access/resources' && method === 'GET') return ok([])
     if (path === '/access/attributes' && method === 'GET') return ok([])
     if (path === '/access/permission-bundles' && method === 'GET') return ok([])

@@ -30,29 +30,36 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 
 ## Halaman aplikasi
 
-| Route                                                | Fitur                                                                                                                 |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `/masters`                                           | Registry master, kandidat duplikat, draft, submission dan approval                                                    |
-| `/masters/:id/storage`                               | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                |
-| `/taxonomies`                                        | Registry taxonomy, term hierarkis, dan approval versi                                                                 |
-| `/import-reviews`                                    | Membuat dan menelusuri batch review import                                                                            |
-| `/import-reviews/:id`                                | Detail batch, pertanyaan, preview, approval, apply, cancel, revalidate, dan resume                                    |
-| `/masters/new`                                       | Definisi master baru dengan policy eksplisit                                                                          |
-| `/masters/:id`                                       | Edit definisi, review dan snapshot approved                                                                           |
-| `/sources/:sourceId/sheets/:sheetId/master-binding`  | Mapping master dari profil, dry-run dan approval binding                                                              |
-| `/sources/:sourceId/sheets/:sheetId/column-bindings` | Binding kolom sumber ke referensi master, review dan approval                                                         |
-| `/sources/:sourceId/sheets/:sheetId/taxonomy-bindings` | Binding kolom ke taxonomy approved, review dan approval                                                            |
-| `/workspace`                                         | Registrasi sumber, klasifikasi per tab, profil, watermark incremental, dan draft manual/AI                           |
-| `/configurations/:id/review`                         | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback |
-| `/jobs?job=UUID`                                     | Polling/retry, jadwal timezone/dependency/concurrency, statistik, inbox NEEDS_INPUT/FAILED, acknowledge, run dan lineage |
-| `/quality`                                           | Daftar issue, resolve dengan catatan, karantina dan reprocess                                                         |
-| `/dashboard`                                         | Katalog, query dengan filter/pengurutan, grafik, CSV halaman hasil, laporan, template dan akses produk                |
-| `/chat`                                              | NL2SQL, klarifikasi lengkap, feedback, detail request dan promosi template                                            |
-| `/admin`                                             | Buat/atur pengguna dan row scope, audit, estimasi penggunaan AI                                                       |
-| `/account`                                           | Ubah password dan login ulang                                                                                         |
+| Route                                                  | Fitur                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `/login`                                               | Login tenant, username, dan password dengan redirect internal ke halaman tujuan                                          |
+| `/masters`                                             | Registry master, kandidat duplikat, draft, submission dan approval                                                       |
+| `/masters/:id/storage`                                 | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                   |
+| `/taxonomies`                                          | Registry taxonomy, term hierarkis, dan approval versi                                                                    |
+| `/import-reviews`                                      | Membuat dan menelusuri batch review import                                                                               |
+| `/import-reviews/:id`                                  | Detail batch, pertanyaan, preview, approval, apply, cancel, revalidate, dan resume                                       |
+| `/masters/new`                                         | Definisi master baru dengan policy eksplisit                                                                             |
+| `/masters/:id`                                         | Edit definisi, review dan snapshot approved                                                                              |
+| `/sources/:sourceId/sheets/:sheetId/master-binding`    | Mapping master dari profil, dry-run dan approval binding                                                                 |
+| `/sources/:sourceId/sheets/:sheetId/column-bindings`   | Binding kolom sumber ke referensi master, review dan approval                                                            |
+| `/sources/:sourceId/sheets/:sheetId/taxonomy-bindings` | Binding kolom ke taxonomy approved, review dan approval                                                                  |
+| `/workspace`                                           | Registrasi sumber, klasifikasi per tab, profil, watermark incremental, dan draft manual/AI                               |
+| `/configurations/:id/review`                           | Wizard ETL, jawaban pertanyaan, dry-run, checklist, approval, Excel preview/apply, artifact/diff, deployment/rollback    |
+| `/jobs?job=UUID`                                       | Polling/retry, jadwal timezone/dependency/concurrency, statistik, inbox NEEDS_INPUT/FAILED, acknowledge, run dan lineage |
+| `/quality`                                             | Daftar issue, resolve dengan catatan, karantina dan reprocess                                                            |
+| `/dashboard`                                           | Katalog, query dengan filter/pengurutan, grafik, CSV halaman hasil, laporan, template dan akses produk                   |
+| `/chat`                                                | NL2SQL, klarifikasi lengkap, feedback, detail request dan promosi template                                               |
+| `/admin`                                               | Registry assignment/bundle/policy BE-16, audit, dan penggunaan AI                                                        |
+| `/register` atau `/admin/users/new`                    | Registrasi internal pengguna dan pemilihan role awal oleh `PLATFORM_ADMIN`                                               |
+| `/admin/users`                                         | Daftar pengguna, aktivasi/nonaktif, perubahan role, dan row scope                                                        |
+| `/access-requests`                                     | Permintaan akses atribut/bundle sementara, histori, approval admin, cancel, dan revoke                                   |
+| `/account`                                             | Ubah password dan login ulang                                                                                            |
 
-Login tersedia di halaman yang memerlukan sesi. Menu dan pemuatan data mengikuti role;
+Login tersedia melalui `/login` dan tetap ditawarkan di halaman yang memerlukan sesi.
+Setelah berhasil, redirect hanya menerima path internal. Menu dan pemuatan data mengikuti role;
 otorisasi akhir tetap diperiksa backend. Analyst/viewer dapat masuk langsung melalui `/dashboard`.
+Registrasi pengguna baru tersedia pada `/register` hanya untuk `PLATFORM_ADMIN`; aplikasi
+tidak menyediakan self-registration publik atau pilihan role oleh pengguna baru.
 
 ## Stack
 
@@ -109,8 +116,11 @@ Operasional BE15: [jadwal sumber](docs/FRONTEND_SCHEDULING_BE15.md),
 BE16 parsial: halaman Administrasi mengelola atribut/assignment, permission bundle,
 policy dan preview keputusan; Workspace mendaftarkan/mereview metadata sumber dan
 mengaktifkan policy SOURCE. Dashboard/Chat memakai katalog backend yang menahan produk
-sumber BE16 pending. Sumber legacy masih memakai kontrol lama; capability global,
-row/column policy, masking, dan access request belum tersedia. Rincian:
+sumber BE16 pending. Halaman Access Requests mendukung permintaan sendiri, delegasi admin,
+approval admin kedua, reject/cancel/revoke, dan histori. Query produk BE16 menerapkan row
+scope dan kebijakan kolom, sedangkan sumber legacy masih memakai kontrol lama. Capability
+global dan masking konsisten di seluruh tampilan belum tersedia. Inbox Jobs sudah memuat
+notifikasi reviewer access request terarah. Rincian:
 [Frontend kontrol akses BE16](docs/FRONTEND_ACCESS_JURISDICTION_BE16.md).
 
 ## Production

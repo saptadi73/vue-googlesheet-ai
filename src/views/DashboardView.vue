@@ -73,23 +73,38 @@ const joinedProducts = computed(() =>
     .filter((item): item is Product => !!item),
 )
 const availableDimensions = computed(() => [
-  ...(product.value?.dimensions || []).map((name) => ({ value: name, label: name })),
+  ...(product.value?.dimensions || []).map((name) => ({
+    value: name,
+    label: `${name}${product.value?.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
+  })),
   ...joinedProducts.value.flatMap((joined) =>
-    joined.dimensions.map((name) => ({ value: `${joined.code}.${name}`, label: `${joined.code} · ${name}` })),
+    joined.dimensions.map((name) => ({
+      value: `${joined.code}.${name}`,
+      label: `${joined.code} · ${name}${joined.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
+    })),
   ),
 ])
 const availableMetrics = computed(() => [
   ...(product.value?.metrics || []).map((metric) => ({
     value: metric.code,
-    label: metric.label || metric.code,
+    label: `${metric.label || metric.code}${product.value?.columns.find((column) => column.target_column === metric.column)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
   })),
   ...joinedProducts.value.flatMap((joined) =>
     joined.metrics.map((metric) => ({
       value: `${joined.code}.${metric.code}`,
-      label: `${joined.code} · ${metric.label || metric.code}`,
+      label: `${joined.code} · ${metric.label || metric.code}${joined.columns.find((column) => column.target_column === metric.column)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
     })),
   ),
 ])
+const maskedFields = computed(() =>
+  [product.value, ...joinedProducts.value]
+    .filter((item): item is Product => !!item)
+    .flatMap((item) =>
+      item.columns
+        .filter((column) => column.access_visibility === 'MASKED')
+        .map((column) => `${item.code}.${column.target_column}`),
+    ),
+)
 const lastQuery = ref<{ code: string; plan: QueryPlan } | null>(null)
 function requestPlan(): QueryPlan {
   if (!product.value) throw new Error('Pilih produk data.')
@@ -315,6 +330,9 @@ watch(
         >
         <template v-if="product">
           <p>{{ product.description }}</p>
+          <p v-if="maskedFields.length" class="notice">
+            Field terbatas: {{ maskedFields.join(', ') }}
+          </p>
           <ProductMetadata
             :key="product.id"
             :product="product"

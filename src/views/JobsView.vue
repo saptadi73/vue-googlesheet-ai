@@ -62,7 +62,10 @@ async function load() {
     call<Source[]>('GET', '/etl-jobs'),
     call<Row[]>('GET', `/etl-runs?offset=${runOffset.value}&limit=25`),
     call<OperationalSummary>('GET', '/operations/summary'),
-    call<OperationalNotification[]>('GET', '/notifications?unacknowledged_only=true&offset=0&limit=50'),
+    call<OperationalNotification[]>(
+      'GET',
+      '/notifications?unacknowledged_only=true&offset=0&limit=50',
+    ),
   ])
   jobs.value = result[0]
   sources.value = result[1]
@@ -226,6 +229,12 @@ onBeforeUnmount(stop)
             :to="`/import-reviews/${notification.resource_id}`"
             >Buka batch import</RouterLink
           >
+          <RouterLink
+            v-if="notification.resource_type === 'ACCESS_REQUEST'"
+            class="button"
+            to="/access-requests"
+            >Tinjau permintaan akses</RouterLink
+          >
           <button
             v-if="notification.resource_type === 'JOB'"
             :disabled="busy"
@@ -326,7 +335,12 @@ onBeforeUnmount(stop)
           {{ source.concurrency_policy }} &middot; revisi {{ source.schedule_revision }}
         </p>
         <p class="muted">
-          Dependency: {{ source.dependency_source_ids.length ? source.dependency_source_ids.join(', ') : 'tidak ada' }}
+          Dependency:
+          {{
+            source.dependency_source_ids.length
+              ? source.dependency_source_ids.join(', ')
+              : 'tidak ada'
+          }}
         </p>
         <div v-if="editor" class="toolbar">
           <button
@@ -353,9 +367,7 @@ onBeforeUnmount(stop)
           @submit.prevent="run(saveSchedule)"
         >
           <label
-            >Cron lima field<input
-              v-model="scheduleForm.sync_schedule"
-              placeholder="0 7 * * 1-5"
+            >Cron lima field<input v-model="scheduleForm.sync_schedule" placeholder="0 7 * * 1-5"
           /></label>
           <label
             >Timezone IANA<input

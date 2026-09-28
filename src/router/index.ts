@@ -4,6 +4,7 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
+    { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue') },
     {
       path: '/workspace',
       name: 'etl-workspace',
@@ -88,7 +89,25 @@ const router = createRouter({
       component: () => import('@/views/AdminView.vue'),
       meta: { roles: ['PLATFORM_ADMIN'] },
     },
+    {
+      path: '/admin/users',
+      name: 'user-management',
+      component: () => import('@/views/UserManagementView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN'] },
+    },
+    {
+      path: '/register',
+      alias: '/admin/users/new',
+      name: 'user-registration',
+      component: () => import('@/views/UserRegistrationView.vue'),
+      meta: { roles: ['PLATFORM_ADMIN'] },
+    },
     { path: '/account', component: () => import('@/views/AccountView.vue') },
+    {
+      path: '/access-requests',
+      name: 'access-requests',
+      component: () => import('@/views/AccessRequestsView.vue'),
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

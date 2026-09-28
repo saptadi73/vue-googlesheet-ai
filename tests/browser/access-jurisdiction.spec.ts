@@ -9,6 +9,39 @@ test('admin manages access registry and effective user assignments', async ({ pa
   const permissionGrants: any[] = []
   const policies: any[] = []
   const accessRequests: string[] = []
+  const adminAssignments = [{
+    id: 'assignment-admin',
+    user_id: 'admin-id',
+    attribute_id: 'attribute-finance',
+    valid_from: '2026-09-27T00:00:00Z',
+    valid_to: null,
+    status: 'ACTIVE',
+    revision: 1,
+    revoked_at: null,
+    attribute: {
+      id: 'attribute-finance',
+      kind: 'DEPARTMENT',
+      code: 'FINANCE',
+      label: 'Finance',
+      parent_id: null,
+      is_active: true,
+      revision: 1,
+      attribute_data: {},
+    },
+  }]
+  await page.route('**/api/v1/users*', async (route) => {
+    await route.fulfill({
+      json: {
+        status: 'success',
+        data: [
+          { id: 'viewer-id', username: 'viewer', role: 'VIEWER', is_active: true, row_scope: {} },
+          { id: 'admin-id', username: 'admin', role: 'PLATFORM_ADMIN', is_active: true, row_scope: {} },
+        ],
+        meta: {},
+        errors: [],
+      },
+    })
+  })
   await page.route('**/api/v1/access/**', async (route) => {
     const request = route.request()
     const method = request.method()
@@ -92,6 +125,17 @@ test('admin manages access registry and effective user assignments', async ({ pa
         assignments: assignments.filter((item) => item.status === 'ACTIVE'),
         permission_grants: permissionGrants.filter((item) => item.status === 'ACTIVE'),
       })
+    if (path === '/access/users/admin-id/assignments' && method === 'GET') return ok(adminAssignments)
+    if (path === '/access/users/admin-id/permission-grants' && method === 'GET') return ok([])
+    if (path === '/access/users/admin-id/effective' && method === 'GET')
+      return ok({
+        user: { id: 'admin-id', username: 'admin', role: 'PLATFORM_ADMIN', is_active: true },
+        as_of: '2026-09-27T00:00:00Z',
+        actions: ['ADMIN', 'DISCOVER', 'QUERY', 'READ'],
+        dimensions: { DEPARTMENT: ['FINANCE'] },
+        assignments: adminAssignments,
+        permission_grants: [],
+      })
     if (path === '/access/assignments/assignment-finance/revoke' && method === 'POST') {
       assignments[0].status = 'REVOKED'
       assignments[0].revision++
@@ -135,6 +179,7 @@ test('admin manages access registry and effective user assignments', async ({ pa
             ? 'EXPORT_NOT_ALLOWED'
             : 'POLICY_MATCH',
         policy_ids: ['policy-finance'],
+        policy_revisions: [{ id: 'policy-finance', revision: policies[0].revision }],
         row_scope: {},
         columns: {},
         export_allowed: body.action === 'EXPORT' && policies[0].export_allowed,
@@ -157,7 +202,7 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await bundleSection.getByRole('button', { name: 'Tambah bundle' }).click()
   await expect(page.getByText(/REPORT_EXPORTER/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Atur akses' }).click()
+  await page.getByRole('button', { name: 'Atur akses' }).first().click()
   await page.getByLabel('Atribut').selectOption('attribute-finance')
   await page.getByLabel('Catatan').fill('Finance 2026')
   await page.getByRole('button', { name: 'Berikan assignment' }).click()
@@ -202,6 +247,11 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await page.getByRole('button', { name: 'Cabut', exact: true }).click()
   await expect(page.getByText('Assignment dicabut dan sesi pengguna direset.')).toBeVisible()
   await expect(policySection.locator('pre')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Atur akses' }).nth(1).click()
+  await expect(page.getByText('Assignment milik sendiri harus diberikan atau dicabut oleh admin lain.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Berikan assignment' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Cabut', exact: true })).toBeDisabled()
 
   expect(accessRequests).toContain('POST /access/attributes')
   expect(accessRequests).toContain('POST /access/users/viewer-id/assignments')

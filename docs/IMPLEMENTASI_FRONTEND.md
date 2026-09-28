@@ -119,8 +119,11 @@ dan status akses produk BE16 sudah terhubung ke backend. Dashboard dan Chat meng
 produk dari katalog terotorisasi; sumber dengan metadata yang masih pending tidak
 menawarkan produk. Izin `DISCOVER`/`QUERY`/`EXPORT` sumber yang diaktifkan tetap
 diputuskan backend per permintaan, bukan oleh status tombol. Sumber legacy tanpa metadata
-masih mengikuti akses lama. Clearance, row/column security, masking, capability lintas
-halaman, access request, dan rollout production belum selesai. Lihat
+masih mengikuti akses lama. Query produk BE16 sudah menerapkan row scope dan aturan kolom;
+Dashboard menghormati metadata `MASKED`/`HIDDEN` dari katalog. Access request sementara,
+delegasi admin, approval/reject/cancel/revoke, dan histori tersedia. Clearance, masking
+lintas semua tampilan, capability lintas halaman, dan rollout production belum selesai.
+Inbox Jobs menampilkan notifikasi reviewer terarah dengan tautan ke Access Requests. Lihat
 [batas frontend BE-16](FRONTEND_ACCESS_JURISDICTION_BE16.md).
 
 ## Menjalankan dan verifikasi

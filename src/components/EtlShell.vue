@@ -15,6 +15,9 @@ import {
   Sparkles,
   User,
   UserCog,
+  UserPlus,
+  Users,
+  KeyRound,
 } from '@lucide/vue'
 import { login, logout, user, editRoles, reviewRoles } from '@/lib/etl'
 import { getApiErrorMessage } from '@/lib/api'
@@ -86,7 +89,16 @@ async function signOut() {
       <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/admin"
         ><UserCog class="icon" :size="16" />Administrasi</RouterLink
       >
+      <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/admin/users"
+        ><Users class="icon" :size="16" />Pengguna</RouterLink
+      >
+      <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/register"
+        ><UserPlus class="icon" :size="16" />Registrasi</RouterLink
+      >
       <RouterLink v-if="user" to="/account"><User class="icon" :size="16" />Akun</RouterLink>
+      <RouterLink v-if="user" to="/access-requests"
+        ><KeyRound class="icon" :size="16" />Permintaan akses</RouterLink
+      >
       <span v-if="user">{{ user.username }} · {{ user.role }}</span
       ><button v-if="user" :disabled="busy" @click="signOut">
         <Spinner v-if="busy" :size="14" /><LogOut v-else class="icon" :size="14" />Keluar / ganti
@@ -115,6 +127,9 @@ async function signOut() {
         <button class="primary" :disabled="busy">
           <Spinner v-if="busy" :size="14" label="Menghubungkan…" /><span v-else>Masuk</span>
         </button>
+        <RouterLink class="button" :to="{ path: '/login', query: { redirect: $route.fullPath } }"
+          >Buka halaman login</RouterLink
+        >
       </form>
       <p
         v-else-if="Array.isArray($route.meta.roles) && !$route.meta.roles.includes(user.role)"
