@@ -86,3 +86,47 @@ test('dashboard sends approved join relationship and qualified secondary fields'
   expect(state.errors).toEqual([])
   expect(state.unexpected).toEqual([])
 })
+
+test('dashboard hides HIDDEN fields and excludes masked metrics from query choices', async ({ page }) => {
+  const state = await setup(page)
+  const restrictedProduct = {
+    ...state.product,
+    columns: [
+      { target_column: 'public_field', target_type: 'text', pii_classification: 'NONE' },
+      {
+        target_column: 'masked_field',
+        target_type: 'text',
+        pii_classification: 'LOW',
+        access_visibility: 'MASKED',
+      },
+      {
+        target_column: 'hidden_field',
+        target_type: 'numeric',
+        pii_classification: 'LOW',
+        access_visibility: 'HIDDEN',
+      },
+    ],
+    dimensions: ['public_field', 'masked_field', 'hidden_field'],
+    metrics: [
+      { code: 'public_metric', label: 'Metrik publik', column: 'public_field' },
+      { code: 'masked_metric', label: 'Metrik masked', column: 'masked_field' },
+      { code: 'hidden_metric', label: 'Metrik hidden', column: 'hidden_field' },
+    ],
+  }
+  await page.route('**/api/v1/data-products', (route) =>
+    route.fulfill({ json: { status: 'success', data: [restrictedProduct], meta: {}, errors: [] } }),
+  )
+
+  await page.goto('/dashboard')
+  await login(page, 'viewer')
+  await page.locator('#data-product').selectOption('SALES')
+
+  await expect(page.getByRole('checkbox', { name: 'public_field' })).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: 'masked_field [MASKED]' })).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: 'hidden_field' })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Metrik publik' })).toBeVisible()
+  await expect(page.getByRole('checkbox', { name: 'Metrik masked' })).toHaveCount(0)
+  await expect(page.getByRole('checkbox', { name: 'Metrik hidden' })).toHaveCount(0)
+  expect(state.errors).toEqual([])
+  expect(state.unexpected).toEqual([])
+})

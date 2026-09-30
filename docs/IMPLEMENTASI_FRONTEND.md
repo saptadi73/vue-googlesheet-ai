@@ -1,4 +1,4 @@
-# Implementasi frontend — ditinjau ulang 27 September 2026
+# Implementasi frontend — ditinjau ulang 30 September 2026
 
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
@@ -54,7 +54,13 @@ APPROVED, dimensi/metrik produk sekunder qualified, lalu mengirim path structure
 AI policy mendukung create/edit DRAFT/approve/reject untuk purpose, prompt terdaftar,
 model aktif, allowlist dan fallback model, batas konteks, budget harian policy,
 optimistic revision, serta scope DataProduct untuk NL2SQL.
-API key tetap berasal dari environment dan tidak pernah dikirim atau ditampilkan frontend.
+Governance juga dapat mengikat ETL_CONFIG ke source dan TAXONOMY_RECOMMEND ke taxonomy
+APPROVED aktif; setiap purpose tetap dapat memakai policy global.
+Semua entri allowlist harus termasuk allowlist server; UI menyatakan batas ini dan backend
+memvalidasi saat create/edit serta approval. API key tetap berasal dari environment dan
+tidak pernah dikirim atau ditampilkan frontend. Trigger/masking khusus task, retention,
+dan import workbook tab 07/08 belum tersedia.
+Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint tenant-scoped.
 
 ## Perilaku penting
 
@@ -139,9 +145,8 @@ npm.cmd run test:e2e
 Unit test juga menguji klasifikasi, evidence review dan mapping master. Empat skenario browser BE02/BE03
 melengkapi delapan skenario workflow sebelumnya.
 
-Verifikasi frontend 27 September 2026 setelah BE16: 54 unit test dan 68 skenario browser lulus;
+Verifikasi frontend 30 September 2026: 54 unit test dan 73 skenario browser lulus;
 typecheck serta build production lulus (warning ukuran chunk chart tetap ada).
-Angka 63 skenario browser adalah baseline sebelum tes BE16 ditambahkan.
 Regresi terarah notifikasi operasional dan source schedule lulus. Regression BE12/BE14/BE15
 mencakup transform parameter statis, lifecycle join relationship dan AI task policy tanpa API key.
 Regression BE15 Governance juga memeriksa payload batas konteks, budget harian, dan

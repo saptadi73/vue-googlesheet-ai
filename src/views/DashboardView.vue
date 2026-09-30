@@ -73,27 +73,53 @@ const joinedProducts = computed(() =>
     .filter((item): item is Product => !!item),
 )
 const availableDimensions = computed(() => [
-  ...(product.value?.dimensions || []).map((name) => ({
-    value: name,
-    label: `${name}${product.value?.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
-  })),
-  ...joinedProducts.value.flatMap((joined) =>
-    joined.dimensions.map((name) => ({
-      value: `${joined.code}.${name}`,
-      label: `${joined.code} · ${name}${joined.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
+  ...(product.value?.dimensions || [])
+    .filter(
+      (name) =>
+        product.value?.columns.find((column) => column.target_column === name)?.access_visibility !==
+        'HIDDEN',
+    )
+    .map((name) => ({
+      value: name,
+      label: `${name}${product.value?.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
     })),
+  ...joinedProducts.value.flatMap((joined) =>
+    joined.dimensions
+      .filter(
+        (name) =>
+          joined.columns.find((column) => column.target_column === name)?.access_visibility !==
+          'HIDDEN',
+      )
+      .map((name) => ({
+        value: `${joined.code}.${name}`,
+        label: `${joined.code} · ${name}${joined.columns.find((column) => column.target_column === name)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
+      })),
   ),
 ])
 const availableMetrics = computed(() => [
-  ...(product.value?.metrics || []).map((metric) => ({
-    value: metric.code,
-    label: `${metric.label || metric.code}${product.value?.columns.find((column) => column.target_column === metric.column)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
-  })),
-  ...joinedProducts.value.flatMap((joined) =>
-    joined.metrics.map((metric) => ({
-      value: `${joined.code}.${metric.code}`,
-      label: `${joined.code} · ${metric.label || metric.code}${joined.columns.find((column) => column.target_column === metric.column)?.access_visibility === 'MASKED' ? ' [MASKED]' : ''}`,
+  ...(product.value?.metrics || [])
+    .filter((metric) => {
+      const visibility = product.value?.columns.find(
+        (column) => column.target_column === metric.column,
+      )?.access_visibility
+      return visibility !== 'MASKED' && visibility !== 'HIDDEN'
+    })
+    .map((metric) => ({
+      value: metric.code,
+      label: `${metric.label || metric.code}`,
     })),
+  ...joinedProducts.value.flatMap((joined) =>
+    joined.metrics
+      .filter((metric) => {
+        const visibility = joined.columns.find(
+          (column) => column.target_column === metric.column,
+        )?.access_visibility
+        return visibility !== 'MASKED' && visibility !== 'HIDDEN'
+      })
+      .map((metric) => ({
+        value: `${joined.code}.${metric.code}`,
+        label: `${joined.code} · ${metric.label || metric.code}`,
+      })),
   ),
 ])
 const maskedFields = computed(() =>

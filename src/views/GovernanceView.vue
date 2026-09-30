@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, editRoles, reviewRoles, user } from '@/lib/etl'
+import { call, editRoles, reviewRoles, user, type Source } from '@/lib/etl'
 import type { Product } from '@/lib/catalog'
+import type { Taxonomy } from '@/lib/taxonomies'
 import {
   promptByPurpose,
   type AIPurpose,
   type AITaskPolicy,
+  type AITaskPolicyVersion,
   type JoinRelationship,
 } from '@/lib/governance'
 import { useTask } from '@/lib/tasks'
 
 const { busy, error, notice, run } = useTask()
 const products = ref<Product[]>([])
+const sources = ref<Source[]>([])
+const taxonomies = ref<Taxonomy[]>([])
 const relationships = ref<JoinRelationship[]>([])
 const policies = ref<AITaskPolicy[]>([])
+const policyHistoryId = ref('')
+const policyVersions = ref<AITaskPolicyVersion[]>([])
 const selectedRelationship = ref<JoinRelationship | null>(null)
 const selectedPolicy = ref<AITaskPolicy | null>(null)
 const joinForm = ref(blankJoin())
@@ -47,6 +53,8 @@ function blankPolicy(): {
   prompt_version: string
   model: string
   data_product_code: string | null
+  data_source_id: string | null
+  taxonomy_id: string | null
   max_context_chars: number
   daily_budget_usd: number | null
   fallback_model: string | null
@@ -58,6 +66,8 @@ function blankPolicy(): {
     prompt_version: promptByPurpose[purpose],
     model: '',
     data_product_code: null,
+    data_source_id: null,
+    taxonomy_id: null,
     max_context_chars: 200_000,
     daily_budget_usd: null,
     fallback_model: null,
@@ -80,6 +90,16 @@ function selectRightProduct() {
 function selectPurpose() {
   aiForm.value.prompt_version = promptByPurpose[aiForm.value.purpose]
   if (aiForm.value.purpose !== 'NL2SQL') aiForm.value.data_product_code = null
+  if (aiForm.value.purpose !== 'ETL_CONFIG') aiForm.value.data_source_id = null
+  if (aiForm.value.purpose !== 'TAXONOMY_RECOMMEND') aiForm.value.taxonomy_id = null
+}
+function policyScope(item: AITaskPolicy) {
+  if (item.data_product_code) return item.data_product_code
+  if (item.data_source_id)
+    return sources.value.find((source) => source.id === item.data_source_id)?.source_code || item.data_source_id
+  if (item.taxonomy_id)
+    return taxonomies.value.find((taxonomy) => taxonomy.id === item.taxonomy_id)?.code || item.taxonomy_id
+  return 'global untuk purpose'
 }
 function editRelationship(item: JoinRelationship) {
   selectedRelationship.value = item
@@ -106,6 +126,8 @@ function editPolicy(item: AITaskPolicy) {
     prompt_version: item.prompt_version,
     model: item.model,
     data_product_code: item.data_product_code,
+    data_source_id: item.data_source_id,
+    taxonomy_id: item.taxonomy_id,
     max_context_chars: item.max_context_chars,
     daily_budget_usd: item.daily_budget_usd,
     fallback_model: item.fallback_model,
@@ -120,12 +142,16 @@ function resetPolicy() {
 async function load() {
   const result = await Promise.all([
     call<Product[]>('GET', '/semantic/data-products'),
+    call<Source[]>('GET', '/sources'),
+    call<Taxonomy[]>('GET', '/taxonomies'),
     call<JoinRelationship[]>('GET', '/semantic/join-relationships'),
     call<AITaskPolicy[]>('GET', '/ai-task-policies'),
   ])
   products.value = result[0]
-  relationships.value = result[1]
-  policies.value = result[2]
+  sources.value = result[1]
+  taxonomies.value = result[2]
+  relationships.value = result[3]
+  policies.value = result[4]
 }
 async function saveRelationship() {
   if (joinForm.value.left_product_code === joinForm.value.right_product_code)
@@ -188,13 +214,29 @@ async function decidePolicy(item: AITaskPolicy, action: 'approve' | 'reject') {
   comment.value = ''
   await load()
 }
+async function loadPolicyVersions(item: AITaskPolicy) {
+  if (policyHistoryId.value === item.id) {
+    policyHistoryId.value = ''
+    policyVersions.value = []
+    return
+  }
+  policyHistoryId.value = item.id
+  policyVersions.value = await call<AITaskPolicyVersion[]>(
+    'GET',
+    `/ai-task-policies/${item.id}/versions?offset=0&limit=50`,
+  )
+}
 
 watch(
   user,
   () => {
     products.value = []
+    sources.value = []
+    taxonomies.value = []
     relationships.value = []
     policies.value = []
+    policyHistoryId.value = ''
+    policyVersions.value = []
     resetJoin()
     resetPolicy()
     comment.value = ''
@@ -350,7 +392,7 @@ watch(
           {{ item.revision_no }}
         </p>
         <p class="muted">
-          Scope dataset: {{ item.data_product_code || 'global untuk purpose' }}
+          Scope dataset: {{ policyScope(item) }}
         </p>
         <p class="muted">Allowlist: {{ item.allowed_models.join(', ') }}</p>
         <p class="muted">
@@ -358,6 +400,16 @@ watch(
           harian: {{ item.daily_budget_usd === null ? 'tanpa batas policy' : `$${item.daily_budget_usd}` }}
           &middot; fallback: {{ item.fallback_model || 'tidak ada' }}
         </p>
+        <button :disabled="busy" @click="run(() => loadPolicyVersions(item))">
+          {{ policyHistoryId === item.id ? 'Tutup riwayat' : 'Lihat riwayat versi' }}
+        </button>
+        <ol v-if="policyHistoryId === item.id" class="card-row">
+          <li v-for="version in policyVersions" :key="version.id">
+            Revisi {{ version.revision_no }} · {{ version.action }} · {{ version.snapshot_json.status }}
+            · {{ version.snapshot_json.model }} · {{ version.created_at }}
+          </li>
+          <li v-if="!policyVersions.length">Riwayat versi belum tersedia.</li>
+        </ol>
         <button
           v-if="policyEditor && item.status === 'DRAFT'"
           :disabled="busy"
@@ -434,6 +486,28 @@ watch(
               </option>
             </select></label
           >
+          <label v-if="aiForm.purpose === 'ETL_CONFIG'"
+            >Source dataset<select v-model="aiForm.data_source_id">
+              <option :value="null">Global untuk ETL_CONFIG</option>
+              <option v-for="source in sources" :key="source.id" :value="source.id">
+                {{ source.source_code }} · {{ source.name }}
+              </option>
+            </select></label
+          >
+          <label v-if="aiForm.purpose === 'TAXONOMY_RECOMMEND'"
+            >Taxonomy<select id="policy-taxonomy" v-model="aiForm.taxonomy_id">
+              <option :value="null">Global untuk TAXONOMY_RECOMMEND</option>
+              <option
+                v-for="taxonomy in taxonomies.filter(
+                  (item) => item.status === 'APPROVED' && item.is_active,
+                )"
+                :key="taxonomy.id"
+                :value="taxonomy.id"
+              >
+                {{ taxonomy.code }} · {{ taxonomy.name }}
+              </option>
+            </select></label
+          >
         </div>
         <label
           >Model yang diizinkan (satu per baris)<textarea
@@ -442,6 +516,10 @@ watch(
             placeholder="gpt-5.1"
           />
         </label>
+        <p class="muted">
+          Semua model dalam daftar harus ada pada allowlist server. Backend memeriksa ulang saat
+          simpan dan persetujuan.
+        </p>
         <div class="toolbar">
           <button class="primary">Simpan draft AI policy</button>
           <button v-if="selectedPolicy" type="button" @click="resetPolicy">Batal edit policy</button>

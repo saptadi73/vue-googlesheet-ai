@@ -221,7 +221,7 @@ export interface Column {
   transformation_codes: string[]
   transform_parameters?: TransformParameter[]
   pii_classification: string
-  access_visibility?: 'VISIBLE' | 'MASKED'
+  access_visibility?: 'VISIBLE' | 'MASKED' | 'HIDDEN'
   confidence: number
   reason: string
   numeric_precision: number | null

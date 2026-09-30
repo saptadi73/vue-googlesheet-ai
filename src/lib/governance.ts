@@ -28,6 +28,8 @@ export interface AITaskPolicy {
   model: string
   allowed_models: string[]
   data_product_code: string | null
+  data_source_id: string | null
+  taxonomy_id: string | null
   max_context_chars: number
   daily_budget_usd: number | null
   fallback_model: string | null
@@ -36,6 +38,29 @@ export interface AITaskPolicy {
   created_by: string
   approved_by: string | null
   approved_at: string | null
+}
+
+export interface AITaskPolicyVersion {
+  id: string
+  policy_id: string
+  revision_no: number
+  action: 'BASELINE' | 'CREATED' | 'UPDATED' | 'APPROVED' | 'REJECTED'
+  snapshot_json: Pick<
+    AITaskPolicy,
+    | 'code'
+    | 'purpose'
+    | 'prompt_version'
+    | 'model'
+    | 'allowed_models'
+    | 'data_product_code'
+    | 'max_context_chars'
+    | 'daily_budget_usd'
+    | 'fallback_model'
+    | 'revision_no'
+    | 'status'
+  >
+  actor_user_id: string
+  created_at: string
 }
 
 export const promptByPurpose: Record<AIPurpose, string> = {
