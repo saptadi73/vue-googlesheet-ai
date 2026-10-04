@@ -11,11 +11,11 @@ Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runt
    ```
 
 2. Jalankan backend, Redis, dan worker sesuai [panduan implementasi](IMPLEMENTASI.md). Profiling, rekomendasi AI, deployment, dan sync berjalan sebagai job. Status QUEUED terus-menerus berarti worker perlu diperiksa. Validasi draft, export, dan import-preview dijalankan melalui API.
-3. Di `C:\projek\vue-googlesheet-ai`, gunakan `npm run dev`. Pastikan `VITE_API_ORIGIN`, `VITE_API_BASE_PATH`, dan CORS backend sesuai. Buka `/workspace` atau tombol **Buka workspace ETL** pada halaman utama.
-4. Login dengan tenant dan akun aplikasi. Token berada di memori; reload penuh memerlukan login ulang. Jika sesi kedaluwarsa, keluar/ganti akun lalu login kembali.
+3. Di `C:\projek\vue-googlesheet-ai`, gunakan `npm run dev`. Pastikan `VITE_API_ORIGIN`, `VITE_API_BASE_PATH`, dan CORS backend sesuai. Buka aplikasi; seluruh route privat akan diarahkan ke `/login`.
+4. Login dengan tenant dan akun aplikasi. Router membuka landing sesuai role atau mengembalikan pengguna ke tujuan internal yang diizinkan. Token berada di memori; reload penuh memerlukan login ulang. Sesi kedaluwarsa atau refresh gagal kembali ke `/login`.
 5. Pilih sumber/tab, atau hubungkan Google Sheet baru yang sudah dibagikan ke service account. Jalankan rekomendasi AI setelah profiling selesai. Buka draft yang dihasilkan.
 6. Periksa identitas, mapping kolom, cleansing berurutan, kualitas data, strategi pemuatan, dimensi, metrik, dan role akses. Simpan perubahan, periksa dry-run, isi checklist seluruh bagian/kolom, lalu **Ajukan review**.
-7. Gunakan akun `TECHNICAL_APPROVER` atau admin berbeda untuk membuka konfigurasi yang sama, memeriksa hasil, dan menyetujui. User dapat dibuat oleh admin melalui `POST /users`; frontend ini belum menyediakan administrasi user.
+7. Gunakan akun `TECHNICAL_APPROVER` atau admin berbeda untuk membuka konfigurasi yang sama, memeriksa hasil, dan menyetujui. Admin dapat membuat user melalui `/register` dan mengatur role/status melalui `/admin/users`.
 8. **Deploy konfigurasi**, tunggu job SUCCEEDED, lalu jalankan sinkronisasi dengan akun editor. Approval dan deployment tidak langsung memuat data.
 
 Konfigurasi APPROVED/ACTIVE lama yang tidak memiliki bukti review tetap tidak dapat diedit. Bila perlu deployment ulang, clone menjadi draft, validasi, submit, dan approve. Runtime sync konfigurasi yang sudah ACTIVE tidak memerlukan checklist ulang untuk setiap sync. Rollback konfigurasi memeriksa snapshot yang disetujui; perubahan data dapat mengharuskan draft baru. Rollback bukan pemulihan data historis.
@@ -28,22 +28,36 @@ Semua path relatif terhadap `/api/v1`. Respons JSON dibungkus `{status, data, me
 
 ```json
 {
-  "configuration": {"id":"UUID", "revision_no":1, "status":"AI_DRAFT", "configuration_json":{}, "review_state":{}},
-  "source": {"id":"UUID", "name":"Penjualan"},
-  "sheet": {"id":"UUID", "sheet_name":"Sales"},
-  "profile": {"columns":[]},
+  "configuration": {
+    "id": "UUID",
+    "revision_no": 1,
+    "status": "AI_DRAFT",
+    "configuration_json": {},
+    "review_state": {}
+  },
+  "source": { "id": "UUID", "name": "Penjualan" },
+  "sheet": { "id": "UUID", "sheet_name": "Sales" },
+  "profile": { "columns": [] },
   "validation": {
-    "valid":true,
-    "snapshot_id":"UUID",
-    "snapshot_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "sample_rows_valid":3,
-    "sample_rows_invalid":0,
-    "row_previews":[{"source_row":2,"before":{"ID":"001"},"after":{"transaction_id":"001"}}],
-    "issues":[], "warnings":[], "unresolved_questions":[], "deployment_plan":{}
+    "valid": true,
+    "snapshot_id": "UUID",
+    "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sample_rows_valid": 3,
+    "sample_rows_invalid": 0,
+    "row_previews": [
+      { "source_row": 2, "before": { "ID": "001" }, "after": { "transaction_id": "001" } }
+    ],
+    "issues": [],
+    "warnings": [],
+    "unresolved_questions": [],
+    "deployment_plan": {}
   },
   "capabilities": {
-    "review_sections":["identity","columns","cleansing","quality","load","semantic"],
-    "editable_template_tabs":[], "unsupported":[], "max_workbook_bytes":2000000, "preview_expiry_minutes":15
+    "review_sections": ["identity", "columns", "cleansing", "quality", "load", "semantic"],
+    "editable_template_tabs": [],
+    "unsupported": [],
+    "max_workbook_bytes": 2000000,
+    "preview_expiry_minutes": 15
   }
 }
 ```
@@ -54,9 +68,9 @@ Contoh record/kolom/plan/capabilities disingkat; struktur konfigurasi lengkap ad
 
 ```json
 {
-  "revision_no":1,
-  "configuration":{"...":"Gunakan objek ETLConfiguration lengkap"},
-  "question_answers":{"Apakah ID unik?":"Ya, ID adalah nomor transaksi unik."}
+  "revision_no": 1,
+  "configuration": { "...": "Gunakan objek ETLConfiguration lengkap" },
+  "question_answers": { "Apakah ID unik?": "Ya, ID adalah nomor transaksi unik." }
 }
 ```
 
@@ -66,10 +80,10 @@ Setiap pertanyaan yang dihapus dari `unresolved_questions` wajib mempunyai jawab
 
 ```json
 {
-  "revision_no":2,
-  "snapshot_hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "reviewed_columns":["transaction_id","transaction_date","branch_name","net_amount"],
-  "reviewed_sections":["identity","columns","cleansing","quality","load","semantic"]
+  "revision_no": 2,
+  "snapshot_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reviewed_columns": ["transaction_id", "transaction_date", "branch_name", "net_amount"],
+  "reviewed_sections": ["identity", "columns", "cleansing", "quality", "load", "semantic"]
 }
 ```
 
@@ -83,7 +97,7 @@ Gunakan hash dari dry-run terbaru dan nama target seluruh kolom konfigurasi. Ser
 4. Unggah file maksimal **2.000.000 byte** sebagai base64 JSON:
 
    ```json
-   {"content_base64":"BASE64_DARI_BYTE_FILE_XLSX"}
+   { "content_base64": "BASE64_DARI_BYTE_FILE_XLSX" }
    ```
 
    Kirim ke `POST /configurations/{id}/workbook-preview`. Ini hanya pemeriksaan, **tidak menyimpan konfigurasi dan tidak memberi approval**.
@@ -92,14 +106,14 @@ Gunakan hash dari dry-run terbaru dan nama target seluruh kolom konfigurasi. Ser
 
    ```json
    {
-     "can_apply":true,
-     "revision_no":2,
-     "configuration":{"...":"Konfigurasi lengkap hasil parsing"},
-     "question_answers":{},
-     "diff":{"dataset_business_name":{"before":"Sales","after":"Penjualan"}},
-     "validation":{"valid":true,"snapshot_hash":"HASH","...":"Hasil dry-run lengkap"},
-     "errors":[],
-     "preview_token":"TOKEN_BERTANDA_TANGAN"
+     "can_apply": true,
+     "revision_no": 2,
+     "configuration": { "...": "Konfigurasi lengkap hasil parsing" },
+     "question_answers": {},
+     "diff": { "dataset_business_name": { "before": "Sales", "after": "Penjualan" } },
+     "validation": { "valid": true, "snapshot_hash": "HASH", "...": "Hasil dry-run lengkap" },
+     "errors": [],
+     "preview_token": "TOKEN_BERTANDA_TANGAN"
    }
    ```
 
@@ -109,10 +123,10 @@ Gunakan hash dari dry-run terbaru dan nama target seluruh kolom konfigurasi. Ser
 
    ```json
    {
-     "revision_no":2,
-     "configuration":{"...":"Objek lengkap dari preview"},
-     "question_answers":{},
-     "preview_token":"TOKEN_DARI_PREVIEW"
+     "revision_no": 2,
+     "configuration": { "...": "Objek lengkap dari preview" },
+     "question_answers": {},
+     "preview_token": "TOKEN_DARI_PREVIEW"
    }
    ```
 
@@ -124,16 +138,16 @@ Status `Tidak` pada cleansing atau `Nonaktif` pada aturan kualitas/metrik berart
 
 ## Error yang perlu ditangani frontend
 
-| Kode | HTTP | Tindakan |
-|---|---|---|
-| CONFIGURATION_CONFLICT / WORKBOOK_STALE | 409 | Muat ulang draft; unduh workbook terbaru |
-| WORKBOOK_PREVIEW_STALE / WORKBOOK_TOKEN_INVALID | 409 | Preview ulang dengan akun dan draft yang sama |
-| REVIEW_REQUIRED | 409 | Ajukan review revision terbaru |
-| REVIEW_STALE | 409 | Profiling/validasi ulang; untuk approved, clone dan review draft baru |
-| REVIEW_INCOMPLETE | 422 | Lengkapi checklist semua bagian dan kolom |
-| QUESTION_ANSWER_REQUIRED / QUESTION_INVALID | 422 | Cocokkan pertanyaan dan isi jawaban |
-| WORKBOOK_INVALID / WORKBOOK_STRUCTURE | 422 | Gunakan XLSX export aplikasi yang utuh |
-| SEPARATE_APPROVER_REQUIRED | 403 | Gunakan approver berbeda |
+| Kode                                            | HTTP | Tindakan                                                              |
+| ----------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| CONFIGURATION_CONFLICT / WORKBOOK_STALE         | 409  | Muat ulang draft; unduh workbook terbaru                              |
+| WORKBOOK_PREVIEW_STALE / WORKBOOK_TOKEN_INVALID | 409  | Preview ulang dengan akun dan draft yang sama                         |
+| REVIEW_REQUIRED                                 | 409  | Ajukan review revision terbaru                                        |
+| REVIEW_STALE                                    | 409  | Profiling/validasi ulang; untuk approved, clone dan review draft baru |
+| REVIEW_INCOMPLETE                               | 422  | Lengkapi checklist semua bagian dan kolom                             |
+| QUESTION_ANSWER_REQUIRED / QUESTION_INVALID     | 422  | Cocokkan pertanyaan dan isi jawaban                                   |
+| WORKBOOK_INVALID / WORKBOOK_STRUCTURE           | 422  | Gunakan XLSX export aplikasi yang utuh                                |
+| SEPARATE_APPROVER_REQUIRED                      | 403  | Gunakan approver berbeda                                              |
 
 ## Verifikasi pengembangan
 

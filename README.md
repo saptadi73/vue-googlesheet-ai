@@ -55,9 +55,12 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | `/access-requests`                                     | Permintaan akses atribut/bundle sementara, histori, approval admin, cancel, dan revoke                                   |
 | `/account`                                             | Ubah password dan login ulang                                                                                            |
 
-Login tersedia melalui `/login` dan tetap ditawarkan di halaman yang memerlukan sesi.
-Setelah berhasil, redirect hanya menerima path internal. Menu dan pemuatan data mengikuti role;
-otorisasi akhir tetap diperiksa backend. Analyst/viewer dapat masuk langsung melalui `/dashboard`.
+`/login` adalah satu-satunya halaman publik. Semua route aplikasi mengalihkan pengguna tanpa
+sesi ke login sebelum komponen halaman dimuat dan mempertahankan tujuan internal yang aman.
+Setelah login, tujuan yang tidak sesuai role dialihkan ke landing resmi: admin ke `/admin`,
+owner/steward ke `/workspace`, approver ke `/import-reviews`, dan analyst/viewer ke
+`/dashboard`. Logout, refresh token gagal, atau sesi dicabut kembali ke login. Menu dan
+pemuatan data mengikuti role; otorisasi akhir tetap diperiksa backend.
 Registrasi pengguna baru tersedia pada `/register` hanya untuk `PLATFORM_ADMIN`; aplikasi
 tidak menyediakan self-registration publik atau pilihan role oleh pengguna baru.
 

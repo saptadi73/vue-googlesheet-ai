@@ -64,11 +64,15 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
 
 ## Perilaku penting
 
-- **Sesi:** login JSON lalu `/auth/me`; access/refresh token dalam memori. Request 401 berbagi satu
-  refresh, memakai kedua token baru, dan diulang satu kali. 403/422/429, timeout mutation, dan
-  kegagalan query AI tidak otomatis diulang. Akun berubah membatalkan pemakaian respons sesi sebelumnya.
-- **Role:** menu dan request awal memakai kelompok hak S/E/R/D/A dari reference. Halaman yang tidak
-  diizinkan menampilkan pesan akses ditolak. Backend tetap sumber otorisasi, termasuk product allowlist.
+- **Sesi:** `/login` adalah route publik tunggal. Guard router mengalihkan direct URL anonim sebelum
+  komponen privat dimuat dan hanya menerima redirect internal. Login JSON dilanjutkan `/auth/me`;
+  access/refresh token disimpan dalam memori. Request 401 berbagi satu refresh, memakai kedua token
+  baru, dan diulang satu kali. Logout atau refresh gagal kembali ke login. 403/422/429, timeout
+  mutation, dan kegagalan query AI tidak otomatis diulang. Akun berubah membatalkan respons sesi lama.
+- **Role:** landing setelah login adalah `/admin` untuk admin, `/workspace` untuk owner/steward,
+  `/import-reviews` untuk approver, dan `/dashboard` untuk analyst/viewer. Menu dan request awal
+  memakai kelompok hak S/E/R/D/A dari reference. Route yang tidak sesuai role dialihkan ke landing
+  yang sah. Backend tetap sumber otorisasi, termasuk product allowlist.
 - **Sumber:** kode lowercase, deskripsi, credential reference, cron UTC, pengaturan tab dan profil sesuai
   `source_sheet_id`. Registrasi baru BE16 meminta unit/domain/yurisdiksi assignment aktif,
   PURPOSE, owner/steward dan sensitivitas; sumber legacy dapat dikoreksi dengan

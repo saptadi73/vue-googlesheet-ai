@@ -1,10 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { onSessionCleared } from '@/lib/api'
+import { landingPathForRole, safeInternalPath } from '@/lib/access'
+import { user } from '@/lib/etl'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: () => import('@/views/HomeView.vue') },
-    { path: '/login', name: 'login', component: () => import('@/views/LoginView.vue') },
+    {
+      path: '/login',
+      name: 'login',
+      meta: { public: true },
+      component: () => import('@/views/LoginView.vue'),
+    },
     {
       path: '/workspace',
       name: 'etl-workspace',
@@ -110,6 +118,45 @@ const router = createRouter({
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
+})
+
+function roleAllowed(path: string, role: string) {
+  const resolved = router.resolve(path)
+  if (resolved.name === 'login' || !resolved.matched.length) return false
+  return resolved.matched.every((route) => {
+    const roles = route.meta.roles
+    return !Array.isArray(roles) || roles.includes(role)
+  })
+}
+
+router.beforeEach((to) => {
+  if (to.meta.public) {
+    if (!user.value) return true
+    const requested = safeInternalPath(to.query.redirect)
+    return requested && roleAllowed(requested, user.value.role)
+      ? requested
+      : landingPathForRole(user.value.role)
+  }
+
+  if (!user.value) {
+    return {
+      name: 'login',
+      query: to.path === '/' ? {} : { redirect: to.fullPath },
+    }
+  }
+
+  if (to.path === '/') return landingPathForRole(user.value.role)
+  if (!roleAllowed(to.fullPath, user.value.role)) return landingPathForRole(user.value.role)
+  return true
+})
+
+onSessionCleared(() => {
+  const current = router.currentRoute.value
+  if (current.name === 'login') return
+  void router.replace({
+    name: 'login',
+    query: current.path === '/' ? {} : { redirect: current.fullPath },
+  })
 })
 
 export default router

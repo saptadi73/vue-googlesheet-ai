@@ -4,6 +4,7 @@ import { LogIn, Sparkles } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import Spinner from '@/components/ui/Spinner.vue'
 import { getApiErrorMessage } from '@/lib/api'
+import { landingPathForRole, safeInternalPath } from '@/lib/access'
 import { login, user } from '@/lib/etl'
 import '@/assets/etl.css'
 
@@ -13,10 +14,18 @@ const credentials = ref({ tenant_code: 'default', username: '', password: '' })
 const busy = ref(false)
 const error = ref('')
 const destination = computed(() => {
-  const requested = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  return requested.startsWith('/') && !requested.startsWith('//') && requested !== '/login'
-    ? requested
-    : '/dashboard'
+  const fallback = landingPathForRole(user.value?.role)
+  const requested = safeInternalPath(route.query.redirect)
+  if (!requested || !user.value) return fallback
+  const resolved = router.resolve(requested)
+  const allowed =
+    resolved.name !== 'login' &&
+    resolved.matched.length > 0 &&
+    resolved.matched.every((record) => {
+      const allowedRoles = record.meta.roles
+      return !Array.isArray(allowedRoles) || allowedRoles.includes(user.value!.role)
+    })
+  return allowed ? requested : fallback
 })
 
 async function signIn() {

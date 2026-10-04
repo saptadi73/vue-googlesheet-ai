@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   Briefcase,
   Database,
@@ -19,31 +18,16 @@ import {
   Users,
   KeyRound,
 } from '@lucide/vue'
-import { login, logout, user, editRoles, reviewRoles } from '@/lib/etl'
+import { logout, user, editRoles, reviewRoles } from '@/lib/etl'
 import { getApiErrorMessage } from '@/lib/api'
 import Spinner from '@/components/ui/Spinner.vue'
 import '@/assets/etl.css'
-const router = useRouter()
-const credentials = ref({ tenant_code: '', username: '', password: '' })
 const busy = ref(false),
   error = ref('')
-async function signIn() {
-  busy.value = true
-  error.value = ''
-  try {
-    await login(credentials.value)
-    credentials.value.password = ''
-  } catch (e) {
-    error.value = getApiErrorMessage(e)
-  } finally {
-    busy.value = false
-  }
-}
 async function signOut() {
   busy.value = true
   try {
     await logout()
-    await router.push('/workspace')
   } catch (e) {
     error.value = getApiErrorMessage(e)
   } finally {
@@ -107,32 +91,8 @@ async function signOut() {
     </header>
     <main>
       <p v-if="error" role="alert" class="error toast">{{ error }}</p>
-      <form v-if="!user" class="panel login" @submit.prevent="signIn">
-        <p class="eyebrow">WORKSPACE ETL</p>
-        <h1>Masuk untuk memeriksa data</h1>
-        <p>Gunakan akun aplikasi. Persetujuan dilakukan oleh akun approver yang berbeda.</p>
-        <label
-          >Tenant<input v-model="credentials.tenant_code" required autocomplete="organization"
-        /></label>
-        <label
-          >Username<input v-model="credentials.username" required autocomplete="username"
-        /></label>
-        <label
-          >Password<input
-            v-model="credentials.password"
-            required
-            type="password"
-            autocomplete="current-password"
-        /></label>
-        <button class="primary" :disabled="busy">
-          <Spinner v-if="busy" :size="14" label="Menghubungkan…" /><span v-else>Masuk</span>
-        </button>
-        <RouterLink class="button" :to="{ path: '/login', query: { redirect: $route.fullPath } }"
-          >Buka halaman login</RouterLink
-        >
-      </form>
       <p
-        v-else-if="Array.isArray($route.meta.roles) && !$route.meta.roles.includes(user.role)"
+        v-if="user && Array.isArray($route.meta.roles) && !$route.meta.roles.includes(user.role)"
         class="notice"
       >
         Akun ini tidak memiliki akses ke halaman ini. Buka Dashboard atau Chat data.

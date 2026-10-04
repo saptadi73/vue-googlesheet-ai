@@ -156,7 +156,7 @@ test('editor reads storage but cannot deploy; viewer cannot load metadata', asyn
   await expect(page.getByRole('cell', { name: '001', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Deploy storage', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
-  await expect(page).toHaveURL(/\/workspace$/)
+  await expect(page).toHaveURL(/\/login\?redirect=/)
   await page.goto('/masters/example/storage')
   const count = state.requests.filter((r) => r.path.startsWith('/master-definitions')).length
   await login(page, 'viewer')

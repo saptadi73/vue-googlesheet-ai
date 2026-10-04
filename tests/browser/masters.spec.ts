@@ -199,7 +199,7 @@ test('stale classification evidence disables deployment and source-wide sync cat
   await login(page, 'approver')
   await expect(page.getByRole('button', { name: 'Deploy konfigurasi' })).toBeDisabled()
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
-  await expect(page).toHaveURL(/\/workspace$/)
+  await expect(page).toHaveURL(/\/login\?redirect=/)
   await login(page)
   mock.sheet.dataset_kind = 'MASTER'
   await page.getByRole('link', { name: 'Job & ETL' }).click()
@@ -239,7 +239,7 @@ test('new master requires candidate review, explicit policy and separate approva
     missing_record_policy: 'KEEP',
   })
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
-  await expect(page).toHaveURL(/\/workspace$/)
+  await expect(page).toHaveURL(/\/login\?redirect=/)
   await login(page, 'approver')
   await page.getByRole('link', { name: 'Registry master', exact: true }).click()
   await page.getByRole('link', { name: 'Buka definisi locations' }).click()
@@ -292,8 +292,9 @@ test('binding uses approved snapshot and independent revisions without offering 
     ],
   })
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
-  await expect(page).toHaveURL(/\/workspace$/)
+  await expect(page).toHaveURL(/\/login\?redirect=/)
   await login(page, 'approver')
+  await page.getByRole('link', { name: 'Workspace ETL', exact: true }).click()
   await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
   await page.getByRole('combobox', { name: 'Tab Google Sheet' }).selectOption(sheetId)
   await page.getByRole('link', { name: 'Atur binding master' }).click()

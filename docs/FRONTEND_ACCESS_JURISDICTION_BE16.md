@@ -2,8 +2,11 @@
 
 Fondasi BE-16 tahap 1 sudah tersedia. Registry, assignment bertanggal, revoke, histori,
 dan effective access role + assignment dapat dikelola dari halaman Administrasi.
-Form login tersedia saat sesi belum ada dan sebagai halaman khusus `/login` dengan
-redirect internal setelah autentikasi. Registrasi akun tersedia di `/register` dan
+`/login` menjadi satu-satunya route publik. Router menahan seluruh komponen privat sebelum
+sesi tersedia, mempertahankan redirect internal yang aman, dan mengalihkan route yang tidak
+sesuai role ke landing resmi. Admin masuk ke `/admin`, owner/steward ke `/workspace`,
+approver ke `/import-reviews`, serta analyst/viewer ke `/dashboard`. Logout atau kegagalan
+refresh menghapus state sesi dan kembali ke login. Registrasi akun tersedia di `/register` dan
 `/admin/users/new`, termasuk password awal, role, serta row scope. Halaman `/admin/users`
 menyediakan daftar akun, status aktif, role, dan row scope. Ketiga operasi administrasi
 tetap memakai endpoint backend tenant-scoped dan hanya ditampilkan kepada
@@ -79,7 +82,8 @@ ke halaman Access Requests. Approve, reject, atau cancel menyelesaikan notifikas
   Role/aktif-nonaktif, bundle, assignment, revoke, serta delegasi access request tersedia;
   status suspended dan approval assignment berisiko belum.
 - [x] Sediakan halaman khusus login, registrasi internal, dan pengaturan role/status/row
-      scope. Direct route non-admin tetap ditolak oleh shell dan backend menjadi otorisasi akhir.
+      scope. Router menolak direct route anonim sebelum komponen dimuat dan mengalihkan role
+      yang tidak cocok ke landing resminya; backend tetap menjadi otorisasi akhir.
 - [x] Implementasikan bagian permission bundle tahap 2: pilih aksi baku, buat registry,
       grant/revoke bertanggal, alasan wajib, self-change guard, dan effective action gabungan.
 - [x] Terapkan self-change guard assignment di UI dan backend: admin tidak dapat memberi

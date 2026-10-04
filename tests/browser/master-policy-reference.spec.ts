@@ -195,7 +195,7 @@ test('reviewer and approved editor resolve read-only without staging fields', as
     await page.getByRole('button', { name: 'Resolve reference', exact: true }).click()
     await expect(page.getByText('Reference EXACT', { exact: false })).toBeVisible()
     await page.getByRole('button', { name: 'Keluar / ganti akun', exact: true }).click()
-    await expect(page).toHaveURL(/workspace$/)
+    await expect(page).toHaveURL(/\/login\?redirect=/)
   }
   expect(bodies).toEqual(
     Array(2).fill({
