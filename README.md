@@ -77,6 +77,12 @@ Definisi menu terpusat di `src/lib/navigation.ts`, dengan komponen reusable di
 metadata role router, tanpa mengubah otorisasi halaman atau backend. Halaman detail
 tetap menandai menu induknya sebagai aktif.
 
+Form pembuatan batch di `/import-reviews`, pencarian/aksi pembuatan definisi di
+`/masters`, serta pembuatan dan pencarian term di `/taxonomies` memakai komponen
+reusable `FormActionRow`. Input memanfaatkan lebar area
+konten dan sejajar dengan tombol pada area lebar, lalu tersusun vertikal pada area
+form 720px atau lebih kecil. Petunjuk klasifikasi batch tampil di baris tersendiri.
+
 ## Stack
 
 | Kebutuhan       | Library / konfigurasi                                                                 |

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
+import FormActionRow from '@/components/ui/FormActionRow.vue'
 import { call, editRoles, reviewRoles, user } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type {
@@ -85,7 +86,8 @@ function parentLabel(parentId: string | null) {
   if (!parentId) return 'root'
   const parent = terms.value.find((term) => term.id === parentId)
   return parent ? `${parent.label} (${parent.code})` : 'parent tidak tersedia'
-}async function loadTerms() {
+}
+async function loadTerms() {
   terms.value = selectedId.value
     ? await call<TaxonomyTerm[]>('GET', `/taxonomies/${selectedId.value}/terms`)
     : []
@@ -152,12 +154,16 @@ watch(selectedId, () => {
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
-    <form v-if="editor" class="panel toolbar" @submit.prevent="run(createTaxonomy)">
-      <label
-        >Kode<input v-model="taxonomyForm.code" required pattern="[a-z][a-z0-9_]*" maxlength="63"
-      /></label>
-      <label>Nama<input v-model="taxonomyForm.name" required maxlength="200" /></label>
-      <button class="primary" :disabled="busy || versionEditing">Buat taxonomy</button>
+    <form v-if="editor" class="panel taxonomy-create-form" @submit.prevent="run(createTaxonomy)">
+      <FormActionRow>
+        <label
+          >Kode<input v-model="taxonomyForm.code" required pattern="[a-z][a-z0-9_]*" maxlength="63"
+        /></label>
+        <label>Nama<input v-model="taxonomyForm.name" required maxlength="200" /></label>
+        <template #actions>
+          <button class="primary" :disabled="busy || versionEditing">Buat taxonomy</button>
+        </template>
+      </FormActionRow>
     </form>
     <section class="panel">
       <h2>Taxonomy tersedia</h2>
@@ -179,9 +185,7 @@ watch(selectedId, () => {
     <section v-if="selected" class="panel">
       <h2>{{ selected.name }}</h2>
       <p>{{ selected.code }} / versi {{ selected.version }} / {{ selected.status }}</p>
-      <p v-if="selected.approved_by">
-        Disetujui pada {{ selected.approved_at }}
-      </p>
+      <p v-if="selected.approved_by">Disetujui pada {{ selected.approved_at }}</p>
       <button
         v-if="reviewer && selected.status === 'DRAFT' && selected.is_active"
         class="primary"
@@ -220,7 +224,9 @@ watch(selectedId, () => {
       <article v-for="term in terms" :key="term.id" class="card-row">
         <h3>{{ term.label }} / {{ term.code }}</h3>
         <p>{{ term.is_active ? 'Aktif' : 'Nonaktif' }}</p>
-        <p>Parent: {{ parentLabel(term.parent_id) }} / Alias: {{ term.aliases.join(', ') || '-' }}</p>
+        <p>
+          Parent: {{ parentLabel(term.parent_id) }} / Alias: {{ term.aliases.join(', ') || '-' }}
+        </p>
       </article>
       <section v-if="selected.status === 'APPROVED' && selected.is_active" class="panel">
         <TaxonomyAISuggestions
@@ -232,8 +238,10 @@ watch(selectedId, () => {
         />
         <h3>Resolver dan pemeriksaan nilai</h3>
         <form @submit.prevent="run(resolve)">
-          <label>Nilai taxonomy<input v-model="resolveValue" required /></label
-          ><button :disabled="busy">Cari term</button>
+          <FormActionRow>
+            <label>Nilai taxonomy<input v-model="resolveValue" required /></label>
+            <template #actions><button :disabled="busy">Cari term</button></template>
+          </FormActionRow>
         </form>
         <template v-if="resolution">
           <p>

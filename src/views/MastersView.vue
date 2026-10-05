@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
+import FormActionRow from '@/components/ui/FormActionRow.vue'
 import DataTable from '@/components/DataTable.vue'
 import { call, user, editRoles, reviewRoles } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
@@ -93,12 +94,16 @@ watch(
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
     <section class="panel">
-      <form class="toolbar" @submit.prevent="run(() => load())">
-        <label>Cari kode, nama, atau alias<input v-model="search" /></label
-        ><button :disabled="busy">Cari master</button
-        ><RouterLink v-if="editor" class="button primary" to="/masters/new"
-          >Buat definisi master</RouterLink
-        >
+      <form class="master-search-form" @submit.prevent="run(() => load())">
+        <FormActionRow>
+          <label>Cari kode, nama, atau alias<input v-model="search" /></label>
+          <template #actions>
+            <button :disabled="busy">Cari master</button>
+            <RouterLink v-if="editor" class="button primary" to="/masters/new">
+              Buat definisi master
+            </RouterLink>
+          </template>
+        </FormActionRow>
       </form>
       <p v-if="busy" role="status">Memuat registry…</p>
       <p v-else-if="!masters.length">Tidak ada definisi pada halaman ini.</p>

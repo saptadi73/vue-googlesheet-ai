@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
+import FormActionRow from '@/components/ui/FormActionRow.vue'
 import { call, editRoles, reviewRoles, user, type Config, type Sheet, type Source } from '@/lib/etl'
 import { createImportReview, type ImportReview } from '@/lib/importReviews'
 import { useTask } from '@/lib/tasks'
@@ -88,47 +89,56 @@ watch(sheetId, () => {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section v-if="editor" class="panel">
       <h2>Buat batch review</h2>
-      <form class="toolbar" @submit.prevent="run(create)">
-        <label
-          >Sumber<select v-model="sourceId" required>
-            <option value="">Pilih sumber</option>
-            <option v-for="s in sources" :key="s.id" :value="s.id">
-              {{ s.name }} ({{ s.source_code }})
-            </option>
-          </select></label
-        ><label
-          >Tab<select v-model="sheetId" required>
-            <option value="">Pilih tab</option>
-            <option v-for="s in sheets.filter((s) => s.enabled)" :key="s.id" :value="s.id">
-              {{ s.sheet_name }} · {{ s.dataset_kind || 'belum diklasifikasi' }}
-            </option>
-          </select></label
-        ><label v-if="selectedSheet?.dataset_kind === 'NON_MASTER'"
-          >Konfigurasi approved/active<select v-model="configId">
-            <option value="">Pilih konfigurasi</option>
-            <option
-              v-for="c in configs.filter((c) => ['APPROVED', 'ACTIVE'].includes(c.status))"
-              :key="c.id"
-              :value="c.id"
+      <form class="batch-create-form" @submit.prevent="run(create)">
+        <FormActionRow>
+          <label
+            >Sumber<select v-model="sourceId" required>
+              <option value="">Pilih sumber</option>
+              <option v-for="s in sources" :key="s.id" :value="s.id">
+                {{ s.name }} ({{ s.source_code }})
+              </option>
+            </select></label
+          ><label
+            >Tab<select v-model="sheetId" required>
+              <option value="">Pilih tab</option>
+              <option v-for="s in sheets.filter((s) => s.enabled)" :key="s.id" :value="s.id">
+                {{ s.sheet_name }} · {{ s.dataset_kind || 'belum diklasifikasi' }}
+              </option>
+            </select></label
+          ><label v-if="selectedSheet?.dataset_kind === 'NON_MASTER'"
+            >Konfigurasi approved/active<select v-model="configId">
+              <option value="">Pilih konfigurasi</option>
+              <option
+                v-for="c in configs.filter((c) => ['APPROVED', 'ACTIVE'].includes(c.status))"
+                :key="c.id"
+                :value="c.id"
+              >
+                {{ c.configuration_json.dataset_business_name }} · revisi {{ c.revision_no }}
+              </option>
+            </select></label
+          >
+          <template #actions>
+            <button
+              class="primary"
+              :disabled="
+                busy ||
+                !selectedSheet?.dataset_kind ||
+                (selectedSheet?.dataset_kind === 'NON_MASTER' && !configId)
+              "
             >
-              {{ c.configuration_json.dataset_business_name }} · revisi {{ c.revision_no }}
-            </option>
-          </select></label
-        >
-        <p v-else-if="selectedSheet?.dataset_kind === 'MASTER'" class="muted">
+              Buat batch
+            </button>
+          </template>
+        </FormActionRow>
+        <p v-if="selectedSheet?.dataset_kind === 'MASTER'" class="muted batch-create-hint">
           MASTER memakai binding approved; configuration_id tidak dikirim.
         </p>
-        <p v-else-if="sheetId" class="notice">Konfirmasi klasifikasi tab sebelum membuat batch.</p>
-        <button
-          class="primary"
-          :disabled="
-            busy ||
-            !selectedSheet?.dataset_kind ||
-            (selectedSheet?.dataset_kind === 'NON_MASTER' && !configId)
-          "
+        <p
+          v-else-if="sheetId && selectedSheet?.dataset_kind !== 'NON_MASTER'"
+          class="notice batch-create-hint"
         >
-          Buat batch
-        </button>
+          Konfirmasi klasifikasi tab sebelum membuat batch.
+        </p>
       </form>
     </section>
     <section class="panel">
