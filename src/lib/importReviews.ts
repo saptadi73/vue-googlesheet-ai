@@ -273,7 +273,7 @@ export async function resolveImportReference(
 ) {
   if (!sourceColumn.trim()) throw new Error('Kolom sumber referensi wajib diisi.')
   if (!!stagingRowId !== !!targetColumn)
-    throw new Error('UUID staging dan kolom target harus diisi bersama.')
+    throw new Error('Referensi staging dan kolom target harus tersedia bersama.')
   return call<ImportReferenceResolveResult>(
     'POST',
     `/import-reviews/${reviewId}/resolve-reference`,

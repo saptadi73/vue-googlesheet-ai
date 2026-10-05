@@ -113,7 +113,7 @@ export function validateVersionTerms(terms: VersionTerm[], original: VersionTerm
   const byId = new Map(terms.map((term) => [term.id, term]))
   const originalById = new Map(original.map((term) => [term.id, term]))
   if (byId.size !== terms.length || new Set(terms.map((term) => term.code)).size !== terms.length)
-    throw new Error('UUID dan kode term harus unik.')
+    throw new Error('Identitas internal dan kode term harus unik.')
   for (const term of terms) {
     if (!term.code.trim() || !term.label.trim()) throw new Error('Isi kode dan label setiap term.')
     const existing = originalById.get(term.id)

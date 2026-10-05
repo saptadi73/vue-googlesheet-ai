@@ -82,6 +82,9 @@ async function acknowledge(notification: OperationalNotification) {
   notice.value = 'Notifikasi diakui dan audit tersimpan.'
   await load()
 }
+function sourceLabel(id: string) {
+  return sources.value.find((source) => source.id === id)?.name || 'Sumber tidak tersedia'
+}
 function editSchedule(source: Source) {
   editingSchedule.value = source
   scheduleForm.value = {
@@ -277,11 +280,10 @@ onBeforeUnmount(stop)
     </section>
     <section class="panel">
       <h2>Pantau job</h2>
-      <form class="toolbar" @submit.prevent="run(() => monitor(jobId))">
-        <label>ID job<input v-model="jobId" required /></label
-        ><button :disabled="busy || monitoring">Pantau / lanjutkan</button
-        ><button v-if="monitoring" type="button" @click="stop">Berhenti memantau</button>
-      </form>
+      <p class="muted">
+        Pilih Pantau pada daftar job atau notifikasi. Identitas job ditentukan otomatis oleh sistem.
+      </p>
+      <button v-if="monitoring" type="button" @click="stop">Berhenti memantau</button>
       <p class="muted">Berhenti memantau tidak membatalkan pekerjaan di backend.</p>
       <div v-if="selected" aria-live="polite">
         <h3>{{ selected.kind }} · {{ selected.status }}</h3>
@@ -345,7 +347,7 @@ onBeforeUnmount(stop)
       <div v-for="job in jobs" :key="job.id" class="toolbar">
         <span class="tag">{{ job.status }}</span
         ><span>{{ job.kind }} · {{ job.created_at }}</span
-        ><button :disabled="busy" @click="run(() => monitor(job.id))">{{ job.id }}</button>
+        ><button :disabled="busy" @click="run(() => monitor(job.id))">Pantau</button>
       </div>
     </section>
     <section class="panel">
@@ -365,7 +367,7 @@ onBeforeUnmount(stop)
           Dependency:
           {{
             source.dependency_source_ids.length
-              ? source.dependency_source_ids.join(', ')
+              ? source.dependency_source_ids.map(sourceLabel).join(', ')
               : 'tidak ada'
           }}
         </p>
@@ -394,8 +396,14 @@ onBeforeUnmount(stop)
           @submit.prevent="run(saveSchedule)"
         >
           <label
-            >Cron lima field<input v-model="scheduleForm.sync_schedule" placeholder="0 7 * * 1-5"
-          /></label>
+            >Jadwal otomatis<select v-model="scheduleForm.sync_schedule">
+              <option value="">Tanpa jadwal</option>
+              <option value="0 * * * *">Setiap jam</option>
+              <option value="0 */6 * * *">Setiap 6 jam</option>
+              <option value="0 0 * * *">Setiap hari pukul 00.00</option>
+              <option value="0 0 * * 1">Setiap Senin pukul 00.00</option>
+            </select></label
+          >
           <label
             >Timezone IANA<input
               v-model="scheduleForm.schedule_timezone"

@@ -36,11 +36,9 @@ function emptyAccessMetadata() {
   }
 }
 const registration = ref({
-  source_code: '',
   name: '',
   spreadsheet_url: '',
   description: '',
-  credential_ref: 'default',
   sync_schedule: '',
   access_metadata: emptyAccessMetadata(),
 })
@@ -353,30 +351,24 @@ onBeforeUnmount(() => {
         "
       >
         <div class="grid">
-          <label
-            >Kode sumber<input
-              v-model="registration.source_code"
-              required
-              pattern="[a-z][a-z0-9_]*"
-              maxlength="63"
-          /></label>
-          <label>Nama sumber<input v-model="registration.name" required maxlength="200" /></label
-          ><label
-            >URL / ID spreadsheet<input v-model="registration.spreadsheet_url" required
-          /></label>
+          <label>Nama sumber<input v-model="registration.name" required maxlength="200" /></label>
+          <label>URL spreadsheet<input v-model="registration.spreadsheet_url" required /></label>
         </div>
         <div class="grid">
-          <label>Deskripsi<textarea v-model="registration.description" maxlength="2000" /></label
-          ><label
-            >Referensi kredensial backend<input
-              v-model="registration.credential_ref"
-              required /></label
-          ><label
-            >Jadwal cron UTC (opsional)<input
-              v-model="registration.sync_schedule"
-              placeholder="0 */6 * * *"
-          /></label>
+          <label>Deskripsi<textarea v-model="registration.description" maxlength="2000" /></label>
+          <label
+            >Jadwal otomatis<select v-model="registration.sync_schedule">
+              <option value="">Tanpa jadwal</option>
+              <option value="0 * * * *">Setiap jam</option>
+              <option value="0 */6 * * *">Setiap 6 jam</option>
+              <option value="0 0 * * *">Setiap hari pukul 00.00 UTC</option>
+              <option value="0 0 * * 1">Setiap Senin pukul 00.00 UTC</option>
+            </select></label
+          >
         </div>
+        <p class="muted">
+          Kode sumber, UUID, dan referensi kredensial dibuat atau ditentukan otomatis oleh sistem.
+        </p>
         <div class="grid">
           <label>Unit pemilik<select v-model="registration.access_metadata.owner_unit_id" required>
             <option value="" disabled>Pilih unit</option>

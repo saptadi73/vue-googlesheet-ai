@@ -2,7 +2,16 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, copy, editRoles, reviewRoles, types, user } from '@/lib/etl'
+import {
+  call,
+  copy,
+  editRoles,
+  reviewRoles,
+  types,
+  user,
+  type Sheet,
+  type Source,
+} from '@/lib/etl'
 import { blankDefinition, validateDefinition, type Candidate, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 const route = useRoute(),
@@ -20,6 +29,21 @@ const baseline = ref(''),
   checked = ref<string[]>([]),
   reason = ref('')
 const deactivate = ref(false)
+const authoritativeSheets = ref<Array<{ id: string; label: string }>>([])
+async function loadAuthoritativeSheets() {
+  const sources = await call<Source[]>('GET', '/sources?offset=0&limit=100')
+  const groups = await Promise.all(
+    sources.map(async (source) => ({
+      source,
+      sheets: await call<Sheet[]>('GET', `/sources/${source.id}/sheets`),
+    })),
+  )
+  authoritativeSheets.value = groups.flatMap(({ source, sheets }) =>
+    sheets
+      .filter((sheet) => sheet.dataset_kind === 'MASTER')
+      .map((sheet) => ({ id: sheet.id, label: `${source.name} · ${sheet.sheet_name}` })),
+  )
+}
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
 const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
 function payload() {
@@ -131,7 +155,10 @@ watch(
     baseline.value = JSON.stringify(payload())
     candidates.value = null
     checked.value = []
-    if (id.value && [...editRoles, ...reviewRoles].includes(user.value?.role || '')) void run(load)
+    if ([...editRoles, ...reviewRoles].includes(user.value?.role || ''))
+      void run(async () => {
+        await Promise.all([loadAuthoritativeSheets(), ...(id.value ? [load()] : [])])
+      })
   },
   { immediate: true },
 )
@@ -266,11 +293,28 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               <option value="REQUIRE_REVIEW">REQUIRE_REVIEW</option>
               <option value="AUTHORITATIVE_SOURCE">AUTHORITATIVE_SOURCE</option>
             </select></label
-          ><label v-if="draft.policy.source_conflict_policy === 'AUTHORITATIVE_SOURCE'"
-            >UUID tab MASTER otoritatif<input
+          ><label v-if="draft.policy.source_conflict_policy === 'AUTHORITATIVE_SOURCE'">
+            Tab MASTER otoritatif<select
               v-model="draft.policy.authoritative_source_sheet_id"
               required
-          /></label>
+            >
+              <option :value="null" disabled>Pilih sumber dan tab MASTER</option>
+              <option v-for="sheet in authoritativeSheets" :key="sheet.id" :value="sheet.id">
+                {{ sheet.label }}
+              </option>
+              <option
+                v-if="
+                  draft.policy.authoritative_source_sheet_id &&
+                  !authoritativeSheets.some(
+                    (sheet) => sheet.id === draft.policy.authoritative_source_sheet_id,
+                  )
+                "
+                :value="draft.policy.authoritative_source_sheet_id"
+              >
+                Tab tersimpan (tidak lagi tersedia)
+              </option>
+            </select>
+          </label>
         </div>
         <p class="muted">
           Record hilang: KEEP · penonaktifan: EXPLICIT_REVIEW · perubahan key: EXPLICIT_MIGRATION ·

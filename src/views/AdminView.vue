@@ -35,6 +35,7 @@ const users = ref<User[]>([]),
   permissionGrants = ref<PermissionGrant[]>([]),
   accessPolicies = ref<AccessPolicy[]>([]),
   policyResources = ref<{ code: string; name: string; status: string }[]>([]),
+  evaluationResources = ref<{ code: string; name: string; status: string }[]>([]),
   accessDecision = ref<AccessDecision | null>(null),
   effectiveAccess = ref<EffectiveAccess | null>(null)
 const accessKinds: AccessKind[] = ['DEPARTMENT', 'BUSINESS_DOMAIN', 'JURISDICTION', 'CLEARANCE', 'PURPOSE']
@@ -68,6 +69,7 @@ const assignmentForm = ref({ attribute_id: '', valid_from: '', valid_to: '', not
 const bundleForm = ref({ code: '', label: '', description: '', actions: [] as AccessAction[] })
 const permissionForm = ref({ bundle_id: '', valid_from: '', valid_to: '', note: '' })
 const policyResourceSearch = ref('')
+const evaluationResourceSearch = ref('')
 const policyForm = ref({
   code: '',
   label: '',
@@ -138,6 +140,24 @@ async function loadPolicyResources() {
     if (!resources.some((resource) => resource.code === policyForm.value.resource_id)) {
       policyForm.value.resource_id = ''
     }
+  }
+}
+async function loadEvaluationResources() {
+  const resourceType = evaluationForm.value.resource_type
+  const search = evaluationResourceSearch.value.trim()
+  const accountId = user.value?.id
+  const resources = await call<{ code: string; name: string; status: string }[]>(
+    'GET',
+    `/access/resources?resource_type=${resourceType}&search=${encodeURIComponent(search)}`,
+  )
+  if (
+    user.value?.id === accountId &&
+    evaluationForm.value.resource_type === resourceType &&
+    evaluationResourceSearch.value.trim() === search
+  ) {
+    evaluationResources.value = resources
+    if (!resources.some((resource) => resource.code === evaluationForm.value.resource_id))
+      evaluationForm.value.resource_id = ''
   }
 }
 async function createAccessPolicy() {
@@ -319,7 +339,9 @@ watch(
     permissionGrants.value = []
     accessPolicies.value = []
     policyResources.value = []
+    evaluationResources.value = []
     policyResourceSearch.value = ''
+    evaluationResourceSearch.value = ''
     invalidateAccessDecision()
     effectiveAccess.value = null
     selected.value = null
@@ -333,6 +355,7 @@ watch(
         await loadPermissionBundles()
         await loadAccessPolicies()
         await loadPolicyResources()
+        await loadEvaluationResources()
         await loadAudit()
         await loadUsage()
       })
@@ -345,6 +368,12 @@ watch(() => policyForm.value.resource_type, () => {
   policyResourceSearch.value = ''
   policyResources.value = []
   if (allowed.value) void run(loadPolicyResources)
+})
+watch(() => evaluationForm.value.resource_type, () => {
+  evaluationForm.value.resource_id = ''
+  evaluationResourceSearch.value = ''
+  evaluationResources.value = []
+  if (allowed.value) void run(loadEvaluationResources)
 })
 </script>
 <template>
@@ -725,11 +754,26 @@ watch(() => policyForm.value.resource_type, () => {
             <option>TAXONOMY</option>
           </select></label
         ><label
-          >ID/kode resource evaluasi<input v-model="evaluationForm.resource_id" required /></label
+          >Resource evaluasi<select v-model="evaluationForm.resource_id" required>
+            <option value="" disabled>Pilih resource</option>
+            <option
+              v-for="resource in evaluationResources"
+              :key="resource.code"
+              :value="resource.code"
+            >
+              {{ resource.code }} · {{ resource.name }} ({{ resource.status }})
+            </option>
+          </select></label
         ><button class="primary" :disabled="busy">
           Evaluasi {{ selected ? selected.username : 'akun sendiri' }}
         </button>
       </form>
+      <div class="toolbar">
+        <label>Cari resource evaluasi<input v-model="evaluationResourceSearch" maxlength="63" /></label>
+        <button type="button" :disabled="busy" @click="run(loadEvaluationResources)">
+          Cari resource
+        </button>
+      </div>
       <template v-if="accessDecision">
         <p role="status">{{ accessDecision.allowed ? 'Diizinkan' : 'Ditolak' }} · {{ accessDecision.reason_code }}</p>
         <p class="muted">

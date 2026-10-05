@@ -1,4 +1,4 @@
-﻿# Google Sheet AI — Vue frontend
+# Google Sheet AI — Vue frontend
 
 Frontend Vue 3 + TypeScript untuk backend `../fastapi-googlesheet-ai`, mengikuti
 [API Reference](docs/API_REFERENCE.md) dan [panduan review ETL](docs/PANDUAN_REVIEW_ETL.md).
@@ -63,6 +63,19 @@ owner/steward ke `/workspace`, approver ke `/import-reviews`, dan analyst/viewer
 pemuatan data mengikuti role; otorisasi akhir tetap diperiksa backend.
 Registrasi pengguna baru tersedia pada `/register` hanya untuk `PLATFORM_ADMIN`; aplikasi
 tidak menyediakan self-registration publik atau pilihan role oleh pengguna baru.
+
+### Navigasi aplikasi
+
+Menu operasional berada di sidebar, dikelompokkan menjadi analitik, operasional data,
+serta referensi dan tata kelola. Navbar tetap satu baris untuk administrasi, pengguna,
+registrasi, akun, permintaan akses, dan logout. Pada layar di bawah 1280px, menu
+administrasi dan akun menggunakan dropdown; di bawah 1024px, sidebar menjadi drawer
+melalui tombol menu. Drawer mendukung Escape, fokus keyboard, dan penutupan setelah navigasi.
+
+Definisi menu terpusat di `src/lib/navigation.ts`, dengan komponen reusable di
+`src/components/navigation/` dan layout bersama `EtlShell.vue`. Visibilitas menu mengikuti
+metadata role router, tanpa mengubah otorisasi halaman atau backend. Halaman detail
+tetap menandai menu induknya sebagai aktif.
 
 ## Stack
 
@@ -136,3 +149,7 @@ pada CORS backend. Hosting SPA perlu fallback ke `index.html` untuk route Vue Ro
 `VITE_API_BASE_PATH` default `/api/v1` dan harus diawali `/`.
 
 Variabel `VITE_*` dapat dibaca browser. Kredensial Google/OpenAI, JWT secret, dan database tetap di backend.
+
+## Identifier internal
+
+Pengguna tidak perlu mengetik UUID. Semua relasi internal dipilih melalui nama atau kode bisnis dari API, lalu frontend mengirim ID pilihan secara otomatis. Kode bisnis seperti kode master, taxonomy, term, metric, product, policy, atribut, dan permission tetap dapat diisi. Route detail boleh membawa UUID hanya dari record yang dipilih di aplikasi; jangan menambahkan input teks UUID pada form baru.

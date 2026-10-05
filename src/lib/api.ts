@@ -296,7 +296,7 @@ export function getApiErrorMessage(error: unknown): string {
       REFERENCE_MAPPING_INVALID:
         'Gunakan kolom target konfigurasi bertipe UUID yang sesuai binding sumber.',
       MASTER_ALIAS_INVALID:
-        'Koreksi alias agar unik setelah normalisasi dan menunjuk UUID master aktif, lalu approve ulang.',
+        'Koreksi alias agar unik setelah normalisasi dan pilih record master aktif, lalu approve ulang.',
       REFERENCE_REQUIRED:
         'Referensi wajib harus diselesaikan ke UUID master aktif melalui pertanyaan batch.',
       REFERENCE_UNRESOLVED:

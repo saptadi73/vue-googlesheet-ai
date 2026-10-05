@@ -81,7 +81,11 @@ async function load() {
     terms.value = []
   }
 }
-async function loadTerms() {
+function parentLabel(parentId: string | null) {
+  if (!parentId) return 'root'
+  const parent = terms.value.find((term) => term.id === parentId)
+  return parent ? `${parent.label} (${parent.code})` : 'parent tidak tersedia'
+}async function loadTerms() {
   terms.value = selectedId.value
     ? await call<TaxonomyTerm[]>('GET', `/taxonomies/${selectedId.value}/terms`)
     : []
@@ -176,7 +180,7 @@ watch(selectedId, () => {
       <h2>{{ selected.name }}</h2>
       <p>{{ selected.code }} / versi {{ selected.version }} / {{ selected.status }}</p>
       <p v-if="selected.approved_by">
-        Reviewer {{ selected.approved_by }} / {{ selected.approved_at }}
+        Disetujui pada {{ selected.approved_at }}
       </p>
       <button
         v-if="reviewer && selected.status === 'DRAFT' && selected.is_active"
@@ -216,7 +220,7 @@ watch(selectedId, () => {
       <article v-for="term in terms" :key="term.id" class="card-row">
         <h3>{{ term.label }} / {{ term.code }}</h3>
         <p>{{ term.is_active ? 'Aktif' : 'Nonaktif' }}</p>
-        <p>Parent: {{ term.parent_id || 'root' }} / Alias: {{ term.aliases.join(', ') || '-' }}</p>
+        <p>Parent: {{ parentLabel(term.parent_id) }} / Alias: {{ term.aliases.join(', ') || '-' }}</p>
       </article>
       <section v-if="selected.status === 'APPROVED' && selected.is_active" class="panel">
         <TaxonomyAISuggestions

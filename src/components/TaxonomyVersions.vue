@@ -205,7 +205,7 @@ async function publish() {
   <section class="panel">
     <h3>Versi taxonomy</h3>
     <p>
-      Snapshot terbit immutable. Term yang dihilangkan akan dinonaktifkan; UUID dan kode term lama
+      Snapshot terbit immutable. Term yang dihilangkan akan dinonaktifkan; identitas dan kode term lama
       tetap. Publikasi membuat binding versi lama perlu diperbarui.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
@@ -261,7 +261,6 @@ async function publish() {
       </button>
       <fieldset :disabled="busy || !editable">
         <article v-for="(term, index) in terms" :key="term.id" class="card-row">
-          <p>UUID {{ term.id }}</p>
           <div class="grid">
             <label
               >Kode term<input v-model="term.code" :disabled="knownIds.has(term.id)" required

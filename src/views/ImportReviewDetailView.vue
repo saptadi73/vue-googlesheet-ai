@@ -28,52 +28,10 @@ import { useTask } from '@/lib/tasks'
 import { getApiErrorMessage } from '@/lib/api'
 import axios from 'axios'
 import type { Master } from '@/lib/masters'
-import type { TaxonomyResolution } from '@/lib/taxonomies'
 import TaxonomyAISuggestions from '@/components/TaxonomyAISuggestions.vue'
 const master = ref<Master | null>(null)
 const pollingFailed = ref(false)
-const taxonomyQuestion = ref({
-  taxonomyId: '',
-  stagingRowId: '',
-  sourceColumn: '',
-  targetColumn: '',
-  value: '',
-})
-async function createTaxonomyQuestion() {
-  if (
-    !review.value ||
-    !canEdit.value ||
-    !['NEEDS_INPUT', 'FAILED'].includes(review.value.status) ||
-    review.value.dependencies_current === false
-  )
-    return
-  const draft = taxonomyQuestion.value
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (
-    !uuid.test(draft.taxonomyId) ||
-    !uuid.test(draft.stagingRowId) ||
-    !draft.targetColumn.trim() ||
-    !draft.value.trim()
-  )
-    throw new Error('Isi UUID taxonomy/staging, kolom target, dan nilai staging terkini.')
-  preview.value = null
-  const result = await call<ImportQuestion | { created: false; resolution: TaxonomyResolution }>(
-    'POST',
-    `/taxonomies/${draft.taxonomyId}/ambiguity-question`,
-    {
-      import_review_id: id.value,
-      staging_row_id: draft.stagingRowId,
-      target_column: draft.targetColumn.trim(),
-      value: draft.value,
-      ...(draft.sourceColumn.trim() ? { source_column: draft.sourceColumn.trim() } : {}),
-    },
-  )
-  await load()
-  notice.value =
-    'created' in result && result.created === false
-      ? `Nilai sudah teresolusi (${result.resolution.status}); tidak ada pertanyaan baru.`
-      : 'Pertanyaan taxonomy tersedia. Daftar dan revisi batch sudah diperbarui; lanjutkan dengan jawaban pengguna.'
-}
+const masters = ref<Master[]>([])
 const closeOpenPeriods = ref(false)
 const closureEligible = computed(() => {
   const policy = master.value?.approved_definition_json?.policy
@@ -391,9 +349,13 @@ async function load() {
   pollingFailed.value = false
   preview.value = null
   const epoch = generation
-  const result = await call<ImportReview>('GET', `/import-reviews/${id.value}`)
+  const [result, availableMasters] = await Promise.all([
+    call<ImportReview>('GET', `/import-reviews/${id.value}`),
+    call<Master[]>('GET', '/master-definitions?offset=0&limit=100'),
+  ])
   if (epoch !== generation) return
   review.value = result
+  masters.value = availableMasters
   preview.value = null
   appliedRows.value = null
   closeOpenPeriods.value = result.checkpoint.close_open_periods ?? false
@@ -554,13 +516,6 @@ watch(
     findings.value = []
     questions.value = []
     questionDrafts.value = {}
-    taxonomyQuestion.value = {
-      taxonomyId: '',
-      stagingRowId: '',
-      sourceColumn: '',
-      targetColumn: '',
-      value: '',
-    }
     pollingFailed.value = false
     preview.value = null
     appliedRows.value = null
@@ -700,7 +655,7 @@ onBeforeUnmount(() => {
           "
           class="muted"
         >
-          UPDATE mempertahankan UUID dan menaikkan revisi record. UNCHANGED mempertahankan revisi
+          UPDATE mempertahankan identitas internal dan menaikkan revisi record. UNCHANGED mempertahankan revisi
           dan lineage; record yang tidak ada dalam batch tetap disimpan. Jika target atau staging
           berubah setelah approval, jalankan Revalidate, preview dan approval ulang.
         </p>
@@ -762,13 +717,16 @@ onBeforeUnmount(() => {
           <label
             >Kolom sumber referensi<input v-model="referenceSourceColumn" required :disabled="busy"
           /></label>
-          <label
-            >Master ID<input
-              v-model="referenceMasterId"
-              required
-              placeholder="UUID master definition"
-              :disabled="busy"
-          /></label>
+          <label>Master rujukan<select v-model="referenceMasterId" required :disabled="busy">
+            <option value="" disabled>Pilih master approved</option>
+            <option
+              v-for="item in masters.filter((candidate) => candidate.status === 'APPROVED')"
+              :key="item.id"
+              :value="item.id"
+            >
+              {{ item.code }} · {{ item.name }}
+            </option>
+          </select></label>
           <label
             >Value<input
               v-model="referenceValue"
@@ -787,25 +745,17 @@ onBeforeUnmount(() => {
               </option>
             </select></label
           >
-          <template v-if="canWriteReference">
-            <label
-              >UUID staging referensi<input v-model="referenceStagingRowId" :disabled="busy"
-            /></label>
-            <label
-              >Kolom target referensi<input v-model="referenceTargetColumn" :disabled="busy"
-            /></label>
-          </template>
           <button :disabled="busy || !review">Resolve reference</button>
         </form>
         <p class="muted">
-          Resolver memakai binding tab/kolom approved dan target konfigurasi UUID. Kosongkan
+          Resolver memakai binding tab dan kolom yang sudah disetujui. Pilih pertanyaan batch jika hasil akan ditulis ke staging. Kosongkan
           pasangan staging/target untuk pencarian saja. Perubahan alias atau master memerlukan batch
           baru berdasarkan dependency terbaru; Revalidate tidak mengganti dependency batch lama.
         </p>
         <template v-if="referenceResult">
           <p>Reference {{ referenceResult.status }} · master {{ referenceResult.master_id }}</p>
           <p v-if="referenceResult.staging_updated" class="success">
-            Nilai staging diperbarui (UUID untuk EXACT/ALIAS, null untuk EMPTY). Pertanyaan wajib
+            Nilai staging diperbarui dengan referensi internal untuk EXACT/ALIAS, atau dikosongkan untuk EMPTY. Pertanyaan wajib
             tetap harus diselesaikan.
           </p>
           <p
@@ -840,51 +790,6 @@ onBeforeUnmount(() => {
       </section>
       <section class="panel">
         <h2>Pertanyaan batch</h2>
-        <details
-          v-if="
-            canEdit &&
-            ['NEEDS_INPUT', 'FAILED'].includes(review.status) &&
-            review.dependencies_current !== false
-          "
-        >
-          <summary>Buat pertanyaan taxonomy manual</summary>
-          <p>
-            Untuk staging yang sudah diketahui: UUID baris, mapping taxonomy, dan nilai harus cocok
-            dengan batch ini. Backend memverifikasi semuanya; pertanyaan otomatis worker tetap
-            tersedia di bawah.
-          </p>
-          <form @submit.prevent="run(createTaxonomyQuestion)">
-            <fieldset :disabled="busy">
-              <label
-                >UUID taxonomy<input v-model="taxonomyQuestion.taxonomyId" required maxlength="36"
-              /></label>
-              <label
-                >UUID baris staging<input
-                  v-model="taxonomyQuestion.stagingRowId"
-                  required
-                  maxlength="36"
-              /></label>
-              <label
-                >Kolom target taxonomy<input
-                  v-model="taxonomyQuestion.targetColumn"
-                  required
-                  maxlength="63"
-              /></label>
-              <label
-                >Header sumber taxonomy (opsional)<input
-                  v-model="taxonomyQuestion.sourceColumn"
-                  maxlength="63"
-              /></label>
-              <label
-                >Nilai staging terkini<input
-                  v-model="taxonomyQuestion.value"
-                  required
-                  maxlength="500"
-              /></label>
-              <button>Buat atau muat pertanyaan taxonomy</button>
-            </fieldset>
-          </form>
-        </details>
         <div class="toolbar">
           <select v-model="questionStatus" @change="run(() => loadQuestions(0))">
             <option v-for="status in questionStatusItems" :key="status">
@@ -921,7 +826,7 @@ onBeforeUnmount(() => {
             "
           >
             <p v-if="item.question.category.startsWith('TAXONOMY_')" class="muted">
-              Pilihan UUID kandidat disimpan sebagai kode term oleh backend. Koreksi taxonomy adalah
+              Pilihan kandidat disimpan sebagai kode term oleh backend. Koreksi taxonomy adalah
               teks. CORRECT_SOURCE hanya mencatat keputusan; perbaiki sumber lalu gunakan snapshot
               dan batch baru.
             </p>
@@ -996,12 +901,19 @@ onBeforeUnmount(() => {
             </div>
           </template>
           <template v-else-if="item.question.status === 'PENDING_APPROVAL' && canReview">
-            <label
-              >Master definition approved (ID)<input
+            <label>Master approved<select
                 v-model="item.draft.proposedMasterDefinitionId"
-                placeholder="UUID master definition"
                 :disabled="busy"
-            /></label>
+              >
+                <option value="" disabled>Pilih master approved</option>
+                <option
+                  v-for="candidate in masters.filter((entry) => entry.status === 'APPROVED')"
+                  :key="candidate.id"
+                  :value="candidate.id"
+                >
+                  {{ candidate.code }} · {{ candidate.name }}
+                </option>
+              </select></label>
             <button
               class="primary"
               :disabled="busy"

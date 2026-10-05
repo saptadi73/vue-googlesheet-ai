@@ -50,10 +50,9 @@ const canFilterPeriod = computed(() => {
   )
 })
 const search = ref(''),
-  recordId = ref(''),
   activeOnly = ref(true),
   offset = ref(0)
-const applied = ref({ search: '', recordId: '', activeOnly: true, asOf: '' })
+const applied = ref({ search: '', activeOnly: true, asOf: '' })
 const comment = ref(''),
   confirmed = ref(false)
 let generation = 0
@@ -70,7 +69,6 @@ async function loadRecords(next = 0, apply = false) {
   if (apply)
     applied.value = {
       search: search.value,
-      recordId: recordId.value.trim(),
       activeOnly: activeOnly.value,
       asOf: canFilterPeriod.value ? asOf.value.trim() : '',
     }
@@ -81,7 +79,6 @@ async function loadRecords(next = 0, apply = false) {
     limit: '50',
     active_only: String(filters.activeOnly),
   })
-  if (filters.recordId) params.set('record_id', filters.recordId)
   if (filters.asOf)
     params.set('as_of', filters.asOf.length === 16 ? `${filters.asOf}:00` : filters.asOf)
   records.value = null
@@ -163,10 +160,9 @@ watch(
     master.value = null
     asOf.value = ''
     periodFilterDenied.value = false
-    recordId.value = ''
     activeOnly.value = true
     offset.value = 0
-    applied.value = { search: '', recordId: '', activeOnly: true, asOf: '' }
+    applied.value = { search: '', activeOnly: true, asOf: '' }
     pendingLoad = true
     initialize()
   },
@@ -226,11 +222,7 @@ onBeforeUnmount(() => {
       <h2>Record kanonis</h2>
       <form class="toolbar" @submit.prevent="run(() => loadRecords(0, true))">
         <label>Cari business key atau label<input v-model="search" maxlength="200" /></label>
-        <label
-          >UUID record<input
-            v-model="recordId"
-            pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
-        /></label>
+
         <label><input v-model="activeOnly" type="checkbox" />Hanya record aktif</label>
         <label v-if="canFilterPeriod"
           >Berlaku pada
@@ -288,7 +280,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <p class="muted">
-          Offset {{ offset }}, maksimal 50 record. Urutan UUID stabil; data dapat berubah
+          Offset {{ offset }}, maksimal 50 record. Urutan identitas record stabil; data dapat berubah
           antarhalaman. Pencarian hanya memakai field yang boleh dilihat akun ini.
         </p>
       </template>

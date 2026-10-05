@@ -190,7 +190,7 @@ export function validateDefinition(definition: MasterDefinition) {
     definition.policy.source_conflict_policy === 'AUTHORITATIVE_SOURCE' &&
     !definition.policy.authoritative_source_sheet_id
   )
-    throw new Error('Isi UUID tab MASTER otoritatif yang telah dikonfirmasi.')
+    throw new Error('Pilih tab MASTER otoritatif yang telah dikonfirmasi.')
 }
 export function bindingColumns(
   definition: MasterDefinition,
