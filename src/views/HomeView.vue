@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, ref } from 'vue'
 import { Activity, ArrowRight, Database, RefreshCw, Sheet, Sparkles } from '@lucide/vue'
+import AppLogo from '@/components/ui/AppLogo.vue'
 import { checkBackendHealth, getBackendHealth, getApiErrorMessage } from '@/lib/api'
 
 const ActivityChart = defineAsyncComponent(() => import('@/components/charts/ActivityChart.vue'))
@@ -64,9 +65,7 @@ const modules = [
   <div class="min-h-screen">
     <header class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-6 py-5">
-        <span class="rounded-xl bg-brand-600 p-2.5 text-white"
-          ><Sheet :size="24" aria-hidden="true"
-        /></span>
+        <AppLogo :size="44" />
         <span class="text-lg font-semibold tracking-tight">Google Sheet AI</span>
         <RouterLink
           to="/workspace"

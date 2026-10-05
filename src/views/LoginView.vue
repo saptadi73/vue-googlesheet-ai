@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { LogIn, Sparkles } from '@lucide/vue'
+import { LogIn } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppLogo from '@/components/ui/AppLogo.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import { getApiErrorMessage } from '@/lib/api'
 import { landingPathForRole, safeInternalPath } from '@/lib/access'
@@ -46,7 +47,7 @@ async function signIn() {
 <template>
   <div class="etl">
     <header class="etl-header">
-      <RouterLink to="/"><Sparkles class="icon" :size="16" />Google Sheet AI</RouterLink>
+      <RouterLink to="/"><AppLogo :size="24" />Google Sheet AI</RouterLink>
     </header>
     <main>
       <section v-if="user" class="panel login">

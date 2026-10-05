@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Settings2,
   ShieldCheck,
-  Sparkles,
   User,
   UserCog,
   UserPlus,
@@ -20,6 +19,7 @@ import {
 } from '@lucide/vue'
 import { logout, user, editRoles, reviewRoles } from '@/lib/etl'
 import { getApiErrorMessage } from '@/lib/api'
+import AppLogo from '@/components/ui/AppLogo.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import '@/assets/etl.css'
 const busy = ref(false),
@@ -38,7 +38,7 @@ async function signOut() {
 <template>
   <div class="etl">
     <header class="etl-header">
-      <RouterLink to="/"><Sparkles class="icon" :size="16" />Google Sheet AI</RouterLink
+      <RouterLink to="/"><AppLogo :size="24" />Google Sheet AI</RouterLink
       ><RouterLink v-if="user && [...editRoles, ...reviewRoles].includes(user.role)" to="/workspace"
         ><Briefcase class="icon" :size="16" />Workspace ETL</RouterLink
       >
