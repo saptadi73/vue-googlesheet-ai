@@ -18,7 +18,7 @@ export interface JoinRelationship {
   approved_by: string | null
 }
 
-export type AIPurpose = 'ETL_CONFIG' | 'TAXONOMY_RECOMMEND' | 'NL2SQL'
+export type AIPurpose = 'ETL_CONFIG' | 'TAXONOMY_RECOMMEND' | 'NL2SQL' | 'USER_HELP'
 
 export interface AITaskPolicy {
   id: string
@@ -67,4 +67,5 @@ export const promptByPurpose: Record<AIPurpose, string> = {
   ETL_CONFIG: 'etl_configuration_v1.md',
   TAXONOMY_RECOMMEND: 'taxonomy_recommend_v1.md',
   NL2SQL: 'nl2sql_v1.md',
+  USER_HELP: 'user_help_v1.md',
 }

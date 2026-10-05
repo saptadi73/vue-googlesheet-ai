@@ -180,6 +180,8 @@ export function getApiErrorMessage(error: unknown): string {
     const recovery: Record<string, string> = {
       NL2SQL_QUOTA_EXCEEDED:
         'Kuota harian tercapai. Tunggu kuota tersedia atau hubungi pengelola; jangan retry berulang.',
+      AI_HELP_QUOTA_EXCEEDED:
+        'Kuota harian asisten tercapai. Tunggu kuota tersedia atau hubungi pengelola.',
       AI_BUDGET_EXCEEDED: 'Budget AI tercapai. Tunggu budget tersedia atau hubungi pengelola.',
       AI_TASK_BUDGET_EXCEEDED:
         'Budget harian policy AI tercapai. Tunggu periode berikutnya atau hubungi pengelola.',
@@ -193,14 +195,11 @@ export function getApiErrorMessage(error: unknown): string {
         'Pilih source upstream lain yang masih tersedia dan dapat diakses.',
       WATERMARK_REVISION_CONFLICT:
         'Watermark tab telah berubah. Muat ulang tab sebelum menyimpan kembali.',
-      WATERMARK_VALUE_INVALID:
-        'Nilai pada kolom watermark tidak sesuai dengan jenis yang dipilih.',
-      WATERMARK_COLUMN_INVALID:
-        'Kolom watermark tidak tersedia pada profil tab terbaru.',
+      WATERMARK_VALUE_INVALID: 'Nilai pada kolom watermark tidak sesuai dengan jenis yang dipilih.',
+      WATERMARK_COLUMN_INVALID: 'Kolom watermark tidak tersedia pada profil tab terbaru.',
       WATERMARK_STRATEGY_INVALID:
         'Incremental watermark hanya dapat dipakai dengan strategi APPEND atau UPSERT.',
-      WATERMARK_STALE:
-        'Watermark berubah sejak batch dibuat. Buat batch review baru.',
+      WATERMARK_STALE: 'Watermark berubah sejak batch dibuat. Buat batch review baru.',
       OPENAI_NOT_CONFIGURED:
         'Penyedia AI belum siap. Hubungi pengelola atau gunakan saran kemiripan melalui aksi terpisah.',
       AI_UPSTREAM_FAILED:
@@ -353,14 +352,11 @@ export function getApiErrorMessage(error: unknown): string {
       JOIN_COLUMN_INVALID: 'Pilih kolom yang tersedia pada metadata produk terbaru.',
       QUERY_JOIN_NOT_FOUND:
         'Muat ulang katalog. Relationship harus berstatus APPROVED sebelum dipakai dalam query.',
-      QUERY_JOIN_PATH_INVALID:
-        'Pilih relationship sesuai arah dan urutan path dari produk utama.',
+      QUERY_JOIN_PATH_INVALID: 'Pilih relationship sesuai arah dan urutan path dari produk utama.',
       QUERY_JOIN_STALE:
         'Kolom relationship berubah. Minta steward memperbarui dan approve relationship.',
-      QUERY_JOIN_FORBIDDEN:
-        'Relationship memakai kolom sensitif dan tidak dapat dijalankan.',
-      QUERY_FIELD_FORBIDDEN:
-        'Hapus field sensitif dari dimensi, metrik, atau filter query.',
+      QUERY_JOIN_FORBIDDEN: 'Relationship memakai kolom sensitif dan tidak dapat dijalankan.',
+      QUERY_FIELD_FORBIDDEN: 'Hapus field sensitif dari dimensi, metrik, atau filter query.',
       QUERY_AGGREGATION_AMBIGUOUS:
         'Pilih metrik dari sisi yang aman atau gunakan relationship dan duplicate policy yang sesuai.',
       QUERY_JOIN_DEFAULT_PERIOD_REQUIRED:
@@ -373,8 +369,7 @@ export function getApiErrorMessage(error: unknown): string {
         'Sumber belum diaktifkan oleh policy akses yang berlaku. Hubungi data owner atau administrator.',
       SOURCE_METADATA_REVIEW_REQUIRED:
         'Metadata sumber belum selesai direview oleh administrator yang berwenang.',
-      ACCESS_POLICY_REQUIRED:
-        'Akses resource memerlukan policy yang disetujui dan masih berlaku.',
+      ACCESS_POLICY_REQUIRED: 'Akses resource memerlukan policy yang disetujui dan masih berlaku.',
       ACCESS_ATTRIBUTE_INACTIVE:
         'Atribut akses sudah tidak aktif. Muat ulang pilihan scope sebelum mencoba lagi.',
       SELF_ACCESS_CHANGE: 'Perubahan akses diri sendiri harus dilakukan oleh admin lain.',

@@ -96,9 +96,15 @@ function selectPurpose() {
 function policyScope(item: AITaskPolicy) {
   if (item.data_product_code) return item.data_product_code
   if (item.data_source_id)
-    return sources.value.find((source) => source.id === item.data_source_id)?.source_code || item.data_source_id
+    return (
+      sources.value.find((source) => source.id === item.data_source_id)?.source_code ||
+      item.data_source_id
+    )
   if (item.taxonomy_id)
-    return taxonomies.value.find((taxonomy) => taxonomy.id === item.taxonomy_id)?.code || item.taxonomy_id
+    return (
+      taxonomies.value.find((taxonomy) => taxonomy.id === item.taxonomy_id)?.code ||
+      item.taxonomy_id
+    )
   return 'global untuk purpose'
 }
 function editRelationship(item: JoinRelationship) {
@@ -252,7 +258,8 @@ watch(
     <h1>Semantic join &amp; kebijakan AI</h1>
     <p class="muted">
       Relationship APPROVED dapat dipilih pada Dashboard untuk structured query multi-product.
-      Backend tetap memeriksa arah path, akses produk, tenant dan row scope, PII, serta risiko agregasi.
+      Backend tetap memeriksa arah path, akses produk, tenant dan row scope, PII, serta risiko
+      agregasi.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
@@ -391,13 +398,14 @@ watch(
           {{ item.purpose }} · {{ item.prompt_version }} · model {{ item.model }} · revisi
           {{ item.revision_no }}
         </p>
-        <p class="muted">
-          Scope dataset: {{ policyScope(item) }}
-        </p>
+        <p class="muted">Scope dataset: {{ policyScope(item) }}</p>
         <p class="muted">Allowlist: {{ item.allowed_models.join(', ') }}</p>
         <p class="muted">
-          Batas konteks: {{ item.max_context_chars.toLocaleString('id-ID') }} karakter &middot; budget
-          harian: {{ item.daily_budget_usd === null ? 'tanpa batas policy' : `$${item.daily_budget_usd}` }}
+          Batas konteks: {{ item.max_context_chars.toLocaleString('id-ID') }} karakter &middot;
+          budget harian:
+          {{
+            item.daily_budget_usd === null ? 'tanpa batas policy' : `$${item.daily_budget_usd}`
+          }}
           &middot; fallback: {{ item.fallback_model || 'tidak ada' }}
         </p>
         <button :disabled="busy" @click="run(() => loadPolicyVersions(item))">
@@ -405,8 +413,9 @@ watch(
         </button>
         <ol v-if="policyHistoryId === item.id" class="card-row">
           <li v-for="version in policyVersions" :key="version.id">
-            Revisi {{ version.revision_no }} · {{ version.action }} · {{ version.snapshot_json.status }}
-            · {{ version.snapshot_json.model }} · {{ version.created_at }}
+            Revisi {{ version.revision_no }} · {{ version.action }} ·
+            {{ version.snapshot_json.status }} · {{ version.snapshot_json.model }} ·
+            {{ version.created_at }}
           </li>
           <li v-if="!policyVersions.length">Riwayat versi belum tersedia.</li>
         </ol>
@@ -451,6 +460,7 @@ watch(
               <option>ETL_CONFIG</option>
               <option>TAXONOMY_RECOMMEND</option>
               <option>NL2SQL</option>
+              <option>USER_HELP</option>
             </select></label
           >
           <label>Prompt version<input v-model="aiForm.prompt_version" readonly /></label>
@@ -522,7 +532,9 @@ watch(
         </p>
         <div class="toolbar">
           <button class="primary">Simpan draft AI policy</button>
-          <button v-if="selectedPolicy" type="button" @click="resetPolicy">Batal edit policy</button>
+          <button v-if="selectedPolicy" type="button" @click="resetPolicy">
+            Batal edit policy
+          </button>
         </div>
       </fieldset>
     </form>
