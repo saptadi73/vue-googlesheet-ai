@@ -17,6 +17,14 @@ Acknowledge bukan penyelesaian masalah dan tidak menjalankan retry. UI tetap mem
 aksi retry, jawaban pertanyaan, atau resume yang sesuai pada resource aslinya. Inbox
 tidak menampilkan raw data, prompt, atau nilai PII.
 
+Pemantauan job memakai streaming `fetch` ke `GET /jobs/{job_id}/events` agar bearer
+token tetap dikirim; `EventSource` native tidak dipakai karena tidak mendukung header
+Authorization. Event `job` memperbarui detail dan event `complete` memuat ulang daftar.
+Jika stream tidak tersedia, koneksi terputus sebelum status terminal, atau autentikasi
+perlu di-refresh, UI kembali ke polling GET job yang sudah ada. AbortController menutup
+stream saat user berpindah job, logout, atau komponen dilepas. Batas UI tetap dua menit
+dan tidak membatalkan job backend.
+
 Browser regression `operations-notifications.spec.ts` memeriksa summary, tampilan event,
 request acknowledge, audit notice, hilangnya item dari inbox mock setelah diakui, serta
 navigasi notifikasi reviewer ke halaman Access Requests.

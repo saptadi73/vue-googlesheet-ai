@@ -16,6 +16,7 @@ import {
 import { useTask } from '@/lib/tasks'
 import type { Row } from '@/lib/catalog'
 import { ensureSourceReady } from '@/lib/classification'
+import { streamJsonEvents } from '@/lib/api'
 const { busy, error, notice, run } = useTask()
 const route = useRoute(),
   router = useRouter()
@@ -41,6 +42,7 @@ const scheduleForm = ref({
   dependency_source_ids: [] as string[],
 })
 let timer: ReturnType<typeof setTimeout> | undefined
+let streamController: AbortController | undefined
 let generation = 0
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
@@ -54,6 +56,8 @@ const retryAllowed = computed(
 function stop() {
   generation++
   clearTimeout(timer)
+  streamController?.abort()
+  streamController = undefined
   monitoring.value = false
 }
 async function load() {
@@ -136,7 +140,30 @@ async function monitor(id: string) {
       throw e
     }
   }
-  await poll()
+  streamController = new AbortController()
+  let terminalReceived = false
+  try {
+    await streamJsonEvents<Job>(
+      `/jobs/${encodeURIComponent(id)}/events`,
+      async (event, result) => {
+        if (epoch !== generation || event === 'timeout' || event === 'error') return
+        selected.value = result
+        if (event === 'complete') {
+          terminalReceived = true
+          monitoring.value = false
+          await load()
+        }
+      },
+      streamController.signal,
+    )
+    if (epoch === generation && !terminalReceived) await poll()
+  } catch (failure) {
+    if (epoch !== generation || (failure instanceof DOMException && failure.name === 'AbortError'))
+      return
+    await poll()
+  } finally {
+    if (epoch === generation) streamController = undefined
+  }
 }
 async function enqueue(path: string) {
   if (path.startsWith('/etl-jobs/') && path.endsWith('/run'))

@@ -41,8 +41,11 @@ melalui `scripts/prepare_test_db.py`, terpisah dari database aplikasi `googleai`
   dashboard sales/inventory, CSV export, saved query dan normalized intent.
 - OpenAI Responses API menghasilkan structured query plan; backend membangun SQL. AST guard,
   transaksi read-only, EXPLAIN cost limit, statement timeout, row limit, quota dan audit penggunaan AI.
-- Optional Redis query cache: key mencakup tenant, role, row scope, semantic version dan freshness version.
-  Tanpa Redis, query tetap berjalan tanpa cache dan job dapat diproses lewat `worker-once`.
+- Optional Redis query cache memakai key versioned yang mencakup tenant, role, scope,
+  semantic/freshness version, relationship, serta keputusan akses. Cache similarity taxonomy
+  memakai taxonomy/version dan input ternormalisasi. Kegagalan Redis bersifat fail-open.
+- Progres job tersedia melalui SSE bearer `/jobs/{id}/events`; halaman Jobs memakai streaming
+  `fetch` dengan fallback polling GET job. Tanpa Redis, job tetap dapat diproses lewat `worker-once`.
 - Error envelope, request ID, structured HTTP log tanpa body/token/nilai sel, health live/ready,
   OpenAPI/Swagger, pencatatan event dan penggunaan token.
 
@@ -85,7 +88,8 @@ Yang belum diimplementasikan: split satu tab menjadi beberapa grain/tabel; taxon
 FK/join lintas data product; migrasi otomatis schema evolution; incremental watermark; append event
 yang mempertahankan baris identik; DEFAULT_VALUE DQ; workflow melanjutkan batch REQUIRE_REVIEW
 (saat ini menghentikan job); semantic similarity/embedding; template dengan parameter dinamis;
-query cache statistics dashboard; SSE; Prometheus; notification; autentikasi OIDC; distributed login
+query cache statistics dashboard; semantic embedding/re-index lifecycle; Prometheus; notification;
+autentikasi OIDC; distributed login
 rate limiting; RLS seluruh tabel; immutable audit storage di tingkat database; pengujian beban, backup/restore,
 disaster recovery dan penetration test produksi.
 

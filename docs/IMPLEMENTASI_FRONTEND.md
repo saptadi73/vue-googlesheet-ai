@@ -90,8 +90,10 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
   token persis dari preview. Preview tidak menyimpan atau menyetujui. Error unduhan Blob JSON ditampilkan.
 - **Versi:** perbandingan hanya versi dari tab yang sama, ekspor JSON/YAML/XLSX, daftar artifact.
   Rollback hanya SUPERSEDED, memakai job; tidak memulihkan data historis.
-- **Monitoring:** jeda polling setelah respons, berhenti saat terminal/unmount/logout, batas dua menit,
-  route menyimpan job ID untuk melanjutkan. Berhenti memantau bukan cancel job. FAILED dari HTTP 200
+- **Monitoring:** halaman Jobs mengutamakan SSE bearer melalui streaming `fetch`, lalu fallback ke
+  polling setelah respons jika stream tidak tersedia/terputus. Keduanya berhenti saat
+  terminal/unmount/logout, memakai batas dua menit, dan route menyimpan job ID untuk melanjutkan.
+  Berhenti memantau bukan cancel job. FAILED dari HTTP 200
   ditampilkan sebagai kegagalan job; hasil per tab tetap terlihat. Retry eksplisit dan disesuaikan role jenis job.
   Editor jadwal source mendukung cron, timezone IANA, optimistic revision, serta policy antre/lewati saat job aktif.
   Workspace menyediakan editor incremental watermark per tab dari kolom profil dan menampilkan nilai terakhir.
@@ -119,8 +121,8 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
   effective access role + assignment pada halaman yang sama. Tahap 2 menambah registry permission bundle,
   aksi baku, grant/revoke bertanggal, alasan, dan larangan mengubah permission sendiri. Tahap 3 menambah
   policy DRAFT, binding resource, submit/approve/revoke, serta preview keputusan default-deny.
-  Preview bukan bukti user mempunyai akses ke semua resource; backend memakai evaluator
-  SOURCE hanya pada jalur DataProduct dari sumber BE16 yang diaktifkan.
+  Preview bukan bukti user mempunyai akses ke semua resource; evaluator DATA_PRODUCT
+  mewarisi policy SOURCE induknya dan menggabungkan policy DATA_PRODUCT langsung bila ada.
 
 ## Status kontrol akses yurisdiksi BE16
 

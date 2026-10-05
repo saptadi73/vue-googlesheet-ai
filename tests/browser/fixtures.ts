@@ -506,6 +506,22 @@ export async function setup(page: Page) {
       notificationAcknowledged = true
       return ok({ id: notificationId, acknowledged_at: '2026-09-27T00:01:00Z' })
     }
+    if (path.startsWith('/jobs/') && path.endsWith('/events') && method === 'GET') {
+      const streamedJobId = path.split('/')[2]
+      const streamed = {
+        id: streamedJobId,
+        status: failedJob ? 'FAILED' : 'SUCCEEDED',
+        kind: 'ETL',
+        source_id: sourceId,
+        error_code: failedJob ? 'SOURCE_ACCESS_DENIED' : null,
+        error_message: failedJob ? 'Sheet belum dibagikan' : null,
+        result: failedJob ? null : { runs: [{ status: 'SKIPPED_DUPLICATE' }] },
+      }
+      return route.fulfill({
+        contentType: 'text/event-stream',
+        body: `event: job\ndata: ${JSON.stringify(streamed)}\n\nevent: complete\ndata: ${JSON.stringify(streamed)}\n\n`,
+      })
+    }
     if (path === `/jobs/${jobId}`)
       return ok({
         id: jobId,

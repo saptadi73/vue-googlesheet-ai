@@ -96,6 +96,8 @@ Setup mengacu pada README, `app/main.py`, dan schema backend lokal.
 - Logout/change-password mencabut seluruh token akun sesuai kontrak backend.
   `clearSession()` menghapus token dan state pengguna lokal.
 - Contoh request: `api.get<ApiEnvelope<T>>('/sources')`; envelope ada di `response.data`.
+- Pemantauan `/jobs` memakai streaming `fetch` SSE dengan bearer token ke
+  `/jobs/{job_id}/events`, lalu fallback ke polling GET job jika stream tidak tersedia.
 - Gunakan `getApiErrorMessage(error)` untuk pesan error backend/network.
 - Tombol **Periksa koneksi** memanggil `/health/live` tanpa token, di luar prefix API.
   Liveness tidak membuktikan kesiapan PostgreSQL, Redis, atau autentikasi.

@@ -169,4 +169,39 @@ describe('API session contract', () => {
     expect(getApiErrorMessage(failure)).toContain('Workbook expired')
     expect(getApiErrorMessage(failure)).toContain('Unduh workbook')
   })
+  it('streams authenticated SSE events split across network chunks', async () => {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: job\ndata: {"status":"RUN'))
+        controller.enqueue(
+          encoder.encode(
+            'NING"}\n\n: heartbeat\n\nevent: complete\ndata: {"status":"SUCCEEDED"}\n\n',
+          ),
+        )
+        controller.close()
+      },
+    })
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(body, { status: 200 }))
+    const { setSession, streamJsonEvents } = await import('../../src/lib/api')
+    setSession({ access_token: 'stream-token', refresh_token: 'refresh' })
+    const events: Array<[string, { status: string }]> = []
+
+    await streamJsonEvents('/jobs/job-id/events', (event, data: { status: string }) => {
+      events.push([event, data])
+    })
+
+    expect(events).toEqual([
+      ['job', { status: 'RUNNING' }],
+      ['complete', { status: 'SUCCEEDED' }],
+    ])
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/jobs/job-id/events',
+      expect.objectContaining({
+        headers: { Accept: 'text/event-stream', Authorization: 'Bearer stream-token' },
+      }),
+    )
+  })
 })

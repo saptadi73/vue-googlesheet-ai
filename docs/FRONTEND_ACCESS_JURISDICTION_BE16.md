@@ -45,6 +45,10 @@ alasan tampil pada sumber terpilih; approval metadata tidak membuka akses data.
 Admin dapat memilih policy SOURCE approved dari daftar server dan mengaktifkan sumber
 setelah review metadata. Dashboard/Chat hanya memakai katalog yang dikembalikan backend;
 produk baru berstatus pending tidak ditawarkan. Aktivasi tidak berarti semua user dapat
+melihat produk: evaluator DATA_PRODUCT mewarisi binding SOURCE induknya dan menggabungkan
+binding DATA_PRODUCT langsung bila tersedia. Explicit deny dari kedua scope tetap menang.
+melihat produk: evaluator DATA_PRODUCT mewarisi binding SOURCE induknya dan menggabungkan
+binding DATA_PRODUCT langsung bila tersedia. Explicit deny dari kedua scope tetap menang.
 membaca: evaluator backend memeriksa assignment/policy per aksi pada setiap permintaan.
 Daftar policy sumber hanya memuat ALLOW yang mensyaratkan unit, domain, dan yurisdiksi
 metadata sumber. Sensitivitas HIGH belum otomatis menerapkan masking.

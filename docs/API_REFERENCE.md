@@ -91,7 +91,8 @@ Contoh respons yang diberi label **isi `data`** di bagian berikut adalah bagian 
 - Payload menggunakan strict schema: field JSON yang tidak dikenal menghasilkan `422`. Field yang boleh dihilangkan belum tentu boleh berisi `null`; ikuti schema.
 - List yang mempunyai `offset`/`limit`: default `0`/`100`, minimum offset `0`, limit `1..100`; respons `meta` berisi offset dan limit, **tanpa total count**. Urutan repository umumnya `created_at DESC`.
 - List tanpa parameter pagination pada tabel tidak menerima pagination yang berfungsi. Beberapa dibatasi internal 100 item; jangan membuat infinite scroll dengan asumsi semua list mendukung offset.
-- Belum ada pencarian/filter list generik, `DELETE`, pagination cursor, WebSocket, SSE, atau cancel-job endpoint.
+- Belum ada pencarian/filter list generik, `DELETE`, pagination cursor, WebSocket, atau cancel-job endpoint.
+  SSE hanya tersedia untuk progres job pada `/jobs/{job_id}/events`.
 
 ### Hak akses
 
@@ -655,6 +656,7 @@ File JSON/YAML berisi metadata schema_version, configuration_id, configuration_v
 |---|---|---|---|---|---|
 | GET | `/jobs` | S | offset/limit | 200 | Job[]; meta pagination |
 | GET | `/jobs/{job_id}` | S | — | 200 | Job |
+| GET | `/jobs/{job_id}/events` | S | `Accept: text/event-stream` | 200 | Event `job`, `complete`, `timeout`, atau `error` |
 | POST | `/jobs/{job_id}/retry` | S | — | 202 | EnqueuedJob baru |
 | GET | `/operations/summary` | S | — | 200 | Jumlah status job/review dan notifikasi aktif |
 | GET | `/notifications` | S | unacknowledged_only, offset/limit | 200 | OperationalNotification[]; meta pagination |
@@ -674,7 +676,7 @@ File JSON/YAML berisi metadata schema_version, configuration_id, configuration_v
 
 **Perhatikan ID:** `{job_id}` pada `/etl-jobs/{job_id}/...` sebenarnya adalah **DataSource.id**, bukan ID dari `/jobs`. Gunakan source.id dari hasil `/etl-jobs`. Pause memengaruhi sumber/jadwal dan menolak sync saat source paused; bukan cancel job yang sudah berjalan.
 
-### EnqueuedJob dan polling
+### EnqueuedJob, SSE, dan polling
 
 EnqueuedJob, isi `data`:
 
@@ -708,7 +710,11 @@ Job, isi `data` hasil GET:
 
 Job status: QUEUED → RUNNING → SUCCEEDED atau FAILED. Polling GET job gagal secara pekerjaan tetap **HTTP 200**, `data.status="FAILED"`, dan error ada di `data.error_code/error_message`, bukan `errors[]`.
 
-Saran frontend: poll setiap 2–5 detik dengan jeda antar-response, batalkan polling saat komponen dilepas, dan sediakan “Lanjutkan memantau” bila batas tunggu UI tercapai. Berhenti memantau tidak membatalkan job backend. Jangan mengulang POST enqueue hanya karena proses lama.
+Halaman Jobs membuka `GET /jobs/{job_id}/events` melalui streaming `fetch` agar bearer
+token dapat dikirim. Event `job` memperbarui detail; `complete` menutup monitoring terminal;
+`timeout`/koneksi gagal kembali ke polling GET job. Batalkan stream/polling saat komponen
+dilepas dan sediakan “Lanjutkan memantau” setelah batas dua menit. Berhenti memantau tidak
+membatalkan job backend. Jangan mengulang POST enqueue hanya karena proses lama.
 
 Retry hanya untuk FAILED; menghasilkan ID job baru dengan requester user yang menekan retry. Worker memeriksa role lagi: DEPLOY/ROLLBACK memerlukan R, jenis lain E. Walaupun endpoint retry diizinkan untuk S, retry oleh user yang tidak memenuhi role jenis job bisa berakhir FAILED/FORBIDDEN.
 

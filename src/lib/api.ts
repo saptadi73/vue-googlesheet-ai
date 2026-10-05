@@ -122,6 +122,43 @@ export function setAccessToken(token: string | null) {
   else delete api.defaults.headers.common.Authorization
 }
 
+export async function streamJsonEvents<T>(
+  path: string,
+  onEvent: (event: string, data: T) => void | Promise<void>,
+  signal?: AbortSignal,
+) {
+  const sessionEpoch = epoch
+  const response = await fetch(`${origin}${basePath}${path}`, {
+    headers: {
+      Accept: 'text/event-stream',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    signal,
+  })
+  if (!response.ok || !response.body) throw new Error(`SSE tidak tersedia (${response.status}).`)
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    if (sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
+    buffer += decoder.decode(value, { stream: !done })
+    const blocks = buffer.split(/\r?\n\r?\n/)
+    buffer = blocks.pop() || ''
+    for (const block of blocks) {
+      if (!block || block.startsWith(':')) continue
+      let event = 'message'
+      const data: string[] = []
+      for (const line of block.split(/\r?\n/)) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
+      }
+      if (data.length) await onEvent(event, JSON.parse(data.join('\n')) as T)
+    }
+    if (done) break
+  }
+}
+
 export async function downloadFile(path: string, filename: string, body?: unknown) {
   const response = await api.request<Blob>({
     url: path,
