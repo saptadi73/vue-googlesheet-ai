@@ -419,3 +419,48 @@ test('source tab profile enables manual draft creation without an AI call', asyn
   expect(mock.errors).toEqual([])
   expect(mock.unexpected).toEqual([])
 })
+
+test('dashboard runs natural-language NL2SQL and renders its chart', async ({ page }) => {
+  const mock = await setup(page)
+  let nl2sqlBody: Record<string, unknown> | undefined
+  await page.route('**/api/v1/nl2sql/query', (route) => {
+    nl2sqlBody = route.request().postDataJSON()
+    return route.fulfill({
+      json: {
+        status: 'success',
+        data: [
+          { branch_name: 'Jakarta', net_sales: 150 },
+          { branch_name: 'Bandung', net_sales: 50 },
+        ],
+        meta: {
+          query_id: 'dashboard-natural-language',
+          route: 'OPENAI',
+          openai_called: true,
+          cached: false,
+          visualization: {
+            type: 'bar',
+            title: 'Penjualan per cabang',
+            x_field: 'branch_name',
+            y_field: null,
+            series: [{ field: 'net_sales', type: 'bar', axis: 'left' }],
+          },
+        },
+        errors: [],
+      },
+    })
+  })
+  await page.goto('/dashboard')
+  await login(page, 'viewer')
+  await page
+    .getByRole('textbox', { name: 'Pertanyaan Anda' })
+    .fill('Tampilkan penjualan per cabang')
+  await page.getByRole('button', { name: 'Tanyakan data' }).click()
+  await expect(page.getByRole('cell', { name: 'Jakarta', exact: true })).toBeVisible()
+  await page.getByText('Visualisasi hasil', { exact: true }).click()
+  await expect(page.locator('.apexcharts-canvas')).toBeVisible()
+  expect(nl2sqlBody).toMatchObject({
+    question: 'Tampilkan penjualan per cabang',
+    data_product_code: null,
+  })
+  expect(mock.errors).toEqual([])
+})

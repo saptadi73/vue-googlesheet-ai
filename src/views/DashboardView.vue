@@ -3,6 +3,7 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
 import ProductMetadata from '@/components/ProductMetadata.vue'
+import NaturalLanguageSearch from '@/components/NaturalLanguageSearch.vue'
 import { api, downloadFile, type ApiEnvelope } from '@/lib/api'
 import { call, user, roles } from '@/lib/etl'
 import {
@@ -338,6 +339,11 @@ watch(
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
     <p v-if="busy" role="status">Memproses…</p>
+    <section class="panel">
+      <p class="eyebrow">NL2SQL</p>
+      <h2>Tanyakan data dengan bahasa alami</h2>
+      <NaturalLanguageSearch />
+    </section>
     <section class="panel">
       <h2>Susun query dari katalog</h2>
       <button :disabled="busy" @click="run(load)">Muat ulang katalog</button>

@@ -27,6 +27,12 @@ const router = createRouter({
     },
     { path: '/dashboard', component: () => import('@/views/DashboardView.vue') },
     {
+      path: '/guide',
+      name: 'general-guide',
+      meta: { public: true, publicWhenAuthenticated: true },
+      component: () => import('@/views/GeneralGuideView.vue'),
+    },
+    {
       path: '/masters',
       component: () => import('@/views/MastersView.vue'),
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },
@@ -131,7 +137,7 @@ function roleAllowed(path: string, role: string) {
 
 router.beforeEach((to) => {
   if (to.meta.public) {
-    if (!user.value) return true
+    if (!user.value || to.meta.publicWhenAuthenticated) return true
     const requested = safeInternalPath(to.query.redirect)
     return requested && roleAllowed(requested, user.value.role)
       ? requested

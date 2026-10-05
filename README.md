@@ -123,7 +123,7 @@ Setup mengacu pada README, `app/main.py`, dan schema backend lokal.
 - Proxy development meneruskan `/api` dan `/health` ke `API_PROXY_TARGET`.
   Port 5173 tetap sesuai default CORS backend `http://localhost:5173`.
 
-Grafik halaman utama tetap demonstrasi berlabel. Grafik `/dashboard` menggunakan hasil query API.
+Grafik halaman utama tetap demonstrasi berlabel. Dashboard menempatkan input bahasa alami NL2SQL di bagian atas dan menampilkan hasil sebagai tabel serta chart tervalidasi. Alur klarifikasi, kandidat template, detail request, dan feedback sama dengan halaman Chat data. Query builder katalog tetap tersedia sebagai mode lanjutan. Grafik `/dashboard` menggunakan hasil query API.
 Form query tidak mengirim SQL bebas. Ekspor mengikuti limit/offset/scope dari query yang ditampilkan,
 bukan seluruh dataset. Tidak ada retry otomatis mutation timeout atau query AI.
 
@@ -159,3 +159,10 @@ Variabel `VITE_*` dapat dibaca browser. Kredensial Google/OpenAI, JWT secret, da
 ## Identifier internal
 
 Pengguna tidak perlu mengetik UUID. Semua relasi internal dipilih melalui nama atau kode bisnis dari API, lalu frontend mengirim ID pilihan secara otomatis. Kode bisnis seperti kode master, taxonomy, term, metric, product, policy, atribut, dan permission tetap dapat diisi. Route detail boleh membawa UUID hanya dari record yang dipilih di aplikasi; jangan menambahkan input teks UUID pada form baru.
+## Bantuan kontekstual
+
+Tombol **Bantuan** tersedia pada setiap halaman, termasuk login. Dialog mengikuti route aktif dan menjelaskan fungsi halaman, langkah penggunaan, serta catatan penting. Dialog dapat ditutup dengan Escape, klik backdrop, tombol tutup, atau **Saya mengerti**, kemudian fokus kembali ke tombol Bantuan.
+
+Dialog menyediakan tautan **Panduan lengkap**. Menu **Panduan penggunaan** (/guide) menjelaskan workflow 10 tahap dari administrasi, pendaftaran Google Sheet, klasifikasi, master/taxonomy, konfigurasi dan import, sampai data tampil di dashboard serta chart.
+
+Konten route berada di `src/lib/pageHelp.ts` dan dirender global oleh `src/components/PageHelp.vue`. Ketika menambah route baru, tambahkan petunjuk spesifik dan contoh path pada `tests/unit/pageHelp.test.ts`; fallback tetap tersedia sampai petunjuk tersebut ditulis.

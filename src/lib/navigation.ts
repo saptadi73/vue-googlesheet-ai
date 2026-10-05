@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 import {
+  BookOpen,
   Briefcase,
   Database,
   FileStack,
@@ -29,6 +30,10 @@ export interface NavigationGroup {
 }
 
 export const operationalNavigation: NavigationGroup[] = [
+  {
+    label: 'Mulai',
+    items: [{ label: 'Panduan penggunaan', to: '/guide', icon: BookOpen }],
+  },
   {
     label: 'Analitik',
     items: [

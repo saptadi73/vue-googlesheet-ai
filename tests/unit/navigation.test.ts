@@ -3,6 +3,7 @@ import { activeNavigationPath } from '../../src/lib/navigation'
 
 describe('active navigation', () => {
   it.each([
+    ['/guide', '/guide'],
     ['/dashboard', '/dashboard'],
     ['/masters/new', '/masters'],
     ['/masters/master-id/storage', '/masters'],
