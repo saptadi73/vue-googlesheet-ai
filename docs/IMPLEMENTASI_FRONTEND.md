@@ -2,6 +2,12 @@
 
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
+Salinan kontrak ini harus disinkronkan dari backend setelah perubahan API; alur
+persetujuan tayang memakai `/release-approvals`, konfigurasi aturan di `/admin`, dan
+status gate pada review ETL. Lihat [kontrol akses frontend BE-16](FRONTEND_ACCESS_JURISDICTION_BE16.md)
+serta [panduan review ETL](PANDUAN_REVIEW_ETL.md). Deploy dan rollback menunggu IT dan
+setiap unit terkait pada sumber yang sudah mempunyai aturan rilis; batch import tetap
+memakai review tersendiri.
 Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; lihat
 [implementasi BE02/BE03](FRONTEND_BE02_BE03.md). Storage dan pencarian record BE04 tersedia melalui `/masters/:id/storage`; lihat
 [frontend BE04](FRONTEND_BE04.md). Import review, preview/approval/apply master,

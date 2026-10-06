@@ -96,6 +96,16 @@ test('admin manages access registry and effective user assignments', async ({ pa
       })
       return ok(assignments[0])
     }
+    if (path === '/access/users/viewer-id/unit-assignments' && method === 'POST') {
+      const added = body.unit_ids.map((attributeId: string) => ({
+        id: `multi-${attributeId}`, user_id: 'viewer-id', attribute_id: attributeId,
+        valid_from: body.valid_from || '2026-09-27T00:00:00Z', valid_to: body.valid_to || null,
+        status: 'ACTIVE', revision: 1, revoked_at: null,
+        attribute: attributes.find((item) => item.id === attributeId),
+      }))
+      assignments.push(...added)
+      return ok(added)
+    }
     if (path === '/access/users/viewer-id/permission-grants' && method === 'GET')
       return ok(permissionGrants)
     if (path === '/access/users/viewer-id/permission-grants' && method === 'POST') {
@@ -189,6 +199,12 @@ test('admin manages access registry and effective user assignments', async ({ pa
 
   await page.goto('/admin')
   await login(page, 'admin')
+  const approverSection = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Approver per sumber data' }) })
+  await approverSection.getByLabel('Sumber data').selectOption(state.source.id)
+  await approverSection.getByRole('button', { name: 'Muat approver' }).click()
+  await approverSection.getByRole('checkbox').first().check()
+  await approverSection.getByRole('button', { name: 'Simpan approver sumber' }).click()
+  await expect(page.getByText('Daftar approver sumber tersimpan.')).toBeVisible()
   await page.getByLabel('Kode', { exact: true }).fill('finance')
   await page.getByLabel('Nama', { exact: true }).fill('Finance')
   await page.getByRole('button', { name: 'Tambah atribut' }).click()
@@ -220,10 +236,10 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await policySection.getByLabel('Kode policy').fill('finance_query')
   await policySection.getByLabel('Nama policy').fill('Finance Query')
   await policySection.getByLabel('Cari kode resource').fill('unknown_code')
-  await policySection.getByRole('button', { name: 'Cari resource' }).click()
+  await policySection.getByRole('button', { name: 'Cari resource', exact: true }).first().click()
   await expect(policySection.getByRole('combobox', { name: 'Resource', exact: true }).locator('option')).toHaveCount(1)
   await policySection.getByLabel('Cari kode resource').fill('FINANCE')
-  await policySection.getByRole('button', { name: 'Cari resource' }).click()
+  await policySection.getByRole('button', { name: 'Cari resource', exact: true }).first().click()
   await policySection.getByRole('combobox', { name: 'Resource', exact: true }).selectOption('FINANCE_REPORT')
   await policySection.getByLabel('QUERY', { exact: true }).check()
   await policySection.getByLabel('EXPORT', { exact: true }).check()
@@ -233,7 +249,7 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await expect(policySection.getByText(/FINANCE_QUERY.*DRAFT/)).toBeVisible()
   await policySection.getByRole('button', { name: 'Submit review' }).click()
   await expect(policySection.getByText(/FINANCE_QUERY.*IN_REVIEW/)).toBeVisible()
-  await policySection.getByLabel('ID/kode resource evaluasi').fill('FINANCE_REPORT')
+  await policySection.getByRole('combobox', { name: 'Resource evaluasi', exact: true }).selectOption('FINANCE_REPORT')
   await policySection.getByRole('button', { name: /Evaluasi viewer/ }).click()
   await expect(policySection.locator('pre')).toContainText('POLICY_MATCH')
   await policySection.getByLabel('Aksi evaluasi').selectOption('EXPORT')
@@ -247,6 +263,9 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await page.getByRole('button', { name: 'Cabut', exact: true }).click()
   await expect(page.getByText('Assignment dicabut dan sesi pengguna direset.')).toBeVisible()
   await expect(policySection.locator('pre')).toHaveCount(0)
+  await page.getByLabel('Finance (FINANCE)').check()
+  await page.getByRole('button', { name: 'Berikan ke 1 unit' }).click()
+  await expect(page.getByText('Akses untuk beberapa unit diberikan.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Atur akses' }).nth(1).click()
   await expect(page.getByText('Assignment milik sendiri harus diberikan atau dicabut oleh admin lain.')).toBeVisible()
@@ -263,6 +282,7 @@ test('admin manages access registry and effective user assignments', async ({ pa
   expect(accessRequests).toContain('POST /access/policies/policy-finance/submit')
   expect(accessRequests).toContain('POST /access/evaluate')
   expect(accessRequests).toContain('POST /access/assignments/assignment-finance/revoke')
+  expect(accessRequests).toContain('POST /access/users/viewer-id/unit-assignments')
   expect(state.errors).toEqual([])
   expect(state.unexpected).toEqual([])
 })

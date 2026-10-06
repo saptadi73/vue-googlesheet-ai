@@ -202,6 +202,7 @@
   gap: 9px;
 }
 .etl button,
+.modal button,
 .etl a.button {
   display: inline-flex;
   align-items: center;
@@ -219,30 +220,36 @@
     box-shadow 0.15s ease;
 }
 .etl button:hover,
+.modal button:hover,
 .etl a.button:hover {
   background: #eff7f2;
   box-shadow: var(--shadow-sm);
 }
 .etl button:active,
+.modal button:active,
 .etl a.button:active {
   transform: translateY(1px);
 }
 .etl button.primary,
+.modal button.primary,
 .etl a.primary {
   background: linear-gradient(135deg, var(--brand), var(--brand-dark));
   color: white;
   border-color: var(--brand-dark);
 }
 .etl button.primary:hover,
+.modal button.primary:hover,
 .etl a.primary:hover {
   box-shadow: var(--shadow-md);
 }
-.etl button:disabled {
+.etl button:disabled,
+.modal button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
 }
 .etl button:focus-visible,
+.modal button:focus-visible,
 .etl a.button:focus-visible {
   box-shadow: 0 0 0 4px #4bbd8d3d;
 }
@@ -416,7 +423,7 @@
 .etl .danger {
   color: #a53529;
 }
-.etl .modal-backdrop {
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(13, 30, 24, 0.45);
@@ -427,7 +434,7 @@
   padding: 20px;
   z-index: 100;
 }
-.etl .modal {
+.modal {
   background: var(--surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -436,10 +443,10 @@
   overflow: auto;
   animation: modal-in 0.15s ease;
 }
-.etl .modal-wide {
+.modal-wide {
   width: min(920px, 100%);
 }
-.etl .modal-head {
+.modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -450,10 +457,10 @@
   top: 0;
   background: var(--surface);
 }
-.etl .modal-head h2 {
+.modal-head h2 {
   margin: 0;
 }
-.etl .modal-close {
+.modal-close {
   border: none;
   background: #f0f4f2;
   border-radius: 999px;
@@ -462,10 +469,10 @@
   padding: 0;
   font-size: 14px;
 }
-.etl .modal-body {
+.modal-body {
   padding: 20px 24px;
 }
-.etl .modal-footer {
+.modal-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   display: flex;

@@ -26,6 +26,7 @@ const router = createRouter({
       component: () => import('@/views/EtlReview.vue'),
     },
     { path: '/dashboard', component: () => import('@/views/DashboardView.vue') },
+    { path: '/release-approvals', component: () => import('@/views/ReleaseApprovalsView.vue') },
     {
       path: '/guide',
       name: 'general-guide',

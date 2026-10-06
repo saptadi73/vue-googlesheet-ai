@@ -18,6 +18,7 @@ import {
   type PermissionGrant,
   type User,
   type UserAssignment,
+  type Source,
 } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type { Row } from '@/lib/catalog'
@@ -26,6 +27,7 @@ const allowed = computed(() => user.value?.role === 'PLATFORM_ADMIN')
 const createScopePending = ref(false),
   editScopePending = ref(false)
 const users = ref<User[]>([]),
+  sources = ref<Source[]>([]),
   events = ref<Row[]>([]),
   usage = ref<Row[]>([]),
   byUser = ref<Row[]>([]),
@@ -66,6 +68,52 @@ const edit = ref({
 })
 const attributeForm = ref({ kind: 'DEPARTMENT' as AccessKind, code: '', label: '', parent_id: '' })
 const assignmentForm = ref({ attribute_id: '', valid_from: '', valid_to: '', note: '' })
+const unitIds = ref<string[]>([])
+const unitForm = ref({ valid_from: '', valid_to: '', note: '' })
+type SourceApprovers = {
+  source_id: string
+  revision: number
+  configured: boolean
+  approvers: { metadata_review: string[]; configuration: string[]; import_review: string[] }
+}
+const approvalSourceId = ref('')
+const sourceApprovers = ref<SourceApprovers | null>(null)
+const sourceOffset = ref(0)
+const sourcePageSize = 100
+const sourceHasNext = ref(false)
+const approverForm = ref({ metadata_review: [] as string[], configuration: [] as string[], import_review: [] as string[] })
+const reviewerUsers = ref<{ id: string; username: string; role: string }[]>([])
+type ReleaseGroup = { unit_id: string; approver_ids: string[] }
+type ReleasePolicy = {
+  source_id: string
+  revision: number
+  configured: boolean
+  policy: { technical_approver_ids: string[]; unit_groups: ReleaseGroup[] }
+}
+const releaseCandidates = ref<{ id: string; username: string; role: string; unit_ids: string[] }[]>([])
+const releasePolicy = ref<ReleasePolicy | null>(null)
+const releaseUnitId = ref('')
+const releaseForm = ref<{ technical_approver_ids: string[]; unit_groups: ReleaseGroup[] }>({
+  technical_approver_ids: [], unit_groups: [],
+})
+const technicalCandidates = computed(() => releaseCandidates.value.filter(
+  (candidate) => ['PLATFORM_ADMIN', 'TECHNICAL_APPROVER'].includes(candidate.role),
+))
+function unitCandidates(unitId: string) {
+  return releaseCandidates.value.filter((candidate) => candidate.unit_ids.includes(unitId))
+}
+function addReleaseUnit() {
+  if (!releaseUnitId.value || releaseForm.value.unit_groups.some(
+    (group) => group.unit_id === releaseUnitId.value,
+  )) return
+  releaseForm.value.unit_groups.push({ unit_id: releaseUnitId.value, approver_ids: [] })
+  releaseUnitId.value = ''
+}
+const approvalWorkflows = [
+  { key: 'metadata_review', label: 'Review metadata sumber' },
+  { key: 'configuration', label: 'Konfigurasi ETL' },
+  { key: 'import_review', label: 'Batch import' },
+] as const
 const bundleForm = ref({ code: '', label: '', description: '', actions: [] as AccessAction[] })
 const permissionForm = ref({ bundle_id: '', valid_from: '', valid_to: '', note: '' })
 const policyResourceSearch = ref('')
@@ -93,6 +141,77 @@ function invalidateAccessDecision() {
 }
 async function loadUsers() {
   users.value = await call<User[]>('GET', `/users?offset=${offset.value}&limit=25`)
+}
+async function loadSources() {
+  const page = await call<Source[]>('GET', `/sources?offset=${sourceOffset.value}&limit=${sourcePageSize}`)
+  sources.value = page
+  sourceHasNext.value = page.length === sourcePageSize
+}
+async function changeSourcePage(direction: -1 | 1) {
+  const previousOffset = sourceOffset.value
+  const nextOffset = Math.max(0, previousOffset + direction * sourcePageSize)
+  if (nextOffset === sourceOffset.value) return
+  sourceOffset.value = nextOffset
+  approvalSourceId.value = ''
+  sourceApprovers.value = null
+  releasePolicy.value = null
+  await loadSources()
+  if (direction === 1 && sources.value.length === 0) {
+    sourceOffset.value = previousOffset
+    await loadSources()
+    sourceHasNext.value = false
+  }
+}
+async function loadReviewerUsers() {
+  reviewerUsers.value = await call('GET', '/sources/approver-options')
+}
+async function loadReleaseCandidates() {
+  releaseCandidates.value = await call('GET', '/release-approvals/candidates')
+}
+async function loadReleasePolicy() {
+  releasePolicy.value = null
+  if (!approvalSourceId.value) return
+  const sourceId = approvalSourceId.value
+  const result = await call<ReleasePolicy>('GET', `/release-approvals/sources/${sourceId}/policy`)
+  if (approvalSourceId.value !== sourceId) return
+  releasePolicy.value = result
+  releaseForm.value = {
+    technical_approver_ids: [...result.policy.technical_approver_ids],
+    unit_groups: result.policy.unit_groups.map((group) => ({
+      unit_id: group.unit_id, approver_ids: [...group.approver_ids],
+    })),
+  }
+}
+async function saveReleasePolicy() {
+  if (!releasePolicy.value || !approvalSourceId.value) return
+  const result = await call<ReleasePolicy>('PUT',
+    `/release-approvals/sources/${approvalSourceId.value}/policy`, {
+      revision: releasePolicy.value.revision, ...releaseForm.value,
+    })
+  releasePolicy.value = result
+  notice.value = 'Aturan persetujuan siap tayang tersimpan. Persetujuan versi lama perlu diulang.'
+}
+async function loadSourceApprovers() {
+  sourceApprovers.value = null
+  if (!approvalSourceId.value) return
+  const sourceId = approvalSourceId.value
+  const result = await call<SourceApprovers>('GET', `/sources/${sourceId}/approvers`)
+  if (approvalSourceId.value !== sourceId) return
+  sourceApprovers.value = result
+  approverForm.value = {
+    metadata_review: [...result.approvers.metadata_review],
+    configuration: [...result.approvers.configuration],
+    import_review: [...result.approvers.import_review],
+  }
+}
+async function saveSourceApprovers() {
+  if (!sourceApprovers.value || !approvalSourceId.value) return
+  const result = await call<SourceApprovers>('PUT', `/sources/${approvalSourceId.value}/approvers`, {
+    revision: sourceApprovers.value.revision,
+    ...approverForm.value,
+  })
+  sourceApprovers.value = result
+  notice.value = 'Daftar approver sumber tersimpan.'
 }
 async function loadAttributes() {
   attributes.value = await call<AccessAttribute[]>(
@@ -242,6 +361,19 @@ async function grantAssignment() {
   await loadUserAccess(selected.value.id)
   notice.value = 'Assignment yurisdiksi diberikan.'
 }
+async function grantUnits() {
+  if (!selected.value || !unitIds.value.length) return
+  const payload: Record<string, unknown> = { unit_ids: unitIds.value, note: unitForm.value.note }
+  if (unitForm.value.valid_from)
+    payload.valid_from = new Date(unitForm.value.valid_from).toISOString()
+  if (unitForm.value.valid_to)
+    payload.valid_to = new Date(unitForm.value.valid_to).toISOString()
+  await call('POST', `/access/users/${selected.value.id}/unit-assignments`, payload)
+  unitIds.value = []
+  unitForm.value = { valid_from: '', valid_to: '', note: '' }
+  await loadUserAccess(selected.value.id)
+  notice.value = 'Akses untuk beberapa unit diberikan.'
+}
 async function revokeAssignment(item: UserAssignment) {
   if (!selected.value) return
   if (selectedIsCurrentUser.value)
@@ -314,6 +446,8 @@ function select(item: User) {
   effectiveAccess.value = null
   invalidateAccessDecision()
   assignmentForm.value = { attribute_id: '', valid_from: '', valid_to: '', note: '' }
+  unitIds.value = []
+  unitForm.value = { valid_from: '', valid_to: '', note: '' }
   permissionForm.value = { bundle_id: '', valid_from: '', valid_to: '', note: '' }
   void run(() => loadUserAccess(item.id))
 }
@@ -330,6 +464,14 @@ watch(
   user,
   () => {
     users.value = []
+    sources.value = []
+    reviewerUsers.value = []
+    releaseCandidates.value = []
+    approvalSourceId.value = ''
+    sourceApprovers.value = null
+    releasePolicy.value = null
+    sourceOffset.value = 0
+    sourceHasNext.value = false
     events.value = []
     usage.value = []
     byUser.value = []
@@ -351,6 +493,9 @@ watch(
     if (allowed.value)
       void run(async () => {
         await loadUsers()
+        await loadSources()
+        await loadReviewerUsers()
+        await loadReleaseCandidates()
         await loadAttributes()
         await loadPermissionBundles()
         await loadAccessPolicies()
@@ -561,6 +706,23 @@ watch(() => evaluationForm.value.resource_type, () => {
     </section>
     <section v-if="selected" class="panel">
       <h2>Yurisdiksi {{ selected.username }}</h2>
+      <p class="muted">Pilih beberapa unit secara eksplisit. Struktur induk tidak memberi akses turunan otomatis.</p>
+      <form @submit.prevent="run(grantUnits)">
+        <fieldset :disabled="busy || selectedIsCurrentUser">
+          <legend>Berikan akses multi-unit</legend>
+          <div class="toolbar">
+            <label v-for="unit in attributes.filter((item) => item.kind === 'DEPARTMENT' && item.is_active)" :key="unit.id" class="check">
+              <input v-model="unitIds" type="checkbox" :value="unit.id" />{{ unit.label }} ({{ unit.code }})
+            </label>
+          </div>
+          <div class="grid">
+            <label>Berlaku mulai unit<input v-model="unitForm.valid_from" type="datetime-local" /></label>
+            <label>Berlaku sampai unit<input v-model="unitForm.valid_to" type="datetime-local" /></label>
+            <label>Alasan akses unit<input v-model="unitForm.note" maxlength="500" /></label>
+          </div>
+          <button class="primary" :disabled="busy || selectedIsCurrentUser || !unitIds.length">Berikan ke {{ unitIds.length }} unit</button>
+        </fieldset>
+      </form>
       <p v-if="selectedIsCurrentUser" class="notice">
         Assignment milik sendiri harus diberikan atau dicabut oleh admin lain.
       </p>
@@ -650,6 +812,75 @@ watch(() => evaluationForm.value.resource_type, () => {
           Cabut permission
         </button>
       </div>
+    </section>
+    <section class="panel">
+      <h2>Approver per sumber data</h2>
+      <p class="muted">Pilih reviewer untuk masing-masing keputusan. Penunjukan ini tidak memberi izin membaca data; akses tetap diatur oleh assignment unit dan policy.</p>
+      <label>Sumber data
+        <select v-model="approvalSourceId" @change="sourceApprovers = null; releasePolicy = null">
+          <option value="">Pilih sumber</option>
+          <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }} ({{ source.source_code }})</option>
+        </select>
+      </label>
+      <div class="toolbar">
+        <button type="button" :disabled="busy || sourceOffset === 0" @click="run(() => changeSourcePage(-1))">Sumber sebelumnya</button>
+        <span>Sumber {{ sourceOffset + 1 }}–{{ sourceOffset + sources.length }}</span>
+        <button type="button" :disabled="busy || !sourceHasNext" @click="run(() => changeSourcePage(1))">Sumber berikutnya</button>
+      </div>
+      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadSourceApprovers)">Muat approver</button>
+      <form v-if="sourceApprovers" @submit.prevent="run(saveSourceApprovers)">
+        <p v-if="!sourceApprovers.configured" class="notice">Sumber lama masih mengikuti reviewer berbasis role sampai daftar ini disimpan.</p>
+        <fieldset :disabled="busy">
+          <div v-for="workflow in approvalWorkflows" :key="workflow.key">
+            <h3>{{ workflow.label }}</h3>
+            <div class="toolbar">
+              <label v-for="reviewer in reviewerUsers" :key="reviewer.id" class="check">
+                <input v-model="approverForm[workflow.key]" type="checkbox" :value="reviewer.id" />{{ reviewer.username }} · {{ reviewer.role }}
+              </label>
+            </div>
+          </div>
+          <button class="primary" :disabled="busy">Simpan approver sumber</button>
+        </fieldset>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Persetujuan sebelum data tayang</h2>
+      <p class="muted">Gunakan sumber yang dipilih di atas. Satu pemeriksa IT dan satu approver dari setiap unit terkait harus menyetujui revisi konfigurasi sebelum deploy. Perubahan aturan membatalkan persetujuan sebelumnya.</p>
+      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadReleasePolicy)">Muat aturan siap tayang</button>
+      <form v-if="releasePolicy" @submit.prevent="run(saveReleasePolicy)">
+        <p v-if="!releasePolicy.configured" class="notice">Aturan belum aktif untuk sumber ini. Simpan daftar pemeriksa IT untuk mengaktifkan gate rilis.</p>
+        <fieldset :disabled="busy">
+          <h3>Pemeriksa IT</h3>
+          <p class="muted">Pilih satu atau beberapa akun; satu pemeriksa yang ditunjuk cukup untuk tahap IT.</p>
+          <div class="toolbar">
+            <label v-for="candidate in technicalCandidates" :key="candidate.id" class="check">
+              <input v-model="releaseForm.technical_approver_ids" type="checkbox" :value="candidate.id" :disabled="releaseForm.unit_groups.some((group) => group.approver_ids.includes(candidate.id))" />{{ candidate.username }} · {{ candidate.role }}
+            </label>
+          </div>
+          <h3>Unit terkait</h3>
+          <div class="toolbar">
+            <label>Tambahkan unit
+              <select v-model="releaseUnitId">
+                <option value="">Pilih unit</option>
+                <option v-for="unit in attributes.filter((item) => item.kind === 'DEPARTMENT' && item.is_active && !releaseForm.unit_groups.some((group) => group.unit_id === item.id))" :key="unit.id" :value="unit.id">{{ unit.label }}</option>
+              </select>
+            </label>
+            <button type="button" :disabled="!releaseUnitId" @click="addReleaseUnit">Tambah unit approval</button>
+          </div>
+          <div v-for="group in releaseForm.unit_groups" :key="group.unit_id" class="card-row">
+            <div class="toolbar"><strong>{{ attributes.find((item) => item.id === group.unit_id)?.label || group.unit_id }}</strong>
+              <button type="button" @click="releaseForm.unit_groups = releaseForm.unit_groups.filter((item) => item.unit_id !== group.unit_id)">Hapus unit</button>
+            </div>
+            <p class="muted">Pilih approver yang memiliki assignment aktif pada unit ini. Satu persetujuan per unit cukup.</p>
+            <div class="toolbar">
+              <label v-for="candidate in unitCandidates(group.unit_id)" :key="candidate.id" class="check">
+                <input v-model="group.approver_ids" type="checkbox" :value="candidate.id" :disabled="releaseForm.technical_approver_ids.includes(candidate.id) || releaseForm.unit_groups.some((other) => other.unit_id !== group.unit_id && other.approver_ids.includes(candidate.id))" />{{ candidate.username }}
+              </label>
+            </div>
+          </div>
+          <button class="primary" :disabled="busy || !releaseForm.technical_approver_ids.length || releaseForm.unit_groups.some((group) => !group.approver_ids.length)">Simpan aturan siap tayang</button>
+        </fieldset>
+      </form>
     </section>
     <section class="panel">
       <h2>Access policy</h2>

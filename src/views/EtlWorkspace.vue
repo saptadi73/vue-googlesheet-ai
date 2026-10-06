@@ -45,6 +45,7 @@ const registration = ref({
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
+  can_decide: boolean
   access_revision: number
   review_status: 'PENDING' | 'APPROVED' | 'REJECTED'
   attributes: Record<string, { code: string; label: string; is_active: boolean } | null>
@@ -117,7 +118,7 @@ const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.valu
 const blockers = computed(() => (sourceId.value ? sourceBlockers(sheets.value) : []))
 const canEdit = computed(() => !!user.value && editRoles.includes(user.value.role))
 const canDecideReview = computed(() => Boolean(
-  reviewContext.value && selectedSource.value?.access_metadata &&
+  reviewContext.value?.can_decide && selectedSource.value?.access_metadata &&
   selectedSource.value.access_review_status === 'PENDING' &&
   reviewContext.value.access_revision === selectedSource.value.access_revision &&
   selectedSource.value.access_metadata_editor_id !== user.value?.id,
@@ -557,7 +558,7 @@ onBeforeUnmount(() => {
         </button>
       </form>
     </section>
-    <section v-if="selectedSource && user?.role === 'PLATFORM_ADMIN'" class="panel">
+    <section v-if="selectedSource && reviewRoles.includes(user?.role || '')" class="panel">
       <h2>Review metadata sumber</h2>
       <button :disabled="busy" @click="run(loadReviewContext)">Tinjau metadata</button>
       <template v-if="reviewContext">
@@ -586,7 +587,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </template>
-      <div v-if="selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
+      <div v-if="user?.role === 'PLATFORM_ADMIN' && selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
         <button :disabled="busy" @click="run(loadPolicyOptions)">Muat policy SOURCE</button>
         <label v-if="policyOptions">Policy sumber<select v-model="selectedPolicyId">
           <option value="">Pilih policy approved</option>

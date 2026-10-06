@@ -41,9 +41,8 @@ test('editor registers a source with assigned BE16 metadata', async ({ page }) =
   await page.goto('/workspace')
   await login(page)
   await page.getByText('Hubungkan Google Sheet baru').click()
-  await page.getByLabel('Kode sumber').fill('scoped_sales')
   await page.getByLabel('Nama sumber').fill('Penjualan scoped')
-  await page.getByLabel('URL / ID spreadsheet').fill('fake_sheet_12345')
+  await page.getByLabel('URL spreadsheet').fill('fake_sheet_12345')
   await page.getByLabel('Unit pemilik').selectOption(sourceId)
   await page.getByLabel('Domain bisnis').selectOption(sheetId)
   await page.getByLabel('Yurisdiksi').selectOption(jobId)
@@ -55,7 +54,6 @@ test('editor registers a source with assigned BE16 metadata', async ({ page }) =
   expect(
     mock.requests.find((request) => request.path === '/sources/google-sheets')?.body,
   ).toMatchObject({
-    source_code: 'scoped_sales',
     access_metadata: {
       owner_unit_id: sourceId,
       business_domain_id: sheetId,
@@ -66,6 +64,7 @@ test('editor registers a source with assigned BE16 metadata', async ({ page }) =
       sensitivity: 'MEDIUM',
     },
   })
+  expect('source_code' in (mock.requests.find((request) => request.path === '/sources/google-sheets')?.body || {})).toBe(false)
   expect(mock.errors).toEqual([])
   expect(mock.unexpected).toEqual([])
 })
@@ -240,7 +239,7 @@ test('chat treats clarification as a successful conversation step and sends a fu
   await page.getByRole('button', { name: 'Tanyakan data' }).click()
   await expect(page.getByText('Pilih produk dan periode yang dimaksud.')).toBeVisible()
   await expect(page.getByText('Belum ada data untuk pilihan ini.')).toHaveCount(0)
-  await page.getByRole('combobox', { name: 'Produk data', exact: true }).selectOption('SALES')
+  await page.getByRole('combobox', { name: 'Ruang data (opsional)' }).selectOption('SALES')
   await page
     .getByLabel('Pertanyaan yang diperjelas')
     .fill('Berapa penjualan cabang pada September 2026?')

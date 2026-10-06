@@ -51,6 +51,7 @@ export const operationalNavigation: NavigationGroup[] = [
         relatedPaths: ['/configurations', '/sources'],
       },
       { label: 'Batch import', to: '/import-reviews', icon: FileStack },
+      { label: 'Persetujuan tayang', to: '/release-approvals', icon: ShieldCheck },
       { label: 'Job & ETL', to: '/jobs', icon: GitBranch },
       { label: 'Kualitas data', to: '/quality', icon: ShieldCheck },
     ],

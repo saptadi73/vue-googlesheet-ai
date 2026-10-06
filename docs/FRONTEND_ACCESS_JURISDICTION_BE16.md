@@ -1,5 +1,20 @@
 # Status frontend kontrol akses yurisdiksi BE-16
 
+## Multi-unit dan approver per sumber
+
+Pada **Administrasi → Akses pengguna**, admin dapat mencentang beberapa unit departemen
+sekaligus dan menyimpan assignment dalam satu permintaan. Unit induk tidak otomatis memberi
+akses ke unit bawahan; pilih semua unit yang diizinkan. Data baru terlihat bila policy
+sumber/produk, domain, dan yurisdiksi juga cocok.
+
+Pada **Administrasi → Approver per sumber data**, admin memilih sumber lalu memilih akun
+reviewer aktif secara terpisah untuk metadata sumber, konfigurasi ETL, dan batch import.
+Daftar yang sudah disimpan berlaku pada keputusan berikutnya; daftar kosong menahan keputusan
+jenis tersebut. Akun reviewer harus ber-role PLATFORM_ADMIN atau TECHNICAL_APPROVER dan
+tidak boleh menyetujui pekerjaan sendiri. Penunjukan tidak memberi hak membaca data.
+Reviewer teknis dapat membuka panel review metadata pada Workspace ETL; aktivasi policy
+sumber tetap dilakukan admin.
+
 Fondasi BE-16 tahap 1 sudah tersedia. Registry, assignment bertanggal, revoke, histori,
 dan effective access role + assignment dapat dikelola dari halaman Administrasi.
 `/login` menjadi satu-satunya route publik. Router menahan seluruh komponen privat sebelum
@@ -125,6 +140,28 @@ ke halaman Access Requests. Approve, reject, atau cancel menyelesaikan notifikas
 
 Kontrak backend dan urutan rollout ada di
 `../../fastapi-googlesheet-ai/docs/ACCESS_JURISDICTION_BE16.md`.
+
+### Gate persetujuan sebelum tayang
+
+Pada Administrasi, admin memilih sumber lalu membuka **Muat aturan siap tayang**.
+Pilih pemeriksa IT dari akun aktif ber-role technical approver/admin. Tambahkan setiap
+unit bisnis terkait dan akun bernama yang memiliki assignment aktif pada unit tersebut.
+Setiap kelompok memakai akun yang berbeda; UI mencegah pemilihan ulang akun pada
+kelompok lain dan backend mengulangi validasinya.
+Simpan aturan untuk mengaktifkan gate pada rilis konfigurasi berikutnya. Form memakai
+nama akun/unit; ID internal hanya dikirim aplikasi ke backend. Perubahan aturan
+membuat keputusan lama tidak berlaku untuk revisi kebijakan terbaru.
+
+Menu **Persetujuan tayang** tersedia bagi akun login, termasuk approver unit ber-role
+VIEWER. Inbox hanya memuat konfigurasi approved yang ditugaskan. Tinjau ringkasan
+produk, kolom, metrik, dan catatan, lalu pilih kelompok yang berwenang untuk memberi
+keputusan. IT dan setiap unit terkait harus menyetujui revisi yang sama. Halaman review
+IT meminta checklist skema/mapping, kualitas data, dan keamanan/akses sebelum approval.
+Halaman review ETL menampilkan status kelompok dan menonaktifkan tombol deploy saat gate belum siap;
+backend tetap menolak bypass API/worker. Penolakan menahan rilis sampai versi baru
+dibuat atau aturan direvisi oleh admin. Batch import berikutnya masih memakai approval
+batch existing, belum gate lintas-unit per batch. Rollback ke konfigurasi lama juga
+memerlukan keputusan yang sesuai dengan aturan rilis saat ini.
 
 ### Kontrak SoD assignment
 

@@ -112,7 +112,7 @@ const entries: PageHelpEntry[] = [
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
       'Lengkapi aturan kualitas, business key, strategi load, metrik, dan visualisasi.',
       'Validasi konfigurasi, simpan revisi, lalu submit untuk reviewer.',
-      'Reviewer menyetujui; editor kemudian melakukan deploy atau rollback versi aktif bila diperlukan.',
+      'Reviewer menyetujui; bila gate rilis aktif, IT dan setiap unit terkait juga menyetujui revisi yang sama sebelum deploy.',
     ],
     notes: ['Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.'],
   },
@@ -292,6 +292,9 @@ const entries: PageHelpEntry[] = [
     steps: [
       'Buat atribut organisasi seperti departemen, domain, yurisdiksi, clearance, dan purpose.',
       'Berikan assignment serta permission bundle kepada pengguna dengan masa berlaku yang tepat.',
+      'Untuk akses lintas unit, pilih setiap unit yang diizinkan pada Akses multi-unit; unit induk tidak otomatis membuka bawahan.',
+      'Pilih sumber dan tunjuk reviewer metadata, konfigurasi, serta batch import secara terpisah.',
+      'Atur pemeriksa IT dan setiap unit yang harus menyetujui revisi sebelum data tayang; pilih akun berbeda untuk tiap kelompok.',
       'Buat policy resource sebagai draft, submit, lalu approve menggunakan admin yang berbeda.',
       'Gunakan Preview keputusan untuk menguji akses sebelum rollout.',
       'Tinjau audit dan penggunaan AI secara berkala.',
@@ -304,6 +307,35 @@ const entries: PageHelpEntry[] = [
         label: 'PURPOSE · CLEARANCE',
         value: 'analitik_manajemen · Analitik Manajemen; internal · Internal',
       },
+      {
+        label: 'Akses multi-unit',
+        value: 'Penjualan Malang dan Penjualan Surabaya dipilih untuk satu manajer.',
+      },
+      {
+        label: 'Approver per sumber',
+        value: 'Manajer A: metadata/konfigurasi; Manajer B: batch import.',
+      },
+      {
+        label: 'Persetujuan tayang',
+        value: 'Sumber gabungan: IT, Penjualan Malang, dan Keuangan; satu akun berbeda per kelompok.',
+      },
+    ],
+  },
+  {
+    matches: exact('/release-approvals'),
+    title: 'Persetujuan sebelum tayang',
+    purpose: 'Mencatat pemeriksaan IT dan persetujuan unit terkait untuk revisi konfigurasi yang akan live.',
+    steps: [
+      'Buka konfigurasi approved yang masuk ke daftar Anda.',
+      'Periksa nama produk, kolom, metrik, dan konteks sumber; pemeriksa IT juga meninjau hasil validasi konfigurasi.',
+      'Pilih kelompok yang menjadi tanggung jawab Anda. Pemeriksa IT melengkapi checklist skema, kualitas, dan keamanan; isi catatan, lalu setujui atau tolak.',
+      'Deploy atau rollback baru dapat dilakukan setelah IT dan setiap unit terkait berstatus approved pada revisi yang sama.',
+    ],
+    examples: [{ label: 'Lintas unit', value: 'IT, Penjualan Malang, dan Keuangan masing-masing menyetujui revisi yang sama.' }],
+    notes: [
+      'Assignment unit dan penunjukan nama approver keduanya diperlukan; approval tidak memberi akses query data.',
+      'Jika revisi, snapshot review, atau aturan rilis berubah, keputusan lama tidak berlaku. Penolakan meminta versi baru atau peninjauan aturan oleh admin.',
+      'Review batch import dilakukan terpisah setelah konfigurasi aktif.',
     ],
   },
   {

@@ -40,15 +40,65 @@
     "source_code": "sales_cabang",
     "name": "Penjualan Cabang",
     "spreadsheet_url": "https://docs.google.com/spreadsheets/d/ID_SPREADSHEET_ANDA/edit",
+    "access_metadata": {
+      "owner_unit_id": "11111111-1111-4111-8111-111111111111",
+      "business_domain_id": "22222222-2222-4222-8222-222222222222",
+      "jurisdiction_id": "33333333-3333-4333-8333-333333333333",
+      "purpose_id": "44444444-4444-4444-8444-444444444444",
+      "data_owner_user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "data_steward_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "sensitivity": "MEDIUM"
+    },
     "description": "Satu baris per transaksi penjualan",
     "credential_ref": "default",
-    "sync_schedule": "0 */6 * * *"
+    "sync_schedule": "0 */6 * * *",
+    "schedule_timezone": "Asia/Jakarta",
+    "concurrency_policy": "QUEUE_LATEST"
+  },
+  "SourceAccessMetadataUpdate": {
+    "revision_no": 1,
+    "access_metadata": {
+      "owner_unit_id": "11111111-1111-4111-8111-111111111111",
+      "business_domain_id": "22222222-2222-4222-8222-222222222222",
+      "jurisdiction_id": "33333333-3333-4333-8333-333333333333",
+      "purpose_id": "44444444-4444-4444-8444-444444444444",
+      "data_owner_user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "data_steward_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "sensitivity": "HIGH"
+    }
+  },
+  "SourceMetadataReview": {
+    "revision_no": 2,
+    "decision": "APPROVE",
+    "reason": "METADATA_VERIFIED"
+  },
+  "SourceApproversUpdate": {
+    "revision": 1,
+    "metadata_review": ["11111111-1111-4111-8111-111111111111"],
+    "configuration": ["11111111-1111-4111-8111-111111111111"],
+    "import_review": ["22222222-2222-4222-8222-222222222222"]
+  },
+  "SourceAccessActivation": {
+    "revision_no": 3,
+    "policy_id": "77777777-7777-4777-8777-777777777777"
+  },
+  "SourceScheduleUpdate": {
+    "revision_no": 1,
+    "sync_schedule": "0 7 * * 1-5",
+    "schedule_timezone": "Asia/Jakarta",
+    "concurrency_policy": "SKIP_IF_RUNNING",
+    "dependency_source_ids": ["11111111-1111-4111-8111-111111111111"]
   },
   "SheetUpdate": {
     "range_a1": "A:D",
     "header_row": 1,
     "data_start_row": 2,
     "enabled": true
+  },
+  "SheetWatermarkUpdate": {
+    "revision_no": 1,
+    "source_column": "Updated At",
+    "kind": "DATETIME"
   },
   "AIConfigurationRequest": {
     "source_sheet_id": "22222222-2222-4222-8222-222222222222"
@@ -96,6 +146,8 @@
           "source_column": "Total",
           "target_column": "net_amount",
           "target_type": "numeric",
+          "numeric_precision": 12,
+          "numeric_scale": 2,
           "nullable": false,
           "transformation_codes": [
             "parse_decimal_id"
@@ -107,7 +159,11 @@
           "column": "net_amount",
           "rule": "min",
           "value": 0,
-          "action_on_fail": "REJECT_ROW"
+          "action_on_fail": "REJECT_ROW",
+          "severity": "ERROR",
+          "owner": "data-steward",
+          "threshold_percent": 5,
+          "default_value": 0
         }
       ],
       "semantic": {
@@ -251,6 +307,29 @@
       "VIEWER"
     ]
   },
+  "JoinRelationshipCreate": {
+    "code": "sales_products",
+    "left_product_code": "SALES",
+    "left_column": "product_id",
+    "right_product_code": "PRODUCTS",
+    "right_column": "id",
+    "cardinality": "MANY_TO_ONE",
+    "join_type": "LEFT",
+    "duplicate_policy": "REJECT_AMBIGUOUS"
+  },
+  "JoinRelationshipAction": {
+    "revision_no": 1
+  },
+  "JoinRelationshipUpdate": {
+    "revision_no": 1,
+    "left_product_code": "SALES",
+    "left_column": "product_id",
+    "right_product_code": "PRODUCTS",
+    "right_column": "id",
+    "cardinality": "MANY_TO_ONE",
+    "join_type": "LEFT",
+    "duplicate_policy": "REJECT_AMBIGUOUS"
+  },
   "SavedQueryCreate": {
     "code": "sales_by_branch",
     "data_product_code": "SALES",
@@ -320,10 +399,40 @@
     "limit": 100,
     "offset": 0
   },
+  "AITaskPolicyCreate": {
+    "code": "taxonomy_review",
+    "purpose": "TAXONOMY_RECOMMEND",
+    "prompt_version": "taxonomy_recommend_v1.md",
+    "model": "gpt-5-mini",
+    "allowed_models": ["gpt-5-mini", "gpt-5.1"],
+    "max_context_chars": 120000,
+    "daily_budget_usd": 5.0,
+    "fallback_model": "gpt-5.1"
+  },
+  "AITaskPolicyUpdate": {
+    "code": "sales_nl2sql",
+    "purpose": "NL2SQL",
+    "prompt_version": "nl2sql_v1.md",
+    "model": "gpt-5-mini",
+    "allowed_models": ["gpt-5-mini", "gpt-5.1"],
+    "data_product_code": "SALES",
+    "max_context_chars": 80000,
+    "daily_budget_usd": 3.5,
+    "fallback_model": "gpt-5.1",
+    "revision_no": 1
+  },
+  "AITaskPolicyAction": {
+    "revision_no": 1,
+    "comment": "Policy dan model sudah diperiksa."
+  },
   "QuestionRequest": {
     "question": "Berapa penjualan per cabang pada September 2026?",
     "data_product_code": "SALES",
     "saved_query_code": null
+  },
+  "HelpQuestion": {
+    "question": "Bagaimana alur dari Google Sheet sampai dashboard?",
+    "route": "/guide"
   },
   "FeedbackRequest": {
     "feedback": "Hasil sesuai laporan cabang."
@@ -543,5 +652,238 @@
         ]
       }
     ]
+  },
+  "ImportReviewCreate": {
+    "source_sheet_id": "33333333-3333-4333-8333-333333333333",
+    "configuration_id": "44444444-4444-4444-8444-444444444444"
+  },
+  "ImportReviewAction": {
+    "revision_no": 1,
+    "comment": "Tinjau ulang batch setelah kegagalan teknis"
+  },
+  "ImportQuestionDecision": {
+    "revision_no": 1,
+    "action": "APPLY_CORRECTION",
+    "corrected_value": 321,
+    "reason": "Nilai sudah dikonfirmasi dari dokumen sumber"
+  },
+  "ImportProposalResolution": {
+    "revision_no": 2,
+    "master_definition_id": "55555555-5555-4555-8555-555555555555"
+  },
+  "ImportReviewPreviewRequest": {
+    "revision_no": 3,
+    "close_open_periods": false
+  },
+  "ImportReviewApproveRequest": {
+    "revision_no": 4,
+    "comment": "Preview diverifikasi oleh reviewer",
+    "preview_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "ImportReviewApplyRequest": {
+    "revision_no": 5,
+    "preview_token": "TOKEN_DARI_IMPORT_REVIEW_PREVIEW"
+  },
+  "ImportReferenceResolveRequest": {
+    "revision_no": 5,
+    "master_definition_id": "55555555-5555-4555-8555-555555555555",
+    "value": "SKU-001",
+    "source_column": "Kode Produk",
+    "staging_row_id": "66666666-6666-4666-8666-666666666666",
+    "target_column": "product_id"
+  },
+  "MasterColumnBindingCreate": {
+    "revision_no": 0,
+    "source_column": "Kode Produk",
+    "master_definition_id": "55555555-5555-4555-8555-555555555555",
+    "master_field": "product_code",
+    "master_version": 1,
+    "required": true,
+    "normalization": "TRIM_CASEFOLD",
+    "cardinality": "MANY_TO_ONE"
+  },
+  "TaxonomyCreate": {
+    "code": "product_category",
+    "name": "Kategori Produk"
+  },
+  "TaxonomyColumnBindingCreate": {
+    "source_column": "category",
+    "taxonomy_id": "00000000-0000-0000-0000-000000000000",
+    "taxonomy_version": 1,
+    "required": false,
+    "normalization": "TRIM_CASEFOLD",
+    "revision_no": 0
+  },
+  "TaxonomyTermResolveRequest": {
+    "value": "Minuman"
+  },
+  "TaxonomyAmbiguityQuestionRequest": {
+    "value": "Minuman",
+    "import_review_id": "00000000-0000-0000-0000-000000000000",
+    "staging_row_id": null,
+    "source_column": "category",
+    "target_column": "category_id"
+  },
+  "TaxonomyValuesValidateRequest": {
+    "values": [
+      "Minuman",
+      "Elektronik"
+    ],
+    "taxonomy_version": 1
+  },
+  "TaxonomyRecommendRequest": {
+    "values": [
+      "Minumn",
+      "Elektronic"
+    ],
+    "limit": 3
+  },
+  "TaxonomyTermCreate": {
+    "code": "beverages",
+    "label": "Minuman",
+    "parent_id": null,
+    "aliases": [
+      "Minuman dan Beverage"
+    ]
+  },
+  "TaxonomyVersionCreate": {
+    "base_version": 2
+  },
+  "TaxonomyVersionUpdate": {
+    "revision_no": 1,
+    "terms": [
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "code": "tea",
+        "label": "Tea",
+        "parent_id": null,
+        "aliases": [
+          "Teh"
+        ],
+        "is_active": true
+      }
+    ]
+  },
+  "TaxonomyAIRecommendRequest": {
+    "taxonomy_version": 2,
+    "values": [
+      "teh tawar"
+    ],
+    "limit": 3
+  },
+  "AccessAttributeCreate": {
+    "kind": "DEPARTMENT",
+    "code": "FINANCE",
+    "label": "Finance",
+    "parent_id": null,
+    "attribute_data": {}
+  },
+  "AccessAttributeUpdate": {
+    "label": "Finance and Accounting",
+    "is_active": true,
+    "attribute_data": {},
+    "revision": 1
+  },
+  "UserAssignmentCreate": {
+    "attribute_id": "11111111-1111-4111-8111-111111111111",
+    "valid_from": "2026-09-27T00:00:00+07:00",
+    "valid_to": "2027-01-01T00:00:00+07:00",
+    "note": "Assignment Finance untuk periode kerja"
+  },
+  "MultiUnitAssignmentCreate": {
+    "unit_ids": ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"],
+    "valid_from": "2026-09-27T00:00:00+07:00",
+    "valid_to": null,
+    "note": "Akses untuk dua unit penjualan"
+  },
+  "AssignmentRevoke": {
+    "revision": 1,
+    "note": "Pengguna berpindah departemen"
+  },
+  "PermissionBundleCreate": {
+    "code": "report_exporter",
+    "label": "Report Exporter",
+    "description": "Tambahan kewenangan ekspor untuk analis terpilih",
+    "actions": ["READ", "QUERY", "EXPORT"]
+  },
+  "PermissionBundleUpdate": {
+    "label": "Report Exporter",
+    "description": "Kewenangan query dan ekspor",
+    "actions": ["READ", "QUERY", "EXPORT"],
+    "is_active": true,
+    "revision": 1
+  },
+  "PermissionGrantCreate": {
+    "bundle_id": "22222222-2222-4222-8222-222222222222",
+    "valid_from": "2026-09-27T00:00:00+07:00",
+    "valid_to": "2026-12-31T23:59:59+07:00",
+    "note": "Akses ekspor laporan kuartal empat"
+  },
+  "AccessPolicyCreate": {
+    "code": "finance_jatim_read",
+    "label": "Finance Jawa Timur",
+    "description": "Akses baca produk keuangan Jawa Timur",
+    "effect": "ALLOW",
+    "actions": ["READ", "QUERY"],
+    "required_attribute_ids": ["11111111-1111-4111-8111-111111111111"],
+    "row_scope": {"region_code": ["JATIM"]},
+    "column_rules": {"employee_name": "MASKED", "bank_account": "HIDDEN"},
+    "export_allowed": false,
+    "valid_from": "2026-09-27T00:00:00+07:00",
+    "valid_to": null
+  },
+  "AccessPolicyUpdate": {
+    "label": "Finance Jawa Timur",
+    "description": "Akses baca yang telah direview",
+    "actions": ["READ", "QUERY"],
+    "revision": 1
+  },
+  "AccessPolicyBindingCreate": {
+    "resource_type": "DATA_PRODUCT",
+    "resource_id": "FINANCE_REPORT"
+  },
+  "AccessPolicyTransition": {
+    "revision": 2,
+    "note": "Policy telah diperiksa"
+  },
+  "AccessEvaluationRequest": {
+    "action": "QUERY",
+    "resource_type": "DATA_PRODUCT",
+    "resource_id": "FINANCE_REPORT",
+    "at": "2026-09-27T00:00:00+07:00"
+  },
+  "AccessRequestCreate": {
+    "request_type": "ATTRIBUTE",
+    "subject_user_id": "22222222-2222-4222-8222-222222222222",
+    "attribute_id": "11111111-1111-4111-8111-111111111111",
+    "valid_from": "2026-10-01T00:00:00Z",
+    "valid_to": "2027-01-01T00:00:00Z",
+    "business_reason": "Membutuhkan laporan finance untuk penutupan triwulan."
+  },
+  "AccessRequestDecision": {
+    "revision": 1,
+    "note": "Kebutuhan bisnis telah diverifikasi"
+  },
+  "AccessRequestReject": {
+    "revision": 1,
+    "note": "Kebutuhan akses tidak lagi berlaku"
+  },
+  "SourceReleasePolicyUpdate": {
+    "revision": 1,
+    "technical_approver_ids": ["11111111-1111-4111-8111-111111111111"],
+    "unit_groups": [
+      {
+        "unit_id": "22222222-2222-4222-8222-222222222222",
+        "approver_ids": ["33333333-3333-4333-8333-333333333333"]
+      }
+    ]
+  },
+  "ConfigurationReleaseDecision": {
+    "revision_no": 3,
+    "group_type": "UNIT",
+    "unit_id": "22222222-2222-4222-8222-222222222222",
+    "decision": "APPROVE",
+    "comment": "Definisi bisnis unit telah diperiksa",
+    "technical_checks": null
   }
 }

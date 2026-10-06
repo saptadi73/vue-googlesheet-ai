@@ -15,6 +15,7 @@ const stages = [
       'Buat atribut departemen, domain bisnis, yurisdiksi, purpose, dan clearance.',
       'Berikan assignment serta permission bundle dengan masa berlaku yang sesuai.',
       'Siapkan policy akses resource; gunakan Preview keputusan sebelum approval.',
+      'Untuk sumber yang memerlukan gate rilis, tunjuk pemeriksa IT dan approver setiap unit terkait.',
     ],
     done: 'Admin, source owner/data steward, approver, dan pengguna analitik dapat login dengan akses yang tepat.',
   },
@@ -108,7 +109,8 @@ const stages = [
       'Editor submit konfigurasi setelah preview dan checklist lengkap.',
       'Approver yang berbeda memeriksa diff, DQ, sensitivitas, target, dan semantic metadata.',
       'Approver memilih approve atau reject dengan catatan yang jelas.',
-      'Setelah approved, editor menjalankan deploy dan mengaktifkan konfigurasi.',
+      'Jika aturan siap tayang aktif, IT dan setiap unit terkait menyetujui revisi yang sama di Persetujuan tayang.',
+      'Setelah semua persetujuan lengkap, editor menjalankan deploy dan mengaktifkan konfigurasi.',
       'Untuk sumber ber-policy, selesaikan review metadata dan aktifkan policy SOURCE approved.',
     ],
     done: 'Konfigurasi ACTIVE, target/semantic view tersedia, dan produk data lolos kebijakan akses.',
@@ -232,6 +234,7 @@ const stages = [
         <li>Periksa job terakhir pada Job &amp; ETL dan pastikan statusnya sukses.</li>
         <li>Periksa Batch import: tidak boleh ada pertanyaan wajib, dependency stale, atau apply tertunda.</li>
         <li>Periksa konfigurasi: harus approved, deployed, dan active.</li>
+        <li>Jika gate siap tayang aktif, periksa status IT serta setiap unit terkait di Persetujuan tayang.</li>
         <li>Periksa metadata serta policy SOURCE: produk mungkin ditahan oleh yurisdiksi atau akses.</li>
         <li>Periksa definisi dimensi/metrik dan freshness produk pada Dashboard.</li>
         <li>Perjelas pertanyaan NL2SQL dengan nama ukuran, dimensi, dan periode.</li>

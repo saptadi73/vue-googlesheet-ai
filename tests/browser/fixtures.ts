@@ -51,6 +51,10 @@ export async function setup(page: Page) {
     access_review_status: 'PENDING',
     access_reviewed_by: null as string | null,
     access_review_reason: '',
+    approval_revision: 1,
+    approval_assignees: null as { metadata_review: string[]; configuration: string[]; import_review: string[] } | null,
+    release_policy_revision: 1,
+    release_policy: null as { technical_approver_ids: string[]; unit_groups: { unit_id: string; label: string; approver_ids: string[] }[] } | null,
     paused: false,
     sync_schedule: null,
     schedule_timezone: 'UTC',
@@ -162,6 +166,25 @@ export async function setup(page: Page) {
     created_by: 'editor-id',
     configuration_json: configuration,
     review_state: {} as Record<string, unknown>,
+  }
+  const releaseDecisions: Record<string, { decision: string; actor_id: string; comment: string }> = {}
+  function releaseStatus() {
+    const groups = source.release_policy
+      ? [
+          { key: 'TECHNICAL', label: 'Pemeriksaan IT', unit_id: null, approver_ids: source.release_policy.technical_approver_ids },
+          ...source.release_policy.unit_groups.map((group) => ({ key: `UNIT:${group.unit_id}`, label: group.label, unit_id: group.unit_id, approver_ids: group.approver_ids })),
+        ].map((group) => ({ ...group, status: releaseDecisions[group.key]?.decision || 'PENDING',
+          decided_by: releaseDecisions[group.key]?.actor_id || null, decided_at: null,
+          comment: releaseDecisions[group.key]?.comment || null,
+          can_decide: record.status === 'APPROVED' && group.approver_ids.includes(`${username}-id`) && record.created_by !== `${username}-id`,
+        }))
+      : []
+    return { configuration_id: configId, configuration_revision: record.revision_no,
+      status: record.status, configured: Boolean(source.release_policy),
+      ready: !source.release_policy || groups.every((group) => group.status === 'APPROVED'),
+      policy_revision: source.release_policy_revision, groups,
+      summary: { name: 'Penjualan cabang', description: 'Data penjualan', product_code: 'SALES', columns: [], metrics: [] },
+    }
   }
   const validation = {
     valid: true,
@@ -285,6 +308,53 @@ export async function setup(page: Page) {
     }
     if (path === '/etl-jobs') return ok([source, upstreamSource])
     if (path === '/sources') return ok([source])
+    if (path === '/sources/approver-options')
+      return ok([{ id: 'admin-id', username: 'admin', role: 'PLATFORM_ADMIN' }])
+    if (path === `/sources/${sourceId}/approvers` && method === 'GET')
+      return ok({
+        source_id: sourceId,
+        revision: source.approval_revision || 1,
+        configured: Boolean(source.approval_assignees),
+        approvers: source.approval_assignees || { metadata_review: [], configuration: [], import_review: [] },
+      })
+    if (path === `/sources/${sourceId}/approvers` && method === 'PUT') {
+      source.approval_assignees = {
+        metadata_review: body.metadata_review,
+        configuration: body.configuration,
+        import_review: body.import_review,
+      }
+      source.approval_revision = (source.approval_revision || 1) + 1
+      return ok({ source_id: sourceId, revision: source.approval_revision,
+        configured: true, approvers: source.approval_assignees })
+    }
+    if (path === '/release-approvals/candidates') return ok([
+      { id: 'admin-id', username: 'admin', role: 'PLATFORM_ADMIN', unit_ids: [] },
+      { id: 'approver-id', username: 'approver', role: 'TECHNICAL_APPROVER', unit_ids: [] },
+      { id: 'viewer-id', username: 'viewer', role: 'VIEWER', unit_ids: [sourceId] },
+    ])
+    if (path === `/release-approvals/sources/${sourceId}/policy` && method === 'GET')
+      return ok({ source_id: sourceId, revision: source.release_policy_revision,
+        configured: Boolean(source.release_policy),
+        policy: source.release_policy || { technical_approver_ids: [], unit_groups: [] } })
+    if (path === `/release-approvals/sources/${sourceId}/policy` && method === 'PUT') {
+      source.release_policy_revision++
+      source.release_policy = { technical_approver_ids: body.technical_approver_ids,
+        unit_groups: body.unit_groups.map((group: { unit_id: string; approver_ids: string[] }) => ({ ...group, label: 'Penjualan' })) }
+      return ok({ source_id: sourceId, revision: source.release_policy_revision,
+        configured: true, policy: source.release_policy })
+    }
+    if (path === `/release-approvals/configurations/${configId}` && method === 'GET')
+      return ok(releaseStatus())
+    if (path === `/release-approvals/configurations/${configId}/decisions` && method === 'POST') {
+      const key = body.group_type === 'TECHNICAL' ? 'TECHNICAL' : `UNIT:${body.unit_id}`
+      releaseDecisions[key] = { decision: body.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED',
+        actor_id: `${username}-id`, comment: body.comment }
+      return ok(releaseStatus())
+    }
+    if (path === '/release-approvals/inbox' && method === 'GET')
+      return ok(source.release_policy && record.status === 'APPROVED' ? [
+        { ...releaseStatus(), source_id: sourceId, source_name: source.name, version_no: 1 },
+      ] : [])
     if (path === `/sources/${sourceId}/access-metadata` && method === 'PATCH') {
       if (body.revision_no !== source.access_revision)
         return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata berubah')
@@ -300,6 +370,7 @@ export async function setup(page: Page) {
     if (path === `/sources/${sourceId}/access-review-context` && method === 'GET')
       return ok({
         source_id: sourceId,
+        can_decide: true,
         access_revision: source.access_revision,
         review_status: source.access_review_status,
         attributes: {

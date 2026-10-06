@@ -70,6 +70,7 @@ const details = ref<Review | null>(null),
     operations: Array<Record<string, unknown>>
     capabilities: Record<string, unknown>
   } | null>(null)
+const releaseStatus = ref<{ configured: boolean; ready: boolean; groups: { key: string; label: string; status: string }[] } | null>(null)
 const error = ref(''),
   notice = ref(''),
   busy = ref(false),
@@ -168,13 +169,15 @@ async function run(action: () => Promise<void>) {
 }
 async function load() {
   const epoch = generation
-  const [result, catalog] = await Promise.all([
+  const [result, catalog, release] = await Promise.all([
     call<Review>('GET', `${base.value}/review`),
     call<typeof parameterCatalog.value>('GET', '/configurations/parameter-catalog'),
+    call<typeof releaseStatus.value>('GET', `/release-approvals/configurations/${configId.value}`),
   ])
   if (epoch !== generation) return
   details.value = result
   parameterCatalog.value = catalog
+  releaseStatus.value = release
   defaultInputs.value.clear()
   draft.value = copy(result.configuration.configuration_json)
   answers.value = {}
@@ -249,7 +252,7 @@ async function decision(action: 'approve' | 'reject') {
   await load()
   notice.value =
     action === 'approve'
-      ? 'Disetujui. Jalankan deployment untuk mengaktifkan konfigurasi.'
+      ? 'Konfigurasi disetujui. Lengkapi persetujuan siap tayang sebelum deployment.'
       : 'Konfigurasi ditolak. Clone untuk membuat perbaikan.'
   decisionModal.value = null
 }
@@ -1511,7 +1514,7 @@ onBeforeRouteUpdate(confirmLeave)
           ><input v-model="rollbackAcknowledged" type="checkbox" :disabled="busy" />Saya sudah
           memeriksa versi yang akan diaktifkan kembali.</label
         ><button
-          :disabled="busy || !rollbackAcknowledged || !evidenceReady"
+          :disabled="busy || !rollbackAcknowledged || !evidenceReady || (releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/rollback`))"
         >
           Antrekan rollback versi ini
@@ -1530,6 +1533,11 @@ onBeforeRouteUpdate(confirmLeave)
           <summary>Hasil proses</summary>
           <pre>{{ JSON.stringify(job.result, null, 2) }}</pre>
         </details>
+      </Card>
+      <Card v-if="releaseStatus?.configured && ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(record.status)" title="Persetujuan siap tayang">
+        <p :class="releaseStatus.ready ? 'success' : 'notice'">{{ releaseStatus.ready ? 'Semua persetujuan IT dan unit terkait lengkap.' : 'Deployment menunggu persetujuan IT dan unit terkait.' }}</p>
+        <div v-for="group in releaseStatus.groups" :key="group.key" class="toolbar"><strong>{{ group.label }}</strong><span>{{ group.status }}</span></div>
+        <RouterLink class="button" to="/release-approvals">Buka kotak masuk persetujuan</RouterLink>
       </Card>
       <div class="toolbar sticky-actions">
         <button v-if="step > 0" @click="step--">Sebelumnya</button
@@ -1553,7 +1561,7 @@ onBeforeRouteUpdate(confirmLeave)
         <button
           v-if="reviewer && record.status === 'APPROVED'"
           class="primary"
-          :disabled="busy || !evidenceReady"
+          :disabled="busy || !evidenceReady || (releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/deploy`))"
         >
           <Rocket class="icon" :size="14" />Deploy konfigurasi

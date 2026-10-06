@@ -1,8 +1,8 @@
 # API Reference untuk frontend
 
-Versi backend **0.1.0** · berdasarkan implementasi yang diperiksa pada **27 September 2026**.
+Versi backend **0.1.0** · berdasarkan implementasi yang diperiksa pada **6 Oktober 2026**.
 
-Dokumen ini merujuk **167 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
+Dokumen ini menjelaskan **210 operasi HTTP yang sudah terdaftar di backend**, bukan seluruh endpoint yang pernah disebut pada dokumen rancangan. Contoh memakai data fiktif; UUID, kode produk, dan token harus diganti dengan hasil API lingkungan tujuan. Kehadiran endpoint tidak berarti database, Google, OpenAI, atau worker lingkungan tujuan sudah siap.
 
 ## Navigasi
 
@@ -122,13 +122,52 @@ Role UI bukan hierarki bebas: misalnya `TECHNICAL_APPROVER` dapat approve tetapi
 | POST | `/users` | A | UserCreate | 201 | User public |
 | GET | `/users` | A | —; query offset/limit | 200 | User public[]; meta pagination |
 | PATCH | `/users/{user_id}` | A | UserUpdate | 200 | User public |
+| GET | `/access/registration-options` | E | — | 200 | Scope assignment aktif, PURPOSE aktif, user tenant eligible, sensitivitas |
+| GET | `/access/resources` | A | —; query resource_type wajib, search/offset/limit opsional | 200 | Resource tenant aktif: id, code, name, status; limit maksimum 100 |
+| GET | `/access/attributes` | A | —; query kind/include_inactive | 200 | AccessAttribute[] |
+| POST | `/access/attributes` | A | AccessAttributeCreate | 201 | AccessAttribute |
+| PATCH | `/access/attributes/{attribute_id}` | A | AccessAttributeUpdate | 200 | AccessAttribute |
+| GET | `/access/permission-bundles` | A | —; query include_inactive | 200 | PermissionBundle[] |
+| POST | `/access/permission-bundles` | A | PermissionBundleCreate | 201 | PermissionBundle |
+| PATCH | `/access/permission-bundles/{bundle_id}` | A | PermissionBundleUpdate | 200 | PermissionBundle |
+| GET | `/access/users/{user_id}/assignments` | A | —; query include_inactive | 200 | UserAssignment[] dengan attribute |
+| POST | `/access/users/{user_id}/assignments` | A | UserAssignmentCreate | 201 | UserAssignment dengan attribute |
+| POST | `/access/users/{user_id}/unit-assignments` | A | `{unit_ids: UUID[], valid_from?, valid_to?, note?}` | 201 | UserAssignment[]; satu transaksi, hanya DEPARTMENT eksplisit |
+| POST | `/access/assignments/{assignment_id}/revoke` | A | AssignmentRevoke | 200 | UserAssignment yang dicabut |
+| GET | `/access/users/{user_id}/permission-grants` | A | —; query include_inactive | 200 | UserPermissionGrant[] dengan bundle |
+| POST | `/access/users/{user_id}/permission-grants` | A | PermissionGrantCreate | 201 | UserPermissionGrant dengan bundle |
+| POST | `/access/permission-grants/{grant_id}/revoke` | A | AssignmentRevoke | 200 | UserPermissionGrant yang dicabut |
+| GET | `/access/policies` | A | —; query include_revoked | 200 | AccessPolicy[] |
+| POST | `/access/policies` | A | AccessPolicyCreate | 201 | AccessPolicy DRAFT |
+| PATCH | `/access/policies/{policy_id}` | A | AccessPolicyUpdate | 200 | AccessPolicy DRAFT terbaru |
+| GET | `/access/policies/{policy_id}/bindings` | A | — | 200 | AccessPolicyBinding[] |
+| POST | `/access/policies/{policy_id}/bindings` | A | AccessPolicyBindingCreate | 201 | AccessPolicyBinding |
+| POST | `/access/policies/{policy_id}/submit` | A | AccessPolicyTransition | 200 | AccessPolicy IN_REVIEW |
+| POST | `/access/policies/{policy_id}/approve` | A | AccessPolicyTransition | 200 | AccessPolicy APPROVED |
+| POST | `/access/policies/{policy_id}/revoke` | A | AccessPolicyTransition | 200 | AccessPolicy REVOKED |
+| POST | `/access/evaluate` | Auth | AccessEvaluationRequest | 200 | Keputusan preview default-deny |
+| GET | `/access/users/{user_id}/effective` | A | —; query at opsional | 200 | Effective access user |
+| GET | `/access/me/effective` | Auth | —; query at opsional | 200 | Effective access akun aktif |
+
+| GET | `/access/request-options` | Auth | — | 200 | Atribut/bundle aktif yang dapat diminta |
+| POST | `/access/requests` | Auth | AccessRequestCreate | 201 | AccessRequest PENDING |
+| GET | `/access/requests/mine` | Auth | —; status/offset/limit | 200 | AccessRequest[] milik akun |
+| GET | `/access/requests` | A | —; status/offset/limit | 200 | AccessRequest[] tenant |
+| POST | `/access/requests/{request_id}/approve` | A | AccessRequestDecision | 200 | Request APPROVED + grant |
+| POST | `/access/requests/{request_id}/reject` | A | AccessRequestReject | 200 | Request REJECTED |
+| POST | `/access/requests/{request_id}/cancel` | Pemohon | AccessRequestDecision | 200 | Request CANCELLED |
+| POST | `/access/requests/{request_id}/revoke` | Pemohon/A | AccessRequestReject | 200 | Request/grant REVOKED |
+
+Assignment tidak boleh diberikan atau dicabut oleh admin terhadap dirinya sendiri;
+kedua operasi mengembalikan `422 SELF_ACCESS_CHANGE`. Validasi ini tetap ditegakkan
+backend walaupun tombol frontend sudah dinonaktifkan.
 
 ### Login, refresh, dan logout
 
 Login adalah JSON biasa, bukan OAuth form:
 
 ```json
-{"tenant_code":"default","username":"admin","password":"PASSWORD_LOGIN_ANDA"}
+{"tenant_code":"default","username":"admin_etl@kanjabung.com","password":"PASSWORD_LOGIN_ANDA"}
 ```
 
 Respons lengkap:
@@ -157,6 +196,36 @@ Refresh body:
 Refresh token **sekali pakai dan dirotasi**: simpan kedua token baru, jangan memakai refresh lama lagi. Jika beberapa request mendapat 401 bersamaan, lakukan satu refresh bersama (single-flight), lalu retry request yang memang ditolak autentikasi satu kali. Jika refresh gagal, hapus session dan arahkan login. Jangan me-refresh berulang untuk 403/422 atau otomatis mengulangi mutation yang timeout tanpa mengetahui apakah sudah berhasil.
 
 Logout menaikkan token version akun dan mencabut **semua token akun**, bukan hanya tab browser saat ini. Ubah password juga mencabut token dan meminta login ulang.
+
+Tidak ada endpoint registrasi publik. `PLATFORM_ADMIN` mendaftarkan akun tenant melalui
+`POST /users`, memilih role awal, lalu melengkapi assignment/bundle BE-16. Admin pertama
+dibuat dari variabel `BOOTSTRAP_*` dengan `python -m app.cli bootstrap`. Perintah ulang
+tidak mengubah password; pemulihan eksplisit memakai
+`python -m app.cli bootstrap --reset-existing-password` dan mencabut token akun lama.
+Frontend menyediakan `/login`, registrasi internal `/register` (alias
+`/admin/users/new`), serta pengaturan role/status/row scope di `/admin/users`.
+
+AccessRequestCreate memilih tepat satu target sesuai `request_type`:
+
+```json
+{
+  "request_type": "ATTRIBUTE",
+  "subject_user_id": "22222222-2222-4222-8222-222222222222",
+  "attribute_id": "11111111-1111-4111-8111-111111111111",
+  "valid_from": "2026-10-01T00:00:00Z",
+  "valid_to": "2027-01-01T00:00:00Z",
+  "business_reason": "Membutuhkan laporan finance untuk penutupan triwulan."
+}
+```
+
+`request_type` adalah `ATTRIBUTE` atau `PERMISSION_BUNDLE`; tipe kedua memakai
+`bundle_id`. `subject_user_id` opsional dan default ke akun pemohon; hanya
+`PLATFORM_ADMIN` yang dapat mengisinya untuk pengguna lain. Periode wajib berurutan dan maksimum 366 hari. Request `PENDING` tidak
+memberi akses. Approval hanya oleh `PLATFORM_ADMIN` berbeda dari pemohon dan secara
+atomik membuat assignment/grant bertanggal. Duplicate pending menghasilkan
+`409 ACCESS_REQUEST_DUPLICATE`; revision lama menghasilkan `409 STALE_REVISION`.
+Reject dan revoke memerlukan `note` minimal 3 karakter. Revoke mencabut grant terkait
+dan seluruh token lama pengguna.
 
 PasswordChange:
 
@@ -197,13 +266,62 @@ Username 3–100 karakter, pola `^[a-zA-Z0-9_.@-]+$`. Password baru 12–256 kar
 
 PATCH hanya mendukung `role`, `is_active`, dan `row_scope`; bukan username, full_name, atau password. Field yang tidak dikirim/bernilai null dilewati. Map row_scope diganti utuh, bukan deep merge. Update mencabut token user tersebut. Admin tidak boleh menonaktifkan atau mengubah role dirinya sendiri (`SELF_LOCKOUT`). Tidak ada endpoint reset password user lain saat ini.
 
+### Assignment yurisdiksi dan policy BE16
+
+`AccessAttributeCreate` menerima jenis `DEPARTMENT`, `BUSINESS_DOMAIN`, `JURISDICTION`,
+`CLEARANCE`, atau `PURPOSE`. Kode dinormalisasi ke huruf besar dan unik per tenant + jenis. `parent_id`
+hanya boleh menunjuk atribut tenant dan jenis yang sama. PATCH memakai `revision`; revisi
+stale menghasilkan `409 STALE_REVISION`.
+
+Assignment menghubungkan user dan atribut dengan `valid_from` inklusif serta `valid_to`
+eksklusif/nullable. Periode aktif yang bertumpang tindih untuk pasangan user-atribut yang
+sama ditolak dengan `409 ASSIGNMENT_PERIOD_OVERLAP`. Revoke memakai revision, menyimpan
+actor/waktu, dan mencabut token user tersebut. Endpoint effective hanya memasukkan assignment
+berstatus aktif, atribut aktif, dan periode yang mencakup parameter `at`; default `at` adalah
+waktu server. Hasil effective-access berisi `user`, `as_of`, `actions`, `dimensions`,
+`assignments`, dan `permission_grants`. Keputusan policy, deny, serta masking tidak ada
+di respons effective-access umum; gunakan `POST /access/evaluate` untuk preview
+resource/aksi tertentu. Preview bukan izin semua endpoint backend.
+
+Permission bundle memakai aksi baku `DISCOVER`, `READ`, `QUERY`, `EXPORT`, `EDIT`,
+`APPROVE`, `OPERATE`, dan `ADMIN`. Kode bundle dinormalisasi ke huruf besar. Grant bundle
+memakai effective dating dan menolak periode tumpang tindih dengan
+`PERMISSION_GRANT_PERIOD_OVERLAP`. Admin tidak dapat mengubah grant miliknya sendiri
+(`SELF_ACCESS_CHANGE`). Create/revoke grant merotasi token target. `actions` pada effective
+access adalah gabungan terurut dari role sistem dan bundle aktif; `permission_grants`
+menjelaskan sumber tambahan tersebut. Bundle tidak memberikan scope dataset secara implisit.
+
+Access policy dimulai sebagai `DRAFT`; binding resource hanya dapat ditambah saat DRAFT.
+Submit memerlukan minimal satu binding. Approval membutuhkan admin berbeda dari pembuat
+policy dan memakai revision terbaru. Evaluator preview mengembalikan `POLICY_MATCH`,
+`EXPLICIT_DENY`, `DEFAULT_DENY`, atau `ACTION_NOT_GRANTED`, bersama policy IDs, row scope,
+aturan kolom, serta izin export. Untuk DataProduct dari SOURCE BE16 yang diaktifkan,
+evaluator dipakai pada DISCOVER/QUERY/EXPORT sebelum cache. Data product legacy dan
+resource/aksi lain tidak otomatis memakai evaluator sebagai enforcement. Row/column
+control pada policy SOURCE masih ditolak di runtime, bukan diterapkan atau dimasking.
+
 ## 3. Google Sheets dan profiling
 
 | Method | Path | Hak | Body / parameter | HTTP sukses | Data respons |
 |---|---|---|---|---|---|
-| POST | `/sources/google-sheets` | E | SourceCreate | 202 | `{source: DataSource, ...EnqueuedJob}` |
+| POST | `/sources/google-sheets` | E | SourceCreate dengan access_metadata wajib | 202 | `{source: DataSource, ...EnqueuedJob}`; `source.access_status=ACCESS_POLICY_REQUIRED` |
 | GET | `/sources` | S | offset/limit | 200 | DataSource[]; meta pagination |
 | GET | `/sources/{source_id}` | S | UUID source | 200 | DataSource |
+| PATCH | `/sources/{source_id}/access-metadata` | E | SourceAccessMetadataUpdate | 200 | DataSource dengan access_revision terbaru dan access_status pending |
+| GET | `/sources/{source_id}/access-review-context` | R | UUID source | 200 | Ringkasan tenant-scoped atribut dan akun untuk reviewer sumber yang ditunjuk |
+| POST | `/sources/{source_id}/access-review` | R | SourceMetadataReview | 200 | Keputusan reviewer yang ditunjuk; status akses tetap pending |
+| GET | `/sources/approver-options` | A | — | 200 | Akun reviewer aktif tenant, id/username/role |
+| GET | `/sources/{source_id}/approvers` | A | — | 200 | Revision, configured, dan daftar reviewer per jenis keputusan |
+| PUT | `/sources/{source_id}/approvers` | A | `{revision, metadata_review: UUID[], configuration: UUID[], import_review: UUID[]}` | 200 | Daftar baru; revision naik, 409 bila stale |
+| GET | `/release-approvals/candidates` | A | — | 200 | Akun aktif dan unit assignment aktif untuk pilihan approver |
+| GET | `/release-approvals/sources/{source_id}/policy` | A | — | 200 | Aturan rilis, status configured, dan revision |
+| PUT | `/release-approvals/sources/{source_id}/policy` | A | `SourceReleasePolicyUpdate` | 200 | Satu pemeriksa IT dan setiap unit terkait wajib; revision naik |
+| GET | `/release-approvals/inbox` | Login | offset/limit | 200 | Konfigurasi approved yang ditugaskan kepada akun, beserta status setiap kelompok |
+| GET | `/release-approvals/configurations/{config_id}` | Reviewer/ditunjuk | — | 200 | Ringkasan dan status siap tayang per revisi |
+| POST | `/release-approvals/configurations/{config_id}/decisions` | Ditunjuk | `ConfigurationReleaseDecision` | 200 | Keputusan IT/unit dengan catatan; 403 jika bukan approver terkait |
+
+| GET | `/sources/{source_id}/access-policy-options` | A | UUID source | 200 | Policy SOURCE ALLOW approved yang berlaku dan didukung runtime |
+| POST | `/sources/{source_id}/access-activate` | A | SourceAccessActivation | 200 | Aktifkan source setelah review metadata dan binding policy approved |
 | PATCH | `/sources/{source_id}/schedule` | E | SourceScheduleUpdate | 200 | Edit cron/timezone/concurrency dengan optimistic revision |
 | GET | `/sources/{source_id}/sheets` | S | UUID source | 200 | SourceSheet[] |
 | GET | `/source-sheets/{sheet_id}/classification` | S | Tidak ada | 200 | SheetClassification: kind, status, revision, actor/time, execution_ready, blocker |
@@ -221,20 +339,32 @@ PATCH hanya mendukung `role`, `is_active`, dan `row_scope`; bukan username, full
 | GET | `/sources/{source_id}/profiling-runs` | S | UUID source | 200 | ProfilingRun[]; maksimal 100 |
 | GET | `/sources/{source_id}/profiling-runs/{run_id}` | S | UUID source + profile | 200 | ProfilingRun |
 
+Untuk keputusan IT `APPROVE`, payload wajib memuat `technical_checks` dengan
+`schema_and_mapping`, `data_quality`, dan `security_and_access` semuanya `true`.
+Keputusan unit memakai `unit_id` dan tidak memakai checklist IT. Persetujuan
+yang ditolak menahan rilis hingga versi konfigurasi atau aturan rilis diperbarui.
+
 ### Mendaftarkan Sheet
 
 ```json
 {
-  "source_code": "sales_cabang",
   "name": "Penjualan Cabang",
   "spreadsheet_url": "https://docs.google.com/spreadsheets/d/ID_SPREADSHEET_ANDA/edit",
+  "access_metadata": {
+    "owner_unit_id": "11111111-1111-4111-8111-111111111111",
+    "business_domain_id": "22222222-2222-4222-8222-222222222222",
+    "jurisdiction_id": "33333333-3333-4333-8333-333333333333",
+    "purpose_id": "44444444-4444-4444-8444-444444444444",
+    "data_owner_user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "data_steward_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    "sensitivity": "MEDIUM"
+  },
   "description": "Satu baris per transaksi penjualan",
-  "credential_ref": "default",
   "sync_schedule": "0 */6 * * *"
 }
 ```
 
-`source_code` wajib unik per tenant, 1–63 karakter, lowercase identifier mulai huruf. `name` wajib 1–200 karakter. URL juga boleh berupa spreadsheet ID. Deskripsi maksimal 2000 karakter. `credential_ref` harus cocok dengan konfigurasi server; jangan mengirim email Service Account/private key. Cron lima field, optional/null untuk tanpa jadwal. Belum tersedia PATCH source untuk mengubah URL, deskripsi, atau jadwal setelah pendaftaran.
+`source_code` opsional. Jika tidak dikirim, server membentuk kode unik yang mudah dibaca dari `name`, misalnya `Penjualan Cabang` menjadi `penjualan_cabang`, lalu menambahkan suffix `_2`, `_3`, dan seterusnya bila sudah dipakai dalam tenant. Klien API tetap boleh mengirim kode bisnis sendiri dengan format 1–63 karakter, lowercase identifier mulai huruf. UUID sumber selalu dibuat sistem. `name` wajib 1–200 karakter. URL juga boleh berupa spreadsheet ID. `access_metadata` wajib untuk pendaftaran baru; tiga scope harus merupakan assignment aktif pendaftar, PURPOSE harus aktif pada registry tenant, dan owner/steward adalah user aktif tenant yang sama. Pilihan editor ada pada `GET /access/registration-options`; UUID pilihan hanya menjadi value internal dropdown. Sensitivitas hanya `LOW`, `MEDIUM`, atau `HIGH`. Deskripsi maksimal 2000 karakter. `credential_ref` boleh dihilangkan agar memakai alias server `default`; jangan tampilkan email Service Account/private key pada form. Cron lima field optional/null untuk tanpa jadwal; frontend utama memakai preset jadwal.
 
 Contoh respons `202` lengkap:
 
@@ -253,6 +383,22 @@ Contoh respons `202` lengkap:
       "owner_user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
       "credential_ref": "default",
       "status": "DISCOVERED",
+      "access_status": "ACCESS_POLICY_REQUIRED",
+      "access_revision": 1,
+      "access_metadata_editor_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "access_review_status": "PENDING",
+      "access_reviewed_by": null,
+      "access_reviewed_at": null,
+      "access_review_reason": "",
+      "access_metadata": {
+        "owner_unit_id": "11111111-1111-4111-8111-111111111111",
+        "business_domain_id": "22222222-2222-4222-8222-222222222222",
+        "jurisdiction_id": "33333333-3333-4333-8333-333333333333",
+        "purpose_id": "44444444-4444-4444-8444-444444444444",
+        "data_owner_user_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "data_steward_user_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "sensitivity": "MEDIUM"
+      },
       "sync_schedule": "0 */6 * * *",
       "paused": false,
       "last_scheduled_at": null
@@ -267,6 +413,41 @@ Contoh respons `202` lengkap:
 ```
 
 Simpan `source.id` dan `job_id`. Pendaftaran belum membuktikan akses ke Google berhasil; worker DISCOVER membaca metadata lalu langsung menjalankan profiling. Tunggu job selesai sebelum menampilkan tab. Error source_code duplikat adalah `409 RESOURCE_CONFLICT`; registrasi ulang bukan mekanisme update master.
+
+Untuk sumber legacy dengan `access_metadata=null`, atau untuk memperbaiki metadata
+existing, editor mengirim `PATCH /sources/{source_id}/access-metadata` dengan body
+`SourceAccessMetadataUpdate` lengkap (contoh di `api/PAYLOADS.json`). Gunakan
+`access_revision` terakhir dari GET sumber sebagai `revision_no`; konflik menghasilkan
+`409 SOURCE_ACCESS_REVISION_CONFLICT`, resource tenant lain 404, scope yang tidak lagi
+ter-assign 403. Nilai yang sama idempotent selama status masih pending. Perubahan nyata
+menaikkan revision, mengaudit nama field yang berubah tanpa ID owner mentah, dan selalu
+mengembalikan `access_status=ACCESS_POLICY_REQUIRED`. Status ETL tidak berubah; PATCH
+ini bukan persetujuan policy atau gate query/export.
+
+Admin lain dapat membaca `GET /sources/{source_id}/access-review-context` untuk
+melihat label atribut dan username owner/steward pada tenant aktif. Review memakai
+`POST /sources/{source_id}/access-review` dengan `revision_no` terbaru, `decision`
+`APPROVE` atau `REJECT`, dan alasan kode. `METADATA_VERIFIED` hanya untuk APPROVE;
+REJECT memakai `SCOPE_MISMATCH`, `OWNER_UNCONFIRMED`, atau `OTHER`. Reviewer tidak
+boleh menjadi editor metadata terakhir. APPROVE memeriksa ulang atribut, user, dan
+assignment aktif editor; REJECT tetap dapat dilakukan bila scope sudah tidak valid.
+Keputusan menambah revision, menyimpan actor/waktu/alasan, dan teraudit tanpa nilai
+metadata mentah. PATCH metadata berikutnya mengembalikan review ke PENDING. Review
+`APPROVED` **bukan** `POLICY_APPROVED`: akses data tetap `ACCESS_POLICY_REQUIRED`.
+
+Untuk sumber dengan metadata baru, admin yang bukan editor metadata memilih policy
+SOURCE ALLOW approved dari `GET /sources/{source_id}/access-policy-options` dan mengirim
+`POST /sources/{source_id}/access-activate` dengan `revision_no` serta `policy_id`.
+Aktivasi memerlukan review metadata APPROVED, policy berlaku yang terikat pada kode
+sumber, memuat unit pemilik + domain bisnis + yurisdiksi sebagai atribut wajib, dan
+memiliki aksi DISCOVER + QUERY. Policy row/column control ditolak sampai
+runtime mendukungnya. Sumber berubah ke `POLICY_APPROVED`, tetapi katalog, query,
+join, report, dan export tetap mengevaluasi aksi pengguna melalui policy SOURCE pada
+setiap permintaan; explicit deny, expiry, dan revoke berlaku segera. Evaluasi
+`DATA_PRODUCT` mewarisi binding SOURCE induknya serta menggabungkan binding DATA_PRODUCT
+langsung bila ada. Explicit deny dari kedua scope mengalahkan ALLOW. Query/export
+menolak policy row/column yang belum bisa diterapkan runtime. Sumber legacy tanpa
+metadata masih mengikuti kontrol lama; ini bukan default-deny penuh BE16.
 
 ### Mengatur tab dan profiling
 
@@ -656,7 +837,7 @@ File JSON/YAML berisi metadata schema_version, configuration_id, configuration_v
 |---|---|---|---|---|---|
 | GET | `/jobs` | S | offset/limit | 200 | Job[]; meta pagination |
 | GET | `/jobs/{job_id}` | S | — | 200 | Job |
-| GET | `/jobs/{job_id}/events` | S | `Accept: text/event-stream` | 200 | Event `job`, `complete`, `timeout`, atau `error` |
+| GET | `/jobs/{job_id}/events` | S | `Accept: text/event-stream` | 200 | Stream SSE event `job`, `complete`, `timeout`, atau `error` |
 | POST | `/jobs/{job_id}/retry` | S | — | 202 | EnqueuedJob baru |
 | GET | `/operations/summary` | S | — | 200 | Jumlah status job/review dan notifikasi aktif |
 | GET | `/notifications` | S | unacknowledged_only, offset/limit | 200 | OperationalNotification[]; meta pagination |
@@ -710,10 +891,17 @@ Job, isi `data` hasil GET:
 
 Job status: QUEUED → RUNNING → SUCCEEDED atau FAILED. Polling GET job gagal secara pekerjaan tetap **HTTP 200**, `data.status="FAILED"`, dan error ada di `data.error_code/error_message`, bukan `errors[]`.
 
-Halaman Jobs membuka `GET /jobs/{job_id}/events` melalui streaming `fetch` agar bearer
-token dapat dikirim. Event `job` memperbarui detail; `complete` menutup monitoring terminal;
-`timeout`/koneksi gagal kembali ke polling GET job. Batalkan stream/polling saat komponen
-dilepas dan sediakan “Lanjutkan memantau” setelah batas dua menit. Berhenti memantau tidak
+Untuk progres langsung, panggil `GET /jobs/{job_id}/events` dengan bearer token dan header
+`Accept: text/event-stream`. Server mengirim `event: job` ketika status/hasil berubah, lalu
+`event: complete` untuk status terminal. Heartbeat komentar dikirim saat tidak ada perubahan;
+`event: timeout` menutup stream setelah dua menit agar klien dapat membuka kembali dengan job ID
+yang sama. Event `error` dengan `code=JOB_NOT_FOUND` menutup stream jika job tidak lagi tersedia.
+Stream hanya tersedia untuk job pada tenant user. Seperti GET detail job, ini menjaga
+kegagalan discovery/onboarding tetap dapat diamati sebelum policy source diaktifkan.
+
+Browser `EventSource` standar tidak dapat memasang bearer header. Gunakan streaming `fetch`, atau
+poll `GET /jobs/{job_id}` setiap 2–5 detik sebagai fallback. Batalkan stream/polling saat komponen
+dilepas dan sediakan “Lanjutkan memantau” bila batas tunggu UI tercapai. Berhenti memantau tidak
 membatalkan job backend. Jangan mengulang POST enqueue hanya karena proses lama.
 
 Retry hanya untuk FAILED; menghasilkan ID job baru dengan requester user yang menekan retry. Worker memeriksa role lagi: DEPLOY/ROLLBACK memerlukan R, jenis lain E. Walaupun endpoint retry diizinkan untuk S, retry oleh user yang tidak memenuhi role jenis job bisa berakhir FAILED/FORBIDDEN.
@@ -798,19 +986,45 @@ Resolve hanya menandai issue RESOLVED dan menyimpan catatan, **tidak mengubah ni
 | POST | `/data-products/{code}/export` | Auth | QueryPlan | 200 | CSV tanpa envelope |
 | POST | `/saved-queries/{code}/run` | Auth | — | 200 | QueryRow[]; meta query |
 | GET | `/semantic/data-products` | Auth | — | 200 | Alias daftar DataProduct aktif yang diizinkan |
-| PATCH | `/semantic/data-products/{product_id}` | D | ProductUpdate | 200 | DataProduct |
+| PATCH | `/semantic/data-products/{product_id}` | D | ProductUpdate | 200 | DataProduct; name/description/metric_metadata memerlukan expected_version; PRODUCT_VERSION_CONFLICT 409, METRIC_NOT_FOUND/METRIC_SYNONYM_CONFLICT 422; lihat FRONTEND_BE14.md |
 | GET | `/semantic/metrics` | Auth | — | 200 | `[{data_product: code, ...MetricDefinition}]` |
+| GET | `/semantic/join-relationships` | Auth | — | 200 | Registry relationship tenant-scoped |
+| POST | `/semantic/join-relationships` | D | JoinRelationshipCreate | 201 | Relationship DRAFT; validasi product/column/cardinality |
+| PATCH | `/semantic/join-relationships/{relationship_id}` | D | JoinRelationshipUpdate | 200 | Edit hanya DRAFT; revision wajib dan approval dicabut |
+| POST | `/semantic/join-relationships/{relationship_id}/approve` | D | JoinRelationshipAction | 200 | Relationship APPROVED; revision bertambah |
+| POST | `/semantic/join-relationships/{relationship_id}/reject` | D | JoinRelationshipAction | 200 | Relationship REJECTED; revision bertambah |
 | GET | `/semantic/query-templates` | Auth | — | 200 | SavedQuery[] sesuai role; maksimal 100 |
 | POST | `/semantic/query-templates` | D | SavedQueryCreate | 201 | SavedQuery DRAFT |
 | GET | `/semantic/intents` | Auth | — | 200 | Alias daftar query-templates |
 | POST | `/semantic/intents` | D | SavedQueryCreate | 201 | Alias create query-template |
 | POST | `/semantic/query-templates/{template_id}/validate` | D | — | 200 | SavedQuery VALIDATED |
 | POST | `/semantic/query-templates/{template_id}/activate` | D | — | 200 | SavedQuery ACTIVE |
+| GET | `/ai-task-policies` | Auth | — | 200 | Policy task AI tenant-scoped |
+| GET | `/ai-task-policies/{policy_id}/versions` | Auth | offset, limit | 200 | Snapshot immutable; baseline dan revision terbaru lebih dahulu, tenant-scoped |
+| POST | `/ai-task-policies` | E | AITaskPolicyCreate | 201 | Policy DRAFT; semua model assignment harus allowlist server |
+| PATCH | `/ai-task-policies/{policy_id}` | E | AITaskPolicyUpdate | 200 | Edit hanya DRAFT; optimistic revision; semua model divalidasi; approval dibersihkan |
+| POST | `/ai-task-policies/{policy_id}/approve` | R | AITaskPolicyAction | 200 | Policy APPROVED setelah validasi ulang assignment dan prompt |
+| POST | `/ai-task-policies/{policy_id}/reject` | R | AITaskPolicyAction | 200 | Policy REJECTED |
+
 | GET | `/reports/sales/summary` | Auth | start_date, end_date wajib | 200 | QueryRow[] total sales |
 | GET | `/reports/sales/by-branch` | Auth | start_date, end_date wajib | 200 | QueryRow[] per branch |
 | GET | `/reports/sales/trend` | Auth | start_date, end_date wajib | 200 | QueryRow[] per bulan |
 | GET | `/reports/inventory/stock-position` | Auth | — | 200 | QueryRow[] stock |
 | GET | `/reports/data-quality/summary` | D | — | 200 | map status → jumlah issue |
+
+AI task policy mendukung scope opsional per purpose: `data_source_id` untuk `ETL_CONFIG`,
+`taxonomy_id` untuk `TAXONOMY_RECOMMEND`, atau `data_product_code` untuk `NL2SQL`.
+Maksimal satu scope boleh diisi; masing-masing harus milik tenant aktif, dan taxonomy
+harus aktif/APPROVED. Runtime memprioritaskan policy APPROVED yang exact, lalu policy
+global (semua scope null) sebagai fallback.
+
+Payload policy juga menerima `max_context_chars` (1.000-2.000.000),
+`daily_budget_usd` opsional, dan `fallback_model` opsional. Semua model dalam
+`allowed_models` harus ada pada allowlist server; fallback wajib berbeda dari model utama
+serta berada dalam allowlist policy dan server. Runtime menolak konteks berlebih sebelum
+provider dipanggil, mereservasi estimasi biaya prompt + konteks dan seluruh percobaan,
+membatasi budget harian policy mulai 00:00 UTC, dan mencoba fallback paling banyak satu
+kali. Ledger `audit.ai_usage_log.policy_id` mengaitkan biaya dengan policy yang dipakai.
 
 ### Data product dan pengaturan akses
 
@@ -856,13 +1070,25 @@ Query metrics/dimensions berasal dari katalog produk, bukan label bebas. Maksima
 | Null | Hanya `eq` untuk filter scalar null |
 | `sort.field` | Harus muncul sebagai field output query |
 | `time_grain` | none/day/week/month/quarter/year; diterapkan pada dimensi bertipe tanggal/waktu |
+| `visualization` | Opsional; spec allowlist table/KPI/chart yang hanya merujuk output plan |
 
 Jika metrics dan dimensions kosong, server memilih seluruh dimensi produk utama. Bila tidak ada output yang dapat dipilih, QUERY_INVALID. Tidak ada raw SQL, join bebas, OR filter, HAVING, atau pencarian contains pada payload.
 
-Field produk sekunder memakai bentuk `PRODUCT.field`. Dashboard hanya menawarkan
-relationship APPROVED yang arahnya dimulai dari produk utama. Backend tetap memeriksa
-akses kedua produk, tenant/row scope, PII, path, dan risiko agregasi ganda. Metrik join
-dengan default period memerlukan filter periode eksplisit.
+Untuk query multi-product, field produk sekunder wajib ditulis `PRODUCT.field` pada
+metrics, dimensions, filters, dan sort. Compiler hanya mengikuti relationship APPROVED
+yang diberikan secara eksplisit; urutannya harus membentuk path dari produk utama tanpa
+siklus. Setiap produk diperiksa terhadap role, tenant scope, row scope, dan klasifikasi
+PII. Guard kardinalitas menolak agregasi yang dapat menghitung ganda. Metrik dengan
+`default_period` memerlukan filter periode eksplisit dalam query join. Error khusus:
+`QUERY_JOIN_NOT_FOUND`, `QUERY_JOIN_PATH_INVALID`, `QUERY_JOIN_STALE`,
+`QUERY_JOIN_FORBIDDEN`, `QUERY_FIELD_FORBIDDEN`,
+`QUERY_AGGREGATION_AMBIGUOUS`, dan `QUERY_JOIN_DEFAULT_PERIOD_REQUIRED`.
+
+Metrik dapat memiliki `default_period` berisi dimension temporal dan days 1..3660.
+Backend menerapkannya menurut tanggal UTC hanya ketika QueryPlan tidak memfilter
+dimension tersebut. Default terpakai dikembalikan sebagai `meta.default_period_applied`.
+Default berbeda pada beberapa metrik menghasilkan `QUERY_DEFAULT_PERIOD_CONFLICT`
+(422); kirim filter tanggal eksplisit untuk menyelesaikannya.
 
 Respons query lengkap:
 
@@ -887,7 +1113,7 @@ Respons query lengkap:
 }
 ```
 
-Angka contoh bukan hasil eksekusi database. `row_count` adalah jumlah baris halaman ini, bukan total hasil. Jangan mengasumsikan `meta.limit`, `meta.offset`, atau total_pages tersedia. Cache mengikuti tenant, role, scope, produk, versi, freshness, dan plan; tidak mengubah hak akses user. Bila Redis gagal, query dapat tetap berjalan tanpa cache.
+Angka contoh bukan hasil eksekusi database. `row_count` adalah jumlah baris halaman ini, bukan total hasil. Jangan mengasumsikan `meta.limit`, `meta.offset`, atau total_pages tersedia. Cache mengikuti schema key, tenant, role, `token_version`, row scope, produk, semantic/freshness version, join relationship, revisi source/policy, fingerprint keputusan akses efektif, plan, dan periode default. Grant, expiry, atau perubahan hasil evaluator mengubah fingerprint; revoke juga menaikkan `token_version` agar sesi lama tidak berlaku. Key versi lama dibiarkan habis melalui TTL 300 detik dan tidak dibaca lagi. Bila Redis gagal, query tetap berjalan tanpa cache.
 
 ### Saved query dan intent
 
@@ -934,6 +1160,13 @@ POST `/data-products/{code}/export` memakai QueryPlan yang sama dan menghasilkan
 | POST | `/nl2sql/requests/{request_id}/feedback` | Auth + pemilik/admin | FeedbackRequest | 200 | `{recorded:true}` |
 | POST | `/nl2sql/clarifications/{request_id}` | Auth + pemilik/admin | QuestionRequest | 200 | QueryRow[]/[]; meta parent_request_id |
 | POST | `/nl2sql/requests/{request_id}/promote` | D | SavedQueryCreate | 201 | SavedQuery DRAFT |
+| GET | `/help/articles` | Auth | route, query opsional | 200 | Metadata artikel knowledge base sesuai role |
+| POST | `/help/ask` | Auth | HelpQuestion | 200 | Jawaban AI, sitasi artikel, saran pertanyaan, dan status kecukupan konteks |
+
+`/help/ask` melakukan retrieval lokal dari `docs/knowledge`, menyaring audience berdasarkan role,
+dan hanya mengirim artikel terpilih ke model. `route` membantu memprioritaskan petunjuk halaman aktif.
+Backend memvalidasi kembali ID sitasi model. Jika tidak ada konteks, respons aman dikembalikan tanpa
+memanggil OpenAI. Jangan mengirim password, token, API key, data pribadi, atau isi spreadsheet sensitif.
 
 QuestionRequest:
 
@@ -959,10 +1192,12 @@ Sukses query normal mempunyai meta query ditambah:
 
 Route normal: SAVED_QUERY, INTENT_TEMPLATE, OPENAI. `meta.query_source` mengikuti route. `cached=true` bisa bersamaan dengan `openai_called=true`, karena AI dapat dipanggil untuk membuat plan sebelum hasil SQL ditemukan di cache.
 
-Pada route OPENAI, backend dapat memberikan graph relationship APPROVED yang aman dan
-accessible kepada model. Root produk eksplisit dikunci; kode join keluaran AI harus
-berasal dari konteks dan tetap diperiksa compiler. Graph terlalu luas menghasilkan
-klarifikasi HTTP 200 agar pengguna memperjelas produk atau relasinya.
+Pada route OPENAI, konteks dapat memuat `approved_join_relationships`. Daftar tersebut
+hanya berisi relationship tenant-scoped yang kedua produknya dapat diakses, kolomnya
+masih tersedia, dan join key bukan PII MEDIUM/HIGH. Jika request menentukan
+`data_product_code`, graph dibangun terarah dari root itu maksimal lima hop. Lebih dari
+10 produk atau 50 relationship menghasilkan klarifikasi. Kode join hasil AI wajib
+merupakan subset konteks dan kembali diperiksa compiler sebelum SQL dijalankan.
 
 ### Klarifikasi adalah sukses HTTP 200
 
@@ -1003,6 +1238,7 @@ NL2SQL berjalan sinkron, bukan Job. Timeout frontend harus cukup untuk timeout m
 | GET | `/health/live` | Public | —; tanpa prefix API | 200 | `{alive:true}` |
 | GET | `/health/database` | Public | —; tanpa prefix API | 200 | DatabaseHealth |
 | GET | `/health/ready` | Public | —; tanpa prefix API | 200 | Readiness |
+| GET | `/health/dependencies` | A | —; tanpa prefix API | 200 | DependencyHealth |
 
 AIUsageSummary, contoh isi `data`:
 
@@ -1035,6 +1271,20 @@ Readiness mode manual dapat tetap 200:
 ```
 
 Jika REDIS_REQUIRED=true dan Redis tidak siap → 503 REDIS_UNAVAILABLE. Database/schema platform tidak siap → 503 DATABASE_UNAVAILABLE. Liveness tidak memeriksa database. Readiness hanya memeriksa koneksi utama/schema dan Redis; tidak membuktikan key Google/OpenAI, role DDL/reader, worker, atau beat berfungsi. `background_jobs="celery"` adalah hasil inferensi Redis tersedia, bukan pemeriksaan proses worker.
+
+`GET /health/dependencies` merupakan diagnosis khusus `PLATFORM_ADMIN`. Endpoint ini menjalankan empat pemeriksaan secara paralel dan selalu mengembalikan 200 selama aplikasi dapat menyelesaikan pemeriksaan. `data.status` bernilai `ready` bila semuanya siap atau `degraded` bila ada layanan `unavailable`/`not_configured`:
+
+```json
+{
+  "status": "ready",
+  "database": {"status": "ready", "latency_ms": 4.12, "message": null},
+  "redis": {"status": "ready", "latency_ms": 1.31, "message": null},
+  "google_api": {"status": "ready", "latency_ms": 128.42, "message": null},
+  "openai": {"status": "ready", "latency_ms": 214.73, "message": null}
+}
+```
+
+Pemeriksaan Google meminta token OAuth service account dengan scope baca Google Sheets. Ini membuktikan file kredensial dan autentikasi Google dapat digunakan, tetapi tidak membuktikan service account memiliki akses ke suatu spreadsheet tertentu. Pemeriksaan OpenAI membaca metadata setiap model yang dikonfigurasi; tidak menjalankan prompt dan tidak memakai token generasi. Pesan kegagalan disanitasi sehingga kredensial dan detail exception upstream tidak dikirim ke klien.
 
 ## 9. Alur implementasi Vue
 
@@ -1076,7 +1326,7 @@ Checklist UI per modul:
 | Approval | approve/reject/deploy | Role dan approver terpisah; ACTIVE setelah job sukses |
 | Monitor job | jobs, etl-runs | HTTP 200 dengan job FAILED; result per tab |
 | Kualitas data | issues/quarantine/resolve/reprocess | Catatan resolve tidak memperbaiki data otomatis |
-| Dashboard | data-products, metrics, query, reports | Katalog kosong, allowlist, batas baris, null aggregate |
+| Dashboard | nl2sql/query, clarifications, feedback, data-products, metrics, query, reports | Bahasa alami sebagai akses utama; klarifikasi di meta, katalog kosong, allowlist, batas baris, null aggregate |
 | Chat data | nl2sql/query, clarifications, feedback | Klarifikasi di meta, request baru, timeout AI |
 | Admin | users, audit-events, ai-usage | Scope tenant, revoke token saat update user |
 
@@ -1145,7 +1395,7 @@ if (data.meta.clarification_required) {
 
 Untuk artifact/data export, pakai `responseType: 'blob'`. Buat object URL, klik link download, lalu revoke URL setelah browser memulai download. Tangani error Axios berbentuk Blob JSON dengan `await blob.text()` dan parse envelope sebelum menampilkan error. Jangan menganggap semua Blob adalah file sukses.
 
-CORS saat ini mengizinkan GET/POST/PATCH dan header Authorization/Content-Type, serta hanya mengekspos X-Request-ID. Untuk download lintas origin, `Content-Disposition` belum diekspos ke JavaScript. Gunakan `Artifact.file_name` dari metadata atau nama tetap `data-export.csv`; jika perlu membaca header itu langsung, backend perlu memperbarui expose_headers. `localhost` dan `127.0.0.1` adalah origin berbeda; daftarkan origin Vue yang sebenarnya dalam CORS_ORIGINS.
+Pada environment non-production, FastAPI menangani CORS sesuai `CORS_ORIGINS`, mengizinkan GET/POST/PUT/PATCH dan header Authorization/Content-Type, serta mengekspos X-Request-ID dan Content-Disposition. Pada `APP_ENV=production`, FastAPI tidak memasang CORS middleware; Nginx wajib menangani origin, preflight OPTIONS, credentials, allowed headers, dan exposed headers. Contoh aktif tersedia di `deploy/nginx/api-google.kanjabung.web.id.conf.example`. `localhost` dan `127.0.0.1` adalah origin berbeda.
 
 ## 10. Error dan keterbatasan
 
@@ -1180,10 +1430,10 @@ Error Google seperti GOOGLE_NOT_CONFIGURED (503), SOURCE_ACCESS_DENIED (403), SO
 
 ### Keterbatasan yang perlu dipertahankan dalam UI
 
-1. Klasifikasi master/non-master per tab sudah tersedia pada BE-02. Master kanonis, FK antardataset, pertanyaan per sel, dan endpoint import-review **belum tersedia**. Lihat [spesifikasi master data](MASTER_DATA_DAN_VALIDASI_IMPORT.md) sebagai rancangan terpisah, bukan endpoint aktif.
+1. Klasifikasi master/non-master, registry dan storage master kanonis, binding/FK, pertanyaan terstruktur, serta endpoint import-review sudah tersedia melalui BE-02–BE-10. Migrasi data lama penuh, acceptance end-to-end provider nyata, dan rollout production masih terbuka.
 2. `dataset_kind` hanya diterima oleh SheetClassificationUpdate. Payload lain tetap menolak field tambahan yang tidak ada di schema; master_definition_id diterima pada MasterBindingUpdate, bukan pada payload klasifikasi.
-3. AI ETL membuat draft dari metadata/profile; seluruh sampel disamarkan. Tidak ada pemeriksaan typo semua data otomatis saat sync.
-4. Structured query dapat memakai relationship APPROVED eksplisit. NL2SQL AI hanya menerima graph APPROVED yang accessible dan hasilnya tetap divalidasi compiler; SQL bebas dan join arbitrer tidak tersedia. Foreign key master sendiri bukan izin join semantic.
+3. AI ETL konfigurasi membuat draft dari metadata/profile. Review AI per batch mendukung coverage, chunk cache, masking field sensitif, findings, blocker, dan pertanyaan; UI tidak boleh mengklaim semua baris diperiksa bila provider nonaktif, coverage hanya sampling, atau ada pengecualian.
+4. Structured query dapat memakai path relationship APPROVED yang eksplisit. NL2SQL AI menerima graph relationship APPROVED yang accessible dan hanya boleh memilih kode dari konteks tersebut; root eksplisit dikunci dan hasil tetap melalui compiler/guard yang sama. SQL bebas dan join arbitrer tidak tersedia; FK master sendiri bukan izin join semantic.
 5. Belum ada list seluruh NL2SQL request, edit/delete saved template, delete source/user, reset password user lain, atau endpoint daftar distinct dimensi.
 6. Approval source data/configuration bukan jaminan semua integrasi eksternal sudah siap. Tetap tampilkan status job dan error nyata.
 7. `submit-review` wajib menerima bukti review revision/snapshot dan memvalidasi draft. Approval ditolak tanpa submission terbaru; PATCH membatalkan bukti review. Deployment/rollback ditolak bila isi Google Sheet berbeda dari snapshot yang disetujui.
@@ -1428,6 +1678,14 @@ terselubung: provider belum siap -> OPENAI_NOT_CONFIGURED (503); gagal -> AI_UPS
 (503); refusal/output kosong -> AI_CONFIGURATION_INVALID (422); kuota/budget tetap
 kode existing. UI dapat menawarkan endpoint kemiripan existing sebagai aksi terpisah.
 
+Endpoint deterministik `POST /taxonomies/{taxonomy_id}/recommend-terms` memakai Redis
+secara opsional selama 900 detik. Key mencakup tenant, taxonomy ID dan version, versi
+algoritma, nilai input yang dinormalisasi, serta limit. Karena publish taxonomy menaikkan
+version, hasil lama tidak dapat dipakai oleh versi baru. Respons menambahkan `cached=true`
+untuk hit dan `cached=false` untuk hasil baru. Kegagalan Redis bersifat fail-open. Cache
+embedding belum tersedia karena aplikasi belum mempunyai provider/model/dimensi vector
+dan lifecycle re-index yang stabil untuk invalidasi.
+
 Saran tidak membuat term/alias/binding atau menyetujui data. Untuk TAXONOMY_INVALID,
 pengguna mengonfirmasi saran lalu mengirim term.code sebagai corrected_value lewat
 APPLY_CORRECTION. SELECT_RECORD hanya menerima kandidat yang sudah tercantum pada
@@ -1500,111 +1758,92 @@ JSON staging ke tipe target sebelum UPSERT, tanpa menjalankan ulang transformasi
 sumber. Nilai tidak dapat dikonversi menghasilkan IMPORT_STAGING_VALUE_INVALID (422).
 
 
-### BE14: metadata bisnis produk
+### BE14: null handling metrik konfigurasi
 
-PATCH `/semantic/data-products/{product_id}` menerima `name` (1..200),
-`description` (0..4000), dan `expected_version` (integer positif). Mengirim name
-atau description mewajibkan expected_version; mismatch menghasilkan
-PRODUCT_VERSION_CONFLICT (409). Nama blank/null dan description null ditolak.
-String kosong menghapus deskripsi. Sukses menaikkan semantic version; template
-lama perlu validate/activate ulang. Kontrak, kompatibilitas dan batas tahap 1:
-[Frontend BE14](FRONTEND_BE14.md).
-
-
-### BE14 tahap 2: metadata metrik
-
-PATCH `/semantic/data-products/{product_id}` mendukung `metric_metadata` berdasarkan
-kode metrik existing dengan expected_version wajib. Contoh:
-```json
-{"expected_version":4,"metric_metadata":[{"code":"net_sales","unit":"IDR","synonyms":["Pendapatan bersih"]}]}
-```
-Field omitted dipertahankan; unit null/sinonim [] menghapus metadata terkait.
-METRIC_NOT_FOUND dan METRIC_SYNONYM_CONFLICT menghasilkan 422. Unit adalah label,
-bukan konversi; QueryPlan tetap memakai kode resmi. Batas dan kompatibilitas:
-[Frontend BE14 tahap 2](FRONTEND_BE14.md#tahap-2-unit-dan-sinonim-metrik).
-
-
-### BE14 tahap 3: hasil agregat null
-
-PATCH konfigurasi lengkap mendukung `semantic.metrics[].null_handling`: PRESERVE
-(default) atau ZERO_RESULT. ZERO_RESULT hanya untuk hasil numerik dan diterapkan
-setelah agregasi; bukan default nilai input. Perubahan melewati review/deploy ETL.
-Workbook mempertahankan policy berdasarkan kode metrik, belum menyediakan sel editor.
-[Kontrak dan batas tahap 3](FRONTEND_BE14.md#tahap-3-null-handling-metrik-melalui-konfigurasi-etl).
+MetricDefinition menerima `null_handling` dengan enum PRESERVE (default) dan
+ZERO_RESULT. ZERO_RESULT membungkus hasil agregat numerik dengan COALESCE,
+bukan mengisi null input sebelum AVG. Konfigurasi tetap melewati review/approval
+dan deployment existing. Catalog lama tanpa field mempertahankan perilaku SQL.
+Payload, batas tipe, dan preservasi workbook:
+[Frontend BE14 tahap 3](FRONTEND_BE14.md#tahap-3-null-handling-metrik-melalui-konfigurasi-etl).
 
 
 ### BE14: editor XLSX null handling
 
-Workbook export terbaru mengaktifkan `11 Metric Definitions!M5:M204` untuk
-PRESERVE/ZERO_RESULT; kosong berarti PRESERVE. Workbook lama wajib diunduh ulang
-sebelum kolom M bisa diedit. Preview/apply tetap menyimpan draft dan membutuhkan
-review/approval aplikasi.
-[Kontrak tahap 4](FRONTEND_BE14.md#tahap-4-editor-null-handling-di-xlsx).
+Export workbook terbaru mengaktifkan `11 Metric Definitions!M5:M204` untuk
+PRESERVE/ZERO_RESULT; kosong berarti PRESERVE. Workbook lama mempertahankan policy
+existing dan harus diunduh ulang sebelum kolom M boleh diedit. Alur preview/apply
+tetap menyimpan draft tanpa approval otomatis.
+[Kontrak editor dan kompatibilitas](FRONTEND_BE14.md#tahap-4-editor-null-handling-di-xlsx).
 
 
-### BE14: pilihan template ambigu
+### BE14: ambiguitas template query
 
-Klarifikasi NL2SQL dapat menambahkan template_candidates (code/data_product_code,
-maksimal 20) dan template_candidates_more pada meta. Chat memilih kandidat secara
- eksplisit, kemudian mengirim saved_query_code pada QuestionRequest lengkap.
-AI tidak dipanggil saat template ambigu. Pilihan tetap tunduk akses/versi terkini;
-produk tidak cocok menghasilkan SAVED_QUERY_PRODUCT_MISMATCH (422).
-[Handoff tahap 5](FRONTEND_BE14.md#tahap-5-klarifikasi-template-yang-ambigu).
+NL2SQL mengembalikan clarification_required dengan template_candidates
+(code/data_product_code, maksimal 20) dan template_candidates_more ketika beberapa
+contoh template cocok. AI/query tidak dijalankan. Pilihan dikirim melalui
+saved_query_code pada QuestionRequest existing. Produk yang tidak cocok menghasilkan
+SAVED_QUERY_PRODUCT_MISMATCH (422); izin/status/versi diperiksa kembali.
+[Kontrak Chat tahap 5](FRONTEND_BE14.md#tahap-5-klarifikasi-template-yang-ambigu).
 
 
 ### BE14: metadata metrik reviewed
 
-Konfigurasi lengkap mendukung `semantic.metrics[].description`, `unit`, dan
-`synonyms`. Metadata ikut revision, review/approval, serta deployment. Editor frontend
-tersedia pada Analitik & akses; workbook baru memakai tab 11 kolom C/D/K dan format
-lama mempertahankan nilai server.
-[Handoff tahap 6](FRONTEND_BE14.md#tahap-6-metadata-metrik-reviewed).
+MetricDefinition menerima `description` (maksimal 1000), `unit` nullable (maksimal
+40), dan `synonyms` (maksimal 20 string masing-masing 100), selain label maksimal 200.
+Metadata dinormalisasi, konflik istilah antarmetrik ditolak, lalu mengikuti revision,
+review/approval, dan deployment konfigurasi existing. Workbook tab 11 mengaktifkan
+kolom C/D/K dengan marker signed dan preservasi format lama.
+[Kontrak frontend dan workbook tahap 6](FRONTEND_BE14.md#tahap-6-metadata-metrik-dalam-konfigurasi-dan-workbook).
 
 
 ### BE14: default periode metrik
 
-MetricDefinition mendukung `default_period: {dimension, days}`. Default memakai tanggal
-UTC ketika dimension belum difilter; konflik antar-metrik menghasilkan
-`QUERY_DEFAULT_PERIOD_CONFLICT` (422). Editor konfigurasi dan workbook I/J tersedia.
-[Handoff tahap 7](FRONTEND_BE14.md#tahap-7-default-periode-metrik).
+MetricDefinition menerima `default_period: {dimension, days}` atau null. Dimension
+wajib temporal, publik, dan terdaftar sebagai semantic dimension; days 1..3660.
+Konfigurasi mengikuti review/deployment. Workbook tab 11 memakai I/J dan format lama
+dipreservasi menggunakan marker signed.
+[Kontrak tahap 7](FRONTEND_BE14.md#tahap-7-default-periode-metrik).
 
 
 ### BE14: filter tetap metrik
 
-MetricDefinition mendukung maksimal 10 `filters` terstruktur. Field wajib mapped publik,
-operator dan bentuk value memakai allowlist. Workbook memakai tab 11 kolom H sebagai
-array JSON; frontend menyediakan editor field/operator/value.
-[Handoff tahap 8](FRONTEND_BE14.md#tahap-8-filter-tetap-metrik).
+MetricDefinition menerima maksimal 10 `filters` terstruktur dengan field mapped publik,
+operator allowlist, serta value bertipe. Compiler memakai aggregate FILTER sehingga
+scope dan filter QueryPlan tetap berlaku. SQL mentah dan key tambahan ditolak. Workbook
+tab 11 kolom H memakai array JSON dengan kompatibilitas format lama.
+[Kontrak tahap 8](FRONTEND_BE14.md#tahap-8-filter-tetap-metrik).
 
 
-### BE14: visualisasi dinamis
+### BE14: visualisasi dinamis tervalidasi
 
-`QueryPlan.visualization` mendukung table, KPI, bar, line, area, pie/donut, combo,
-scatter, dan heatmap. Field harus berasal dari output plan. Respons mengembalikan spec
-melalui meta; Dashboard dan Chat menyediakan renderer serta override manual.
-[Handoff tahap 9](FRONTEND_BE14.md#tahap-9-visualisasi-dinamis).
+QueryPlan mendukung visualization untuk table, KPI, bar, line, area, pie, donut, combo,
+scatter, dan heatmap. Bentuk serta referensi field divalidasi terhadap metrics/dimensions
+terpilih. Spec dikembalikan pada meta dan tersimpan dalam saved query, tetapi tidak
+memengaruhi SQL atau cache key hasil. Opsi chart-library dan script bebas ditolak.
+[Kontrak tahap 9](FRONTEND_BE14.md#tahap-9-spesifikasi-visualisasi-tervalidasi).
+### BE15: statistik proses dan notifikasi operasional
 
-### BE15: lifecycle AI task policy
+`GET /operations/summary` mengembalikan jumlah status job dan batch import untuk tenant
+aktif, jumlah notifikasi belum diakui, serta waktu pembuatan ringkasan.
 
-Governance memakai `GET /ai-task-policies`, `POST /ai-task-policies`,
-`PATCH /ai-task-policies/{policy_id}`, serta aksi approve/reject. PATCH hanya menerima
-policy DRAFT dengan `revision_no` terbaru dan mengganti assignment purpose/prompt/model
-secara utuh. Backend membersihkan bukti approval dan menulis audit edit. Runtime memakai
-policy APPROVED dengan waktu approval terbaru untuk purpose terkait. API key tetap hanya
-berasal dari environment dan tidak menjadi field frontend.
+```json
+{
+  "jobs": {"QUEUED": 2, "RUNNING": 1, "FAILED": 1},
+  "import_reviews": {"NEEDS_INPUT": 3, "READY_FOR_APPROVAL": 1},
+  "unacknowledged_notifications": 4,
+  "generated_at": "2026-09-27T10:00:00Z"
+}
+```
 
-Policy purpose `NL2SQL` dapat membawa `data_product_code` nullable. Backend memilih
-policy scoped yang cocok dengan produk sebelum policy global. Selector frontend hanya
-menampilkan produk accessible; purpose lain selalu mengirim null.
+`GET /notifications?unacknowledged_only=true&offset=0&limit=50` mengembalikan inbox
+tenant. Kind aktif adalah `JOB_FAILED`, `IMPORT_NEEDS_INPUT`, `IMPORT_FAILED`, dan
+`ACCESS_REQUEST_PENDING`. Notifikasi dapat tenant-wide atau diarahkan melalui
+`recipient_user_id`; notifikasi terarah hanya dihitung dan dikembalikan kepada penerima.
+Response tidak memuat raw data sumber.
 
-### BE15: statistik dan notifikasi operasional
-
-Jobs memakai `GET /operations/summary` dan
-`GET /notifications?unacknowledged_only=true&offset=0&limit=50`. Summary memuat jumlah
-status job/import review, jumlah notifikasi belum diakui, dan `generated_at`.
-
-Kind aktif adalah `JOB_FAILED`, `IMPORT_NEEDS_INPUT`, dan `IMPORT_FAILED`. Payload tidak
-memuat raw row atau nilai PII. `POST /notifications/{notification_id}/acknowledge` tidak
-memakai body, bersifat idempotent, dan tidak mengubah status atau me-retry resource.
-Frontend memuat ulang summary/inbox setelah acknowledge. Resource import ditautkan ke
-detail batch; resource job dapat langsung dipantau dari halaman Jobs.
+`POST /notifications/{notification_id}/acknowledge` tidak memakai body. Endpoint
+mengisi pengguna/waktu acknowledge dan menulis audit. Pemanggilan ulang sukses tanpa
+menggandakan audit. Resource tenant lain atau notifikasi yang ditujukan kepada pengguna
+lain menghasilkan `RESOURCE_NOT_FOUND` (404).
+Role ketiga endpoint: editor source/data, platform admin, dan technical approver.

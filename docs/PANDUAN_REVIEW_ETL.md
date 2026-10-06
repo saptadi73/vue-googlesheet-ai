@@ -1,6 +1,6 @@
 # Implementasi review konfigurasi ETL
 
-Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runtime ETL. AI menghasilkan draft; pengguna menyesuaikan konfigurasi, menjawab pertanyaan, memvalidasi, lalu mengajukan review. Approver berbeda menyetujui sebelum deployment. Registry master, taxonomy, koreksi typo semua sel, dan foreign key otomatis masih mengikuti [rancangan master data](MASTER_DATA_DAN_VALIDASI_IMPORT.md), belum menjadi perilaku runtime.
+Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runtime ETL. AI menghasilkan draft; pengguna menyesuaikan konfigurasi, menjawab pertanyaan, memvalidasi, lalu mengajukan review. Approver berbeda menyetujui konfigurasi. Jika admin mengaktifkan aturan persetujuan tayang, pemeriksa IT dan satu approver dari setiap unit terkait juga harus menyetujui revisi yang sama sebelum deployment. Detail fitur master, taxonomy, dan import terbaru mengikuti [API Reference](API_REFERENCE.md) serta panduan masing-masing.
 
 ## Menjalankan
 
@@ -16,7 +16,8 @@ Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runt
 5. Pilih sumber/tab, atau hubungkan Google Sheet baru yang sudah dibagikan ke service account. Jalankan rekomendasi AI setelah profiling selesai. Buka draft yang dihasilkan.
 6. Periksa identitas, mapping kolom, cleansing berurutan, kualitas data, strategi pemuatan, dimensi, metrik, dan role akses. Simpan perubahan, periksa dry-run, isi checklist seluruh bagian/kolom, lalu **Ajukan review**.
 7. Gunakan akun `TECHNICAL_APPROVER` atau admin berbeda untuk membuka konfigurasi yang sama, memeriksa hasil, dan menyetujui. Admin dapat membuat user melalui `/register` dan mengatur role/status melalui `/admin/users`.
-8. **Deploy konfigurasi**, tunggu job SUCCEEDED, lalu jalankan sinkronisasi dengan akun editor. Approval dan deployment tidak langsung memuat data.
+8. Jika aturan siap tayang aktif pada sumber, akun IT dan approver bernama tiap unit membuka `/release-approvals`. IT melengkapi checklist skema/mapping, kualitas data, dan keamanan/akses. Semua kelompok menyetujui revisi konfigurasi serta snapshot review yang sama; statusnya tampil pada review konfigurasi.
+9. Setelah status siap tayang, **Deploy konfigurasi**, tunggu job SUCCEEDED, lalu jalankan sinkronisasi dengan akun editor. Approval dan deployment tidak langsung memuat data. Penolakan memerlukan versi konfigurasi baru atau revisi aturan yang diaudit. Sumber tanpa aturan rilis tetap memakai review konfigurasi biasa; rollback versi lama juga diperiksa terhadap aturan rilis saat ini. Review batch import tetap terpisah.
 
 Konfigurasi APPROVED/ACTIVE lama yang tidak memiliki bukti review tetap tidak dapat diedit. Bila perlu deployment ulang, clone menjadi draft, validasi, submit, dan approve. Runtime sync konfigurasi yang sudah ACTIVE tidak memerlukan checklist ulang untuk setiap sync. Rollback konfigurasi memeriksa snapshot yang disetujui; perubahan data dapat mengharuskan draft baru. Rollback bukan pemulihan data historis.
 
@@ -148,6 +149,9 @@ Status `Tidak` pada cleansing atau `Nonaktif` pada aturan kualitas/metrik berart
 | QUESTION_ANSWER_REQUIRED / QUESTION_INVALID     | 422  | Cocokkan pertanyaan dan isi jawaban                                   |
 | WORKBOOK_INVALID / WORKBOOK_STRUCTURE           | 422  | Gunakan XLSX export aplikasi yang utuh                                |
 | SEPARATE_APPROVER_REQUIRED                      | 403  | Gunakan approver berbeda                                              |
+| RELEASE_APPROVAL_REQUIRED                       | 409  | Periksa status IT dan setiap unit di Persetujuan tayang sebelum deploy/rollback |
+| RELEASE_REJECTED                                | 409  | Buat versi konfigurasi baru atau minta admin meninjau aturan rilis |
+| RELEASE_POLICY_STALE / RELEASE_CONFIGURATION_STALE | 409 | Muat ulang aturan/status dan gunakan revisi konfigurasi terbaru |
 
 ## Verifikasi pengembangan
 
