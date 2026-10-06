@@ -3,6 +3,7 @@ export interface PageHelpContent {
   purpose: string
   steps: string[]
   notes?: string[]
+  examples?: Array<{ label: string; value: string }>
 }
 
 interface PageHelpEntry extends PageHelpContent {
@@ -16,14 +17,17 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/guide'),
     title: 'Panduan umum awal sampai akhir',
-    purpose: 'Menjelaskan prosedur lengkap dari persiapan akses dan Google Sheet sampai data tampil di dashboard dan chart.',
+    purpose:
+      'Menjelaskan prosedur lengkap dari persiapan akses dan Google Sheet sampai data tampil di dashboard dan chart.',
     steps: [
       'Mulai dari bagian Sebelum mulai dan pastikan akun, role, service account, serta metadata bisnis tersedia.',
       'Ikuti tahap 1–10 secara berurutan; tahap master dan taxonomy dijalankan sesuai kebutuhan dataset.',
       'Gunakan kriteria Selesai jika pada setiap tahap sebelum melanjutkan.',
       'Jika data belum muncul, ikuti checklist troubleshooting di bagian akhir halaman.',
     ],
-    notes: ['Tautan tahap yang tidak sesuai role akan diarahkan ke halaman yang diizinkan untuk akun Anda.'],
+    notes: [
+      'Tautan tahap yang tidak sesuai role akan diarahkan ke halaman yang diizinkan untuk akun Anda.',
+    ],
   },
   {
     matches: exact('/login'),
@@ -39,7 +43,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/dashboard'),
     title: 'Dashboard dan pencarian data',
-    purpose: 'Mencari data dengan bahasa alami atau menyusun query katalog, lalu melihat hasil sebagai tabel dan chart.',
+    purpose:
+      'Mencari data dengan bahasa alami atau menyusun query katalog, lalu melihat hasil sebagai tabel dan chart.',
     steps: [
       'Tulis pertanyaan pada Tanyakan data dengan bahasa alami. Pilihan ruang data boleh dikosongkan.',
       'Jika sistem meminta klarifikasi, lengkapi periode, produk, lokasi, atau ukuran yang dimaksud.',
@@ -47,6 +52,13 @@ const entries: PageHelpEntry[] = [
       'Gunakan Susun query dari katalog bila Anda ingin memilih dimensi, metrik, filter, dan join secara manual.',
     ],
     notes: ['Hasil hanya memakai produk data dan field yang diizinkan untuk akun Anda.'],
+    examples: [
+      { label: 'Pertanyaan penjualan', value: 'Tampilkan total penjualan per cabang bulan ini.' },
+      {
+        label: 'Pertanyaan tren',
+        value: 'Bandingkan total penjualan per bulan di Jawa Timur tahun ini.',
+      },
+    ],
   },
   {
     matches: exact('/chat'),
@@ -58,11 +70,15 @@ const entries: PageHelpEntry[] = [
       'Jawab klarifikasi atau pilih kandidat template bila diminta.',
       'Tinjau tabel, chart, detail request, lalu kirim feedback bila hasil perlu diperbaiki.',
     ],
+    examples: [
+      { label: 'Pertanyaan lengkap', value: 'Tampilkan total penjualan per cabang bulan ini.' },
+    ],
   },
   {
     matches: exact('/workspace'),
     title: 'Workspace konfigurasi ETL',
-    purpose: 'Menghubungkan Google Sheet, membaca struktur tab, membuat konfigurasi ETL, dan mengelola metadata akses sumber.',
+    purpose:
+      'Menghubungkan Google Sheet, membaca struktur tab, membuat konfigurasi ETL, dan mengelola metadata akses sumber.',
     steps: [
       'Hubungkan spreadsheet baru dengan nama, URL/ID, pemilik, domain, yurisdiksi, purpose, dan sensitivitas.',
       'Bagikan spreadsheet kepada service account backend sebagai Viewer sebelum profiling.',
@@ -70,11 +86,27 @@ const entries: PageHelpEntry[] = [
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
     ],
     notes: ['Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.'],
+    examples: [
+      { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
+      {
+        label: 'Deskripsi',
+        value: 'Transaksi penjualan harian per cabang untuk analisis bulanan.',
+      },
+      {
+        label: 'Unit · domain · yurisdiksi',
+        value: 'Departemen Keuangan · Penjualan · Jawa Timur',
+      },
+      {
+        label: 'Purpose · sensitivitas',
+        value: 'Analitik Manajemen · LOW bila sesuai klasifikasi data',
+      },
+    ],
   },
   {
     matches: pattern(/^\/configurations\/[^/]+\/review$/),
     title: 'Verifikasi konfigurasi ETL',
-    purpose: 'Memeriksa mapping kolom, transformasi, aturan kualitas, target, semantic metadata, dan lifecycle approval konfigurasi.',
+    purpose:
+      'Memeriksa mapping kolom, transformasi, aturan kualitas, target, semantic metadata, dan lifecycle approval konfigurasi.',
     steps: [
       'Periksa identitas sumber dan fingerprint profil yang menjadi dasar draft.',
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
@@ -87,7 +119,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/masters'),
     title: 'Registry master',
-    purpose: 'Mencari, membuat, dan mengelola definisi data master yang menjadi rujukan dataset lain.',
+    purpose:
+      'Mencari, membuat, dan mengelola definisi data master yang menjadi rujukan dataset lain.',
     steps: [
       'Cari master berdasarkan kode, nama, atau alias.',
       'Buka master untuk meninjau schema dan policy, atau pilih Buat master baru.',
@@ -98,12 +131,18 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/masters/new'),
     title: 'Definisi master baru',
-    purpose: 'Mendefinisikan schema, business key, label, sensitivitas, dan policy lifecycle sebuah master.',
+    purpose:
+      'Mendefinisikan schema, business key, label, sensitivitas, dan policy lifecycle sebuah master.',
     steps: [
       'Isi kode bisnis, nama, deskripsi, field, dan tipe data.',
       'Pilih business key yang tidak boleh kosong serta field label.',
       'Atur policy record baru, konflik sumber, dan masa berlaku bila diperlukan.',
       'Preview kandidat master serupa, tinjau semuanya, lalu simpan dan ajukan review.',
+    ],
+    examples: [
+      { label: 'Kode · nama master', value: 'cabang · Master Cabang' },
+      { label: 'Business key', value: 'kode_cabang (teks, wajib)' },
+      { label: 'Field label', value: 'nama_cabang (teks)' },
     ],
   },
   {
@@ -142,7 +181,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: pattern(/^\/sources\/[^/]+\/sheets\/[^/]+\/column-bindings$/),
     title: 'Binding kolom referensi master',
-    purpose: 'Menghubungkan kolom dataset dinamis ke record master sebagai referensi yang tervalidasi.',
+    purpose:
+      'Menghubungkan kolom dataset dinamis ke record master sebagai referensi yang tervalidasi.',
     steps: [
       'Muat rekomendasi untuk melihat kandidat master dan field yang mirip.',
       'Pilih master, versi, field tujuan, cardinality, dan aturan wajib.',
@@ -160,6 +200,11 @@ const entries: PageHelpEntry[] = [
       'Simpan binding draft, lalu submit untuk approval.',
       'Nilai ambigu atau tidak dikenal akan ditanyakan pada review batch.',
     ],
+    examples: [
+      { label: 'Kolom sumber', value: 'Jenis Biaya' },
+      { label: 'Taxonomy', value: 'jenis_biaya yang sudah approved' },
+      { label: 'Nilai wajib', value: 'Centang bila hanya term taxonomy yang boleh dipakai.' },
+    ],
   },
   {
     matches: exact('/taxonomies'),
@@ -171,11 +216,18 @@ const entries: PageHelpEntry[] = [
       'Tinjau versi lalu approve agar taxonomy dapat dipakai binding.',
       'Gunakan resolver atau saran AI untuk menguji nilai sumber terhadap term.',
     ],
+    examples: [
+      { label: 'Kode · nama taxonomy', value: 'jenis_biaya · Jenis Biaya' },
+      { label: 'Kode · label term', value: 'operasional · Biaya Operasional' },
+      { label: 'Parent · alias', value: 'Root · OPEX dan biaya rutin (satu alias per baris)' },
+      { label: 'Term kedua', value: 'investasi · Biaya Investasi · alias CAPEX' },
+    ],
   },
   {
     matches: exact('/governance'),
     title: 'Semantic join dan kebijakan AI',
-    purpose: 'Mengelola relationship antarproduk data serta model, prompt, dan assignment AI yang diizinkan.',
+    purpose:
+      'Mengelola relationship antarproduk data serta model, prompt, dan assignment AI yang diizinkan.',
     steps: [
       'Buat relationship hanya dari produk dan kolom yang memang memiliki hubungan bisnis.',
       'Validasi cardinality dan risiko agregasi, lalu submit untuk approval.',
@@ -197,7 +249,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: pattern(/^\/import-reviews\/[^/]+$/),
     title: 'Detail batch import',
-    purpose: 'Menyelesaikan temuan, referensi, pertanyaan, preview, approval, dan apply sebuah batch.',
+    purpose:
+      'Menyelesaikan temuan, referensi, pertanyaan, preview, approval, dan apply sebuah batch.',
     steps: [
       'Periksa status batch, dependency, dan daftar temuan.',
       'Jawab pertanyaan wajib atau resolve referensi menggunakan master approved.',
@@ -210,7 +263,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/jobs'),
     title: 'Job dan riwayat ETL',
-    purpose: 'Memantau pekerjaan background, event progres, jadwal sumber, retry, pause, dan resume.',
+    purpose:
+      'Memantau pekerjaan background, event progres, jadwal sumber, retry, pause, dan resume.',
     steps: [
       'Pilih Pantau pada job untuk melihat progres dan event terbaru.',
       'Gunakan retry hanya setelah penyebab kegagalan diperbaiki.',
@@ -221,7 +275,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/quality'),
     title: 'Masalah dan karantina data',
-    purpose: 'Meninjau baris yang gagal aturan kualitas, mencatat resolusi, dan menjalankan pemrosesan ulang.',
+    purpose:
+      'Meninjau baris yang gagal aturan kualitas, mencatat resolusi, dan menjalankan pemrosesan ulang.',
     steps: [
       'Pilih sumber atau muat daftar masalah terbaru.',
       'Baca kode masalah dan konteks yang aman ditampilkan.',
@@ -232,13 +287,23 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/admin'),
     title: 'Administrasi tenant',
-    purpose: 'Mengelola atribut akses, assignment, permission bundle, policy, audit, dan penggunaan AI.',
+    purpose:
+      'Mengelola atribut akses, assignment, permission bundle, policy, audit, dan penggunaan AI.',
     steps: [
       'Buat atribut organisasi seperti departemen, domain, yurisdiksi, clearance, dan purpose.',
       'Berikan assignment serta permission bundle kepada pengguna dengan masa berlaku yang tepat.',
       'Buat policy resource sebagai draft, submit, lalu approve menggunakan admin yang berbeda.',
       'Gunakan Preview keputusan untuk menguji akses sebelum rollout.',
       'Tinjau audit dan penggunaan AI secara berkala.',
+    ],
+    examples: [
+      { label: 'DEPARTMENT', value: 'keuangan · Departemen Keuangan' },
+      { label: 'BUSINESS_DOMAIN', value: 'penjualan · Penjualan' },
+      { label: 'JURISDICTION', value: 'jatim · Jawa Timur' },
+      {
+        label: 'PURPOSE · CLEARANCE',
+        value: 'analitik_manajemen · Analitik Manajemen; internal · Internal',
+      },
     ],
   },
   {
@@ -278,12 +343,19 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/access-requests'),
     title: 'Permintaan akses sementara',
-    purpose: 'Meminta, menyetujui, menolak, mencabut, dan meninjau akses yang memiliki masa berlaku.',
+    purpose:
+      'Meminta, menyetujui, menolak, mencabut, dan meninjau akses yang memiliki masa berlaku.',
     steps: [
       'Pilih target akses, atribut atau permission, serta periode yang diperlukan.',
       'Jelaskan alasan bisnis dan kirim permintaan.',
       'Reviewer memeriksa scope dan masa berlaku sebelum approve atau reject.',
       'Pantau histori; batalkan permintaan yang tidak lagi diperlukan atau cabut akses aktif.',
+    ],
+    examples: [
+      {
+        label: 'Alasan bisnis',
+        value: 'Memerlukan laporan penjualan Jawa Timur untuk evaluasi bulanan.',
+      },
     ],
   },
   {

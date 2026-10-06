@@ -117,7 +117,9 @@ test('viewer only sees authorized operational and account menus', async ({ page 
   await login(page, 'viewer')
   const operations = page.getByRole('navigation', { name: 'Operasional', exact: true })
   await expect(operations.getByRole('link')).toHaveCount(3)
-  await expect(operations.getByRole('link', { name: 'Panduan penggunaan', exact: true })).toBeVisible()
+  await expect(
+    operations.getByRole('link', { name: 'Panduan penggunaan', exact: true }),
+  ).toBeVisible()
   await expect(operations.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
@@ -148,7 +150,9 @@ test('contextual help follows the active page and supports keyboard closing', as
   dialog = page.getByRole('dialog', { name: 'Masuk ke aplikasi' })
   await dialog.getByRole('link', { name: 'Panduan lengkap' }).click()
   await expect(page).toHaveURL(/\/guide$/)
-  await expect(page.getByRole('heading', { name: 'Dari Google Sheet sampai dashboard' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Dari Google Sheet sampai dashboard' }),
+  ).toBeVisible()
   await page.goto('/login')
 
   await login(page, 'viewer')
@@ -156,6 +160,8 @@ test('contextual help follows the active page and supports keyboard closing', as
   await helpButton.click()
   dialog = page.getByRole('dialog', { name: 'Dashboard dan pencarian data' })
   await expect(dialog).toContainText('Tanyakan data dengan bahasa alami')
+  await expect(dialog.getByRole('heading', { name: 'Contoh pengisian' })).toBeVisible()
+  await expect(dialog).toContainText('Tampilkan total penjualan per cabang bulan ini.')
   await dialog.getByRole('button', { name: 'Saya mengerti' }).click()
   await expect(dialog).toBeHidden()
   expect(mock.errors).toEqual([])
@@ -169,13 +175,17 @@ test('general guide presents the full Google Sheet to dashboard workflow', async
     .getByRole('link', { name: 'Panduan penggunaan', exact: true })
     .click()
   await expect(page).toHaveURL(/\/guide$/)
-  await expect(page.getByRole('heading', { name: 'Dari Google Sheet sampai dashboard' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Dari Google Sheet sampai dashboard' }),
+  ).toBeVisible()
   await expect(page.getByText('Siapkan organisasi, akun, dan akses')).toBeVisible()
   await expect(page.getByText('Daftarkan Google Sheet')).toBeVisible()
   await expect(page.getByText('Siapkan master data bila diperlukan')).toBeVisible()
   await expect(page.getByText('Siapkan taxonomy untuk kategori baku')).toBeVisible()
   await expect(page.getByText('Tampilkan data di dashboard dan chart')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Jika data belum muncul di dashboard' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Jika data belum muncul di dashboard' }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Buka bantuan halaman' }).click()
   await expect(page.getByRole('dialog', { name: 'Panduan umum awal sampai akhir' })).toBeVisible()
   expect(mock.errors).toEqual([])

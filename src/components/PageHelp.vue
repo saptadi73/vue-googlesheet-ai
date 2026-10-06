@@ -28,9 +28,11 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
   if (event.key !== 'Tab' || !dialog.value) return
-  const focusable = [...dialog.value.querySelectorAll<HTMLElement>('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(
-    (element) => !element.hasAttribute('disabled'),
-  )
+  const focusable = [
+    ...dialog.value.querySelectorAll<HTMLElement>(
+      'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ].filter((element) => !element.hasAttribute('disabled'))
   if (!focusable.length) return
   const first = focusable[0]
   const last = focusable.at(-1)
@@ -95,6 +97,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <li v-for="step in content.steps" :key="step">{{ step }}</li>
             </ol>
           </section>
+          <section v-if="content.examples?.length" class="page-help-examples">
+            <h3>Contoh pengisian</h3>
+            <p>Contoh fiktif. Sesuaikan dengan data dan kebijakan organisasi Anda.</p>
+            <dl>
+              <div v-for="example in content.examples" :key="example.label">
+                <dt>{{ example.label }}</dt>
+                <dd>{{ example.value }}</dd>
+              </div>
+            </dl>
+          </section>
           <section v-if="content.notes?.length" class="page-help-notes">
             <h3>Perlu diperhatikan</h3>
             <ul>
@@ -103,7 +115,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           </section>
         </div>
         <footer>
-          <RouterLink class="page-help-guide" to="/guide" @click="close">Panduan lengkap</RouterLink>
+          <RouterLink class="page-help-guide" to="/guide" @click="close"
+            >Panduan lengkap</RouterLink
+          >
           <button type="button" class="page-help-done" @click="close">Saya mengerti</button>
         </footer>
       </section>
@@ -221,6 +235,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   border-left: 4px solid #d97706;
   border-radius: 0.5rem;
   background: #fffbeb;
+}
+.page-help-examples {
+  padding: 1rem;
+  border: 1px solid #c6e5d8;
+  border-radius: 0.7rem;
+  background: #f0fdf4;
+}
+.page-help-examples > p {
+  margin-bottom: 0.9rem;
+  color: #475569;
+  font-size: 0.88rem;
+}
+.page-help-examples dl {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+}
+.page-help-examples dl > div {
+  display: grid;
+  gap: 0.18rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid #d1e9db;
+}
+.page-help-examples dl > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.page-help-examples dt {
+  color: #065f46;
+  font-weight: 700;
+}
+.page-help-examples dd {
+  margin: 0;
 }
 .page-help-dialog > footer {
   position: sticky;

@@ -44,4 +44,20 @@ describe('page help registry', () => {
     expect(help.title).toBe('Bantuan halaman')
     expect(help.steps).toHaveLength(4)
   })
+
+  it('shows concrete examples on the relevant pages', () => {
+    expect(getPageHelp('/taxonomies').examples).toContainEqual({
+      label: 'Kode · nama taxonomy',
+      value: 'jenis_biaya · Jenis Biaya',
+    })
+    expect(
+      getPageHelp('/admin').examples?.find((item) => item.label === 'JURISDICTION')?.value,
+    ).toBe('jatim · Jawa Timur')
+    expect(
+      getPageHelp('/workspace').examples?.some((item) => item.label === 'Purpose · sensitivitas'),
+    ).toBe(true)
+    expect(
+      getPageHelp('/masters/new').examples?.some((item) => item.label === 'Business key'),
+    ).toBe(true)
+  })
 })
