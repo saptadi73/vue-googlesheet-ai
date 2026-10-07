@@ -400,7 +400,8 @@ onBeforeUnmount(() => {
           Pilihan metadata gagal dimuat: {{ registrationOptionsError }}
         </p>
         <div v-if="registrationOptions && missingRegistrationScopes.length" role="status" class="notice">
-          Belum ada assignment aktif untuk {{ missingRegistrationScopes.join(', ') }} pada akun ini.
+          Belum ada assignment aktif untuk {{ missingRegistrationScopes.join(', ') }} pada akun login
+          <strong>{{ user?.username }}</strong>.
           Atribut yang sudah dibuat di Administrasi tidak otomatis muncul di sini. Admin lain perlu
           memberikan assignment pada akun pendaftar, lalu muat ulang pilihan. Assignment untuk
           akun admin sendiri juga harus diberikan oleh admin lain.

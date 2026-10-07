@@ -295,7 +295,7 @@ const entries: PageHelpEntry[] = [
       'Mengelola atribut akses, assignment, permission bundle, policy, audit, dan penggunaan AI.',
     steps: [
       'Buat atribut organisasi seperti departemen, domain, yurisdiksi, clearance, dan purpose.',
-      'Berikan assignment serta permission bundle kepada pengguna dengan masa berlaku yang tepat.',
+      'Berikan assignment unit/departemen, domain bisnis, dan yurisdiksi wilayah kepada akun pendaftar yang sama, dengan masa berlaku yang tepat.',
       'Untuk akses lintas unit, pilih setiap unit yang diizinkan pada Akses multi-unit; unit induk tidak otomatis membuka bawahan.',
       'Pilih sumber dan tunjuk reviewer metadata, konfigurasi, serta batch import secara terpisah.',
       'Atur pemeriksa IT dan setiap unit yang harus menyetujui revisi sebelum data tayang; pilih akun berbeda untuk tiap kelompok.',
@@ -314,6 +314,10 @@ const entries: PageHelpEntry[] = [
       {
         label: 'Akses multi-unit',
         value: 'Penjualan Malang dan Penjualan Surabaya dipilih untuk satu manajer.',
+      },
+      {
+        label: 'Pendaftaran sumber',
+        value: 'Centang unit di Berikan unit; pilih domain dan yurisdiksi pada form Atribut untuk akun yang akan login.',
       },
       {
         label: 'Approver per sumber',

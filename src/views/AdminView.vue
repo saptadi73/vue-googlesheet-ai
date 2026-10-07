@@ -70,6 +70,20 @@ const attributeForm = ref({ kind: 'DEPARTMENT' as AccessKind, code: '', label: '
 const assignmentForm = ref({ attribute_id: '', valid_from: '', valid_to: '', note: '' })
 const unitIds = ref<string[]>([])
 const unitForm = ref({ valid_from: '', valid_to: '', note: '' })
+const assignedAttributeIds = computed(() => new Set(
+  (effectiveAccess.value?.assignments || []).map((item) => item.attribute_id),
+))
+const activeUnits = computed(() => attributes.value.filter(
+  (item) => item.kind === 'DEPARTMENT' && item.is_active,
+))
+const registrationScopeKinds = ['DEPARTMENT', 'BUSINESS_DOMAIN', 'JURISDICTION'] as const
+const registrationScopeLabels: Record<AccessKind, string> = {
+  DEPARTMENT: 'Unit/departemen',
+  BUSINESS_DOMAIN: 'Domain bisnis',
+  JURISDICTION: 'Yurisdiksi wilayah',
+  CLEARANCE: 'Clearance',
+  PURPOSE: 'Purpose',
+}
 type SourceApprovers = {
   source_id: string
   revision: number
@@ -355,14 +369,18 @@ async function grantAssignment() {
     payload.valid_from = new Date(assignmentForm.value.valid_from).toISOString()
   if (assignmentForm.value.valid_to)
     payload.valid_to = new Date(assignmentForm.value.valid_to).toISOString()
+  const targetName = selected.value.username
+  const attribute = attributes.value.find((item) => item.id === assignmentForm.value.attribute_id)
   await call('POST', `/access/users/${selected.value.id}/assignments`, payload)
   invalidateAccessDecision()
   assignmentForm.value = { attribute_id: '', valid_from: '', valid_to: '', note: '' }
   await loadUserAccess(selected.value.id)
-  notice.value = 'Assignment yurisdiksi diberikan.'
+  notice.value = `${attribute?.kind || 'Atribut'} ${attribute?.label || ''} diberikan kepada ${targetName}.`
 }
 async function grantUnits() {
   if (!selected.value || !unitIds.value.length) return
+  const targetName = selected.value.username
+  const unitNames = activeUnits.value.filter((item) => unitIds.value.includes(item.id)).map((item) => item.label)
   const payload: Record<string, unknown> = { unit_ids: unitIds.value, note: unitForm.value.note }
   if (unitForm.value.valid_from)
     payload.valid_from = new Date(unitForm.value.valid_from).toISOString()
@@ -372,7 +390,7 @@ async function grantUnits() {
   unitIds.value = []
   unitForm.value = { valid_from: '', valid_to: '', note: '' }
   await loadUserAccess(selected.value.id)
-  notice.value = 'Akses untuk beberapa unit diberikan.'
+  notice.value = `Unit ${unitNames.join(', ')} diberikan kepada ${targetName}.`
 }
 async function revokeAssignment(item: UserAssignment) {
   if (!selected.value) return
@@ -705,22 +723,30 @@ watch(() => evaluationForm.value.resource_type, () => {
       </div>
     </section>
     <section v-if="selected" class="panel">
-      <h2>Yurisdiksi {{ selected.username }}</h2>
-      <p class="muted">Pilih beberapa unit secara eksplisit. Struktur induk tidak memberi akses turunan otomatis.</p>
+      <h2>Assignment akses {{ selected.username }}</h2>
+      <p class="muted">Akun pengelola saat ini: {{ user?.username }}. Pilih beberapa unit secara eksplisit; struktur induk tidak memberi akses turunan otomatis.</p>
+      <p class="notice">Untuk mendaftarkan Google Sheet, {{ selected.username }} perlu assignment aktif pada unit/departemen, domain bisnis, dan yurisdiksi wilayah. Ketiganya harus diberikan kepada akun pendaftar yang sama. Pilihan unit di bawah hanya berisi atribut DEPARTMENT; domain dan yurisdiksi diberikan lewat form Atribut.</p>
+      <div v-if="effectiveAccess" class="toolbar">
+        <span v-for="kind in registrationScopeKinds" :key="kind" class="tag">
+          {{ registrationScopeLabels[kind] }}: {{ effectiveAccess.dimensions[kind]?.join(', ') || 'Belum ditugaskan' }}
+        </span>
+      </div>
       <form @submit.prevent="run(grantUnits)">
         <fieldset :disabled="busy || selectedIsCurrentUser">
-          <legend>Berikan akses multi-unit</legend>
+          <legend>Berikan unit/departemen ({{ activeUnits.length }} tersedia)</legend>
+          <p class="muted">Centang unit yang belum ditugaskan, lalu tekan Berikan unit. Jika tombol menunjukkan 0 unit, belum ada kotak yang dicentang.</p>
           <div class="toolbar">
-            <label v-for="unit in attributes.filter((item) => item.kind === 'DEPARTMENT' && item.is_active)" :key="unit.id" class="check">
-              <input v-model="unitIds" type="checkbox" :value="unit.id" />{{ unit.label }} ({{ unit.code }})
+            <label v-for="unit in activeUnits" :key="unit.id" class="check">
+              <input v-model="unitIds" type="checkbox" :value="unit.id" :disabled="assignedAttributeIds.has(unit.id)" />{{ unit.label }} ({{ unit.code }}){{ assignedAttributeIds.has(unit.id) ? ' · sudah aktif' : '' }}
             </label>
           </div>
+          <p v-if="!activeUnits.length" class="notice">Belum ada unit aktif di Registry akses. Buat atribut jenis DEPARTMENT terlebih dahulu.</p>
           <div class="grid">
             <label>Berlaku mulai unit<input v-model="unitForm.valid_from" type="datetime-local" /></label>
             <label>Berlaku sampai unit<input v-model="unitForm.valid_to" type="datetime-local" /></label>
             <label>Alasan akses unit<input v-model="unitForm.note" maxlength="500" /></label>
           </div>
-          <button class="primary" :disabled="busy || selectedIsCurrentUser || !unitIds.length">Berikan ke {{ unitIds.length }} unit</button>
+          <button class="primary" :disabled="busy || selectedIsCurrentUser || !unitIds.length">Berikan {{ unitIds.length }} unit kepada {{ selected.username }}</button>
         </fieldset>
       </form>
       <p v-if="selectedIsCurrentUser" class="notice">
@@ -730,13 +756,16 @@ watch(() => evaluationForm.value.resource_type, () => {
         <label
           >Atribut<select v-model="assignmentForm.attribute_id" required>
             <option value="" disabled>Pilih atribut</option>
-            <option
-              v-for="item in attributes.filter((candidate) => candidate.is_active)"
-              :key="item.id"
-              :value="item.id"
-            >
-              {{ item.kind }} · {{ item.code }} · {{ item.label }}
-            </option>
+            <optgroup v-for="kind in accessKinds" :key="kind" :label="registrationScopeLabels[kind]">
+              <option
+                v-for="item in attributes.filter((candidate) => candidate.kind === kind && candidate.is_active)"
+                :key="item.id"
+                :value="item.id"
+                :disabled="assignedAttributeIds.has(item.id)"
+              >
+                {{ item.code }} · {{ item.label }}{{ assignedAttributeIds.has(item.id) ? ' · sudah aktif' : '' }}
+              </option>
+            </optgroup>
           </select></label
         ><label
           >Berlaku mulai<input v-model="assignmentForm.valid_from" type="datetime-local" /></label

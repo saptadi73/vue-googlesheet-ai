@@ -141,6 +141,16 @@ ke halaman Access Requests. Approve, reject, atau cancel menyelesaikan notifikas
 Kontrak backend dan urutan rollout ada di
 `../../fastapi-googlesheet-ai/docs/ACCESS_JURISDICTION_BE16.md`.
 
+### Assignment pendaftaran sumber
+
+Panel assignment di Administrasi sekarang membedakan unit/departemen dari domain
+bisnis dan yurisdiksi wilayah. Daftar checkbox multi-unit hanya berisi DEPARTMENT
+aktif; domain dan yurisdiksi dipilih pada form Atribut untuk pengguna yang sama.
+Ringkasan akses efektif menampilkan tiga jenis scope yang dibutuhkan saat pendaftaran.
+Jika setelah menyimpan checkbox kosong lagi, periksa pesan sukses serta riwayat
+assignment; form memang direset. Akun yang ditugaskan harus sama dengan akun yang
+login ke Workspace, dan assignment akun admin sendiri memerlukan admin lain.
+
 ### Gate persetujuan sebelum tayang
 
 Pada pendaftaran Google Sheet di Workspace, pilihan unit, domain bisnis, dan

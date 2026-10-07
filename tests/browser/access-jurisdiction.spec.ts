@@ -264,8 +264,9 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await expect(page.getByText('Assignment dicabut dan sesi pengguna direset.')).toBeVisible()
   await expect(policySection.locator('pre')).toHaveCount(0)
   await page.getByLabel('Finance (FINANCE)').check()
-  await page.getByRole('button', { name: 'Berikan ke 1 unit' }).click()
-  await expect(page.getByText('Akses untuk beberapa unit diberikan.')).toBeVisible()
+  await page.getByRole('button', { name: 'Berikan 1 unit kepada viewer' }).click()
+  await expect(page.getByText('Unit Finance diberikan kepada viewer.')).toBeVisible()
+  await expect(page.getByLabel('Finance (FINANCE)')).toBeDisabled()
 
   await page.getByRole('button', { name: 'Atur akses' }).nth(1).click()
   await expect(page.getByText('Assignment milik sendiri harus diberikan atau dicabut oleh admin lain.')).toBeVisible()
