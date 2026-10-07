@@ -69,6 +69,24 @@ test('editor registers a source with assigned BE16 metadata', async ({ page }) =
   expect(mock.unexpected).toEqual([])
 })
 
+test('workspace explains missing scope assignments and can reload choices', async ({ page }) => {
+  const mock = await setup(page)
+  mock.setRegistrationScopesEmpty(true)
+  await page.goto('/workspace')
+  await login(page)
+  await page.getByText('Hubungkan Google Sheet baru').click()
+  await expect(page.getByRole('status').filter({ hasText: 'Belum ada assignment aktif' })).toContainText(
+    'unit/departemen, domain bisnis, yurisdiksi',
+  )
+  await expect(page.getByRole('button', { name: 'Hubungkan & profiling' })).toBeDisabled()
+  mock.setRegistrationScopesEmpty(false)
+  await page.getByRole('button', { name: 'Muat ulang pilihan' }).click()
+  await expect(page.getByLabel('Unit pemilik').locator('option')).toHaveCount(2)
+  await expect(page.getByRole('status').filter({ hasText: 'Belum ada assignment aktif' })).toHaveCount(0)
+  expect(mock.errors).toEqual([])
+  expect(mock.unexpected).toEqual([])
+})
+
 test('editor repairs legacy source metadata without approving access', async ({ page }) => {
   const mock = await setup(page)
   await page.goto('/workspace')

@@ -33,6 +33,7 @@ export async function setup(page: Page) {
   let failedJob = true
   let notificationAcknowledged = false
   let reviewScopeValid = true
+  let registrationScopesEmpty = false
   const roles: Record<string, string> = {
     editor: 'DATA_STEWARD',
     approver: 'TECHNICAL_APPROVER',
@@ -627,7 +628,7 @@ export async function setup(page: Page) {
       return ok({ id: 'new-user', ...body, password: undefined })
     if (path === '/access/registration-options' && method === 'GET')
       return ok({
-        scopes: [
+        scopes: registrationScopesEmpty ? [] : [
           { id: sourceId, kind: 'DEPARTMENT', code: 'SALES', label: 'Sales' },
           { id: sheetId, kind: 'BUSINESS_DOMAIN', code: 'COMMERCE', label: 'Commerce' },
           { id: jobId, kind: 'JURISDICTION', code: 'JATIM', label: 'Jawa Timur' },
@@ -668,6 +669,9 @@ export async function setup(page: Page) {
     },
     setReviewScopeInvalid: () => {
       reviewScopeValid = false
+    },
+    setRegistrationScopesEmpty: (value: boolean) => {
+      registrationScopesEmpty = value
     },
   }
 }

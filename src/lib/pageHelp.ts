@@ -85,7 +85,11 @@ const entries: PageHelpEntry[] = [
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
     ],
-    notes: ['Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.'],
+    notes: [
+      'Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.',
+      'Dropdown unit, domain, dan yurisdiksi hanya memuat assignment aktif akun pendaftar. Membuat atribut di Administrasi belum otomatis menugaskannya ke pengguna.',
+      'Jika pilihan kosong, minta admin lain memberikan assignment kepada akun Anda di Administrasi → Pengguna, lalu tekan Muat ulang pilihan. Admin tidak dapat memberikan assignment untuk akunnya sendiri.',
+    ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
       {

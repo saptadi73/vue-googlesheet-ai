@@ -73,9 +73,21 @@ type RegistrationOptions = {
   sensitivities: string[]
 }
 const registrationOptions = ref<RegistrationOptions | null>(null)
+const registrationOptionsLoading = ref(false)
+const registrationOptionsError = ref('')
 function scopeOptions(kind: AccessKind) {
   return registrationOptions.value?.scopes.filter((scope) => scope.kind === kind) || []
 }
+const missingRegistrationScopes = computed(() => [
+  ['DEPARTMENT', 'unit/departemen'],
+  ['BUSINESS_DOMAIN', 'domain bisnis'],
+  ['JURISDICTION', 'yurisdiksi'],
+].filter(([kind]) => !scopeOptions(kind as AccessKind).length).map(([, label]) => label))
+const registrationReady = computed(() => Boolean(
+  registrationOptions.value && !missingRegistrationScopes.value.length &&
+  registrationOptions.value.purposes.length && registrationOptions.value.people.length &&
+  registrationOptions.value.sensitivities.length,
+))
 const profiles = ref<Profile[]>([])
 const syncReviews = ref<unknown[] | null>(null)
 const migrationPreview = ref<Record<string, unknown> | null>(null)
@@ -152,8 +164,19 @@ async function load() {
 }
 async function loadRegistrationOptions() {
   const accountId = user.value?.id
-  const options = await call<RegistrationOptions>('GET', '/access/registration-options')
-  if (user.value?.id === accountId) registrationOptions.value = options
+  registrationOptionsLoading.value = true
+  registrationOptionsError.value = ''
+  try {
+    const options = await call<RegistrationOptions>('GET', '/access/registration-options')
+    if (user.value?.id === accountId) registrationOptions.value = options
+  } catch (cause) {
+    if (user.value?.id === accountId) {
+      registrationOptions.value = null
+      registrationOptionsError.value = getApiErrorMessage(cause)
+    }
+  } finally {
+    if (user.value?.id === accountId) registrationOptionsLoading.value = false
+  }
 }
 async function saveAccessMetadata() {
   const source = selectedSource.value
@@ -312,6 +335,8 @@ watch(
     syncReviews.value = null
     migrationPreview.value = null
     registrationOptions.value = null
+    registrationOptionsLoading.value = false
+    registrationOptionsError.value = ''
     reviewContext.value = null
     policyOptions.value = null
     selectedPolicyId.value = ''
@@ -370,6 +395,26 @@ onBeforeUnmount(() => {
         <p class="muted">
           Kode sumber, UUID, dan referensi kredensial dibuat atau ditentukan otomatis oleh sistem.
         </p>
+        <p v-if="registrationOptionsLoading" role="status" class="notice">Memuat pilihan metadata sumber...</p>
+        <p v-if="registrationOptionsError" role="alert" class="error">
+          Pilihan metadata gagal dimuat: {{ registrationOptionsError }}
+        </p>
+        <div v-if="registrationOptions && missingRegistrationScopes.length" role="status" class="notice">
+          Belum ada assignment aktif untuk {{ missingRegistrationScopes.join(', ') }} pada akun ini.
+          Atribut yang sudah dibuat di Administrasi tidak otomatis muncul di sini. Admin lain perlu
+          memberikan assignment pada akun pendaftar, lalu muat ulang pilihan. Assignment untuk
+          akun admin sendiri juga harus diberikan oleh admin lain.
+          <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/admin/users">Kelola assignment pengguna</RouterLink>
+        </div>
+        <p v-if="registrationOptions && !registrationOptions.purposes.length" role="status" class="notice">
+          Purpose aktif belum tersedia di tenant ini. Minta admin membuatnya di Administrasi.
+        </p>
+        <p v-if="registrationOptions && !registrationOptions.people.length" role="status" class="notice">
+          Data owner/steward aktif belum tersedia. Minta admin memeriksa akun pengguna.
+        </p>
+        <button type="button" :disabled="registrationOptionsLoading || busy" @click="loadRegistrationOptions">
+          Muat ulang pilihan
+        </button>
         <div class="grid">
           <label>Unit pemilik<select v-model="registration.access_metadata.owner_unit_id" required>
             <option value="" disabled>Pilih unit</option>
@@ -418,7 +463,7 @@ onBeforeUnmount(() => {
           Bagikan spreadsheet ke email service account backend dengan akses Viewer sebelum
           menghubungkan.
         </p>
-        <button class="primary" :disabled="busy || !registrationOptions">Hubungkan &amp; profiling</button>
+        <button class="primary" :disabled="busy || !registrationReady">Hubungkan &amp; profiling</button>
       </form>
     </details>
     <section class="panel">

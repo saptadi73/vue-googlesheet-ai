@@ -32,3 +32,9 @@ tidak berlaku. Penolakan memerlukan versi konfigurasi baru atau revisi aturan ya
 diaudit. Persetujuan tayang berbeda dari review batch import dan tidak otomatis
 memberikan akses membaca data.
 
+Jika dropdown pendaftaran sumber kosong, bantuan Workspace menjelaskan bahwa
+unit, domain bisnis, dan yurisdiksi harus menjadi assignment aktif akun pendaftar.
+Membuat atribut di registry tidak otomatis memberi assignment; admin lain perlu
+menugaskannya di Administrasi → Pengguna. Setelah itu tekan **Muat ulang pilihan**.
+Pesan gagal memuat pilihan berarti request API bermasalah, bukan bukti assignment kosong.
+

@@ -143,6 +143,15 @@ Kontrak backend dan urutan rollout ada di
 
 ### Gate persetujuan sebelum tayang
 
+Pada pendaftaran Google Sheet di Workspace, pilihan unit, domain bisnis, dan
+yurisdiksi berasal dari assignment aktif akun yang sedang login, bukan seluruh
+atribut tenant. Atribut yang baru dibuat belum otomatis muncul. Jika pilihan kosong,
+admin lain harus memberikan assignment kepada akun pendaftar melalui
+**Administrasi → Pengguna**, lalu pengguna menekan **Muat ulang pilihan**.
+Admin tidak dapat memberikan assignment kepada akunnya sendiri. Purpose berasal
+dari registry aktif; bila opsi gagal dimuat, Workspace menampilkan error request
+secara terpisah dari keadaan assignment kosong.
+
 Pada Administrasi, admin memilih sumber lalu membuka **Muat aturan siap tayang**.
 Pilih pemeriksa IT dari akun aktif ber-role technical approver/admin. Tambahkan setiap
 unit bisnis terkait dan akun bernama yang memiliki assignment aktif pada unit tersebut.
