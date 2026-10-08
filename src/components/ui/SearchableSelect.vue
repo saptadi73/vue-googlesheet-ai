@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 
 export interface SearchableSelectOption {
   value: string
@@ -68,7 +68,8 @@ function onKeydown(event: KeyboardEvent) {
     activeIndex.value = Math.max(activeIndex.value - 1, 0)
   } else if (event.key === 'Enter' && isOpen.value && filteredOptions.value.length) {
     event.preventDefault()
-    choose(filteredOptions.value[activeIndex.value].value)
+    const option = filteredOptions.value[activeIndex.value]
+    if (option) choose(option.value)
   } else if (event.key === 'Escape' && isOpen.value) {
     event.preventDefault()
     closeMenu()
@@ -79,7 +80,7 @@ function onPointerDown(event: PointerEvent) {
   if (!root.value?.contains(event.target as Node)) closeMenu()
 }
 
-document.addEventListener('pointerdown', onPointerDown)
+onMounted(() => document.addEventListener('pointerdown', onPointerDown))
 onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown))
 </script>
 

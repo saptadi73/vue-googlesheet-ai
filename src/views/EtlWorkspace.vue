@@ -48,6 +48,14 @@ const registrationError = ref('')
 const registrationMessage = ref('')
 const registrationJobId = ref('')
 const registrationSourceId = ref('')
+const registrationDuplicateIds = ref<string[]>([])
+type DuplicateGroup = {
+  spreadsheet_id: string
+  same_owner: boolean
+  suggested_source_id: string | null
+  sources: { id: string; source_code: string; name: string; owner_user_id: string; status: string }[]
+}
+const duplicateGroups = ref<DuplicateGroup[]>([])
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
@@ -178,7 +186,20 @@ async function changePage(delta: number) {
   await run(load)
 }
 async function load() {
-  sources.value = await call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`)
+  const [nextSources, nextDuplicates] = await Promise.all([
+    call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`),
+    call<DuplicateGroup[]>('GET', '/sources/duplicate-groups'),
+  ])
+  sources.value = nextSources
+  duplicateGroups.value = nextDuplicates
+}
+async function openDuplicateSource(id: string) {
+  if (!sources.value.some((source) => source.id === id)) {
+    const source = await call<Source>('GET', `/sources/${id}`)
+    sources.value = [source, ...sources.value]
+  }
+  sourceId.value = id
+  await selectSource()
 }
 async function loadRegistrationOptions() {
   const accountId = user.value?.id
@@ -348,15 +369,18 @@ async function submitRegistration() {
   registrationError.value = ''
   registrationMessage.value = 'Mengirim pendaftaran sumber...'
   try {
-    const result = await call<{ job_id: string; source: Source }>('POST', '/sources/google-sheets', {
+    const result = await call<{ job_id: string; source: Source; already_registered: boolean; duplicate_source_ids: string[] }>('POST', '/sources/google-sheets', {
       ...registration.value,
       sync_schedule: registration.value.sync_schedule.trim() || null,
     })
     registrationSourceId.value = result.source.id
+    registrationDuplicateIds.value = result.duplicate_source_ids
     registrationJobId.value = result.job_id
     sourceId.value = result.source.id
     sources.value = [result.source, ...sources.value.filter((item) => item.id !== result.source.id)]
-    registrationMessage.value = 'Sumber sudah terdaftar. Menunggu hasil discovery dari worker; jangan tekan Hubungkan lagi.'
+    registrationMessage.value = result.already_registered
+      ? 'Spreadsheet ini sudah terhubung. Sumber yang ada dipilih kembali; tidak ada sumber atau job discovery baru yang dibuat.'
+      : 'Sumber sudah terdaftar. Menunggu hasil discovery dari worker; jangan tekan Hubungkan lagi.'
     job.value = { id: result.job_id, status: 'QUEUED', kind: 'DISCOVER', source_id: result.source.id }
     clearTimeout(timer)
     generation++
@@ -404,6 +428,8 @@ watch(
     registrationMessage.value = ''
     registrationJobId.value = ''
     registrationSourceId.value = ''
+    registrationDuplicateIds.value = []
+    duplicateGroups.value = []
     offset.value = 0
     if (canRead.value) void run(async () => {
       await Promise.all([load(), ...(canEdit.value ? [loadRegistrationOptions()] : [])])
@@ -522,12 +548,30 @@ onBeforeUnmount(() => {
         </button>
         <p v-if="registrationMessage" role="status" class="notice">{{ registrationMessage }}</p>
         <p v-if="registrationError" role="alert" class="error">{{ registrationError }}</p>
+        <p v-if="registrationDuplicateIds.length" class="muted">
+          Ada {{ registrationDuplicateIds.length }} sumber lama lain untuk Spreadsheet ini. Gunakan sumber yang dipilih dan minta admin meninjau duplikatnya.
+        </p>
         <p v-if="registrationJobId" class="muted">
           <RouterLink :to="{ path: '/jobs', query: { job: registrationJobId } }">Buka monitor job discovery</RouterLink>
           <span v-if="registrationSourceId"> · Sumber sudah tercatat di sistem.</span>
         </p>
       </form>
     </details>
+    <section v-if="duplicateGroups.length" class="panel">
+      <h2>Sumber yang terhubung lebih dari sekali</h2>
+      <p class="muted">Periksa sumber yang sudah ada sebelum mendaftarkan Sheet lagi. Sumber duplikat tidak dihapus otomatis karena mungkin memiliki metadata atau data turunan berbeda.</p>
+      <div v-for="group in duplicateGroups" :key="group.spreadsheet_id">
+        <p><strong>{{ group.sources[0]?.name }}</strong> - {{ group.sources.length }} sumber terhubung</p>
+        <p v-if="!group.same_owner" class="muted">Pemilik berbeda; admin perlu meninjau tujuan dan hak aksesnya.</p>
+        <ul>
+          <li v-for="item in group.sources" :key="item.id">
+            {{ item.name }} ({{ item.source_code }}) - {{ item.status }}
+            <button type="button" @click="run(() => openDuplicateSource(item.id))">Buka sumber</button>
+            <span v-if="item.id === group.suggested_source_id"> - sumber paling awal</span>
+          </li>
+        </ul>
+      </div>
+    </section>
     <section class="panel">
       <h2>Pilih sumber dan tab</h2>
       <div class="grid">
