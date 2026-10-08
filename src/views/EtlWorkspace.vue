@@ -44,6 +44,9 @@ const registration = ref({
   sync_schedule: '',
   access_metadata: emptyAccessMetadata(),
 })
+type RegistrationCheck = { registered: boolean; owned_by_me: boolean; source_id: string | null; source_name: string | null }
+const registrationCheck = ref<RegistrationCheck | null>(null)
+const registrationChecking = ref(false)
 const registrationBusy = ref(false)
 const registrationError = ref('')
 const registrationMessage = ref('')
@@ -55,10 +58,12 @@ type DuplicateGroup = {
   spreadsheet_id: string
   same_owner: boolean
   suggested_source_id: string | null
-  sources: { id: string; source_code: string; name: string; owner_user_id: string; status: string }[]
+  sources: { id: string; source_code: string; name: string; owner_user_id: string; status: string; unlinked_at: string | null; unlinked_to_source_id: string | null }[]
 }
 const duplicateGroups = ref<DuplicateGroup[]>([])
 const duplicateGroupsUnavailable = ref(false)
+const canonicalSourceIds = ref<Record<string, string>>({})
+const unlinkReasons = ref<Record<string, string>>({})
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
@@ -214,6 +219,27 @@ async function openDuplicateSource(id: string) {
   }
   sourceId.value = id
   await selectSource()
+}
+async function unlinkDuplicate(item: DuplicateGroup['sources'][number]) {
+  const canonicalId = canonicalSourceIds.value[item.id]
+  const reason = unlinkReasons.value[item.id]?.trim()
+  if (!canonicalId || !reason) return
+  const canonical = duplicateGroups.value.flatMap((group) => group.sources).find((source) => source.id === canonicalId)
+  if (!window.confirm(`Unlink ${item.name} (${item.source_code}) dan gunakan ${canonical?.name || 'sumber utama'}? Riwayat tetap tersimpan.`)) return
+  await call('POST', `/sources/${item.id}/unlink`, { canonical_source_id: canonicalId, reason })
+  if (sourceId.value === item.id) {
+    sourceId.value = ''
+    sheetId.value = ''
+    sheets.value = []
+  }
+  await load()
+  notice.value = `Sumber ${item.name} berhasil di-unlink.`
+}
+async function restoreDuplicate(item: DuplicateGroup['sources'][number]) {
+  if (!window.confirm(`Pulihkan sumber ${item.name} (${item.source_code})?`)) return
+  await call('POST', `/sources/${item.id}/restore`)
+  await load()
+  notice.value = `Sumber ${item.name} dipulihkan.`
 }
 async function loadRegistrationOptions() {
   const accountId = user.value?.id
@@ -379,12 +405,41 @@ async function poll(id: string, epoch: number) {
     if (id === registrationJobId.value) registrationError.value = `Sumber sudah terdaftar, tetapi status job tidak dapat dimuat: ${error.value}. Periksa monitor job sebelum mencoba lagi.`
   }
 }
+async function checkRegistration(): Promise<RegistrationCheck | null> {
+  const url = registration.value.spreadsheet_url.trim()
+  if (!url) { registrationCheck.value = null; return null }
+  registrationChecking.value = true
+  try {
+    const result = await call<RegistrationCheck>('GET', `/sources/registration-check?spreadsheet_url=${encodeURIComponent(url)}`)
+    if (registration.value.spreadsheet_url.trim() === url) registrationCheck.value = result
+    return result
+  } catch (cause) {
+    registrationError.value = getApiErrorMessage(cause)
+    return null
+  } finally {
+    registrationChecking.value = false
+  }
+}
+watch(() => registration.value.spreadsheet_url, () => { registrationCheck.value = null })
 async function submitRegistration() {
   if (registrationBusy.value || registrationJobId.value || !registrationReady.value) return
   registrationBusy.value = true
   registrationError.value = ''
-  registrationMessage.value = 'Mengirim pendaftaran sumber...'
+  registrationMessage.value = 'Memeriksa apakah Spreadsheet sudah terdaftar...'
   try {
+    const checked = await checkRegistration()
+    if (!checked) { registrationMessage.value = ''; return }
+    if (checked.registered) {
+      if (checked.owned_by_me && checked.source_id) {
+        await openDuplicateSource(checked.source_id)
+        registrationMessage.value = `Spreadsheet sudah terdaftar sebagai ${checked.source_name}. Sumber yang ada telah dibuka.`
+      } else {
+        registrationError.value = 'Spreadsheet sudah terdaftar oleh pengguna lain di tenant ini. Hubungi admin untuk memakai sumber yang ada.'
+        registrationMessage.value = ''
+      }
+      return
+    }
+    registrationMessage.value = 'Mengirim pendaftaran sumber...'
     const result = await call<{ job_id: string; source: Source; already_registered: boolean; duplicate_source_ids: string[] }>('POST', '/sources/google-sheets', {
       ...registration.value,
       sync_schedule: registration.value.sync_schedule.trim() || null,
@@ -433,6 +488,7 @@ watch(
     syncReviews.value = null
     migrationPreview.value = null
     registrationOptions.value = null
+    registrationCheck.value = null
     registrationOptionsLoading.value = false
     registrationOptionsError.value = ''
     reviewContext.value = null
@@ -476,7 +532,7 @@ onBeforeUnmount(() => {
       <form @submit.prevent="submitRegistration" @invalid.capture="registrationError = 'Lengkapi semua field wajib sebelum menghubungkan Sheet.'">
         <div class="grid">
           <label>Nama sumber<input v-model="registration.name" required maxlength="200" /></label>
-          <label>URL spreadsheet<input v-model="registration.spreadsheet_url" required /></label>
+          <label>URL spreadsheet<input v-model="registration.spreadsheet_url" required @blur="checkRegistration" /></label>
         </div>
         <div class="grid">
           <label>Deskripsi<textarea v-model="registration.description" maxlength="2000" /></label>
@@ -492,6 +548,13 @@ onBeforeUnmount(() => {
         </div>
         <p class="muted">
           Kode sumber, UUID, dan referensi kredensial dibuat atau ditentukan otomatis oleh sistem.
+        </p>
+        <p v-if="registrationChecking" role="status" class="notice">Memeriksa Spreadsheet yang sudah terdaftar...</p>
+        <p v-if="registrationCheck?.registered" role="alert" class="notice">
+          {{ registrationCheck.owned_by_me
+            ? `Spreadsheet ini sudah terdaftar sebagai ${registrationCheck.source_name}. Gunakan sumber yang ada.`
+            : 'Spreadsheet ini sudah terdaftar oleh pengguna lain. Hubungi admin sebelum mendaftar ulang.' }}
+          <button v-if="registrationCheck.source_id" type="button" @click="run(() => openDuplicateSource(registrationCheck!.source_id!))">Buka sumber</button>
         </p>
         <p v-if="registrationOptionsLoading" role="status" class="notice">Memuat pilihan metadata sumber...</p>
         <p v-if="registrationOptionsError" role="alert" class="error">
@@ -563,7 +626,7 @@ onBeforeUnmount(() => {
           menghubungkan.
         </p>
         <button class="primary" :disabled="busy || registrationBusy || !!registrationJobId || !registrationReady">
-          {{ registrationBusy ? 'Menghubungkan...' : 'Hubungkan & profiling' }}
+          {{ registrationBusy ? 'Menghubungkan...' : registrationCheck?.registered ? 'Gunakan sumber yang ada' : 'Hubungkan & profiling' }}
         </button>
         <p v-if="registrationMessage" role="status" class="notice">{{ registrationMessage }}</p>
         <p v-if="registrationError" role="alert" class="error">{{ registrationError }}</p>
@@ -579,15 +642,30 @@ onBeforeUnmount(() => {
     <p v-if="duplicateGroupsUnavailable" class="muted">Daftar sumber ganda belum tersedia. Backend perlu diperbarui; daftar sumber tetap dapat digunakan.</p>
     <section v-if="duplicateGroups.length" class="panel">
       <h2>Sumber yang terhubung lebih dari sekali</h2>
-      <p class="muted">Periksa sumber yang sudah ada sebelum mendaftarkan Sheet lagi. Sumber duplikat tidak dihapus otomatis karena mungkin memiliki metadata atau data turunan berbeda.</p>
+      <p class="muted">Pilih sumber utama, lalu unlink pendaftaran duplikat yang tidak digunakan. Riwayat tetap tersimpan. Sumber dengan konfigurasi, data turunan, dependensi, atau job aktif tidak bisa di-unlink.</p>
       <div v-for="group in duplicateGroups" :key="group.spreadsheet_id">
-        <p><strong>{{ group.sources[0]?.name }}</strong> - {{ group.sources.length }} sumber terhubung</p>
+        <p><strong>{{ group.sources[0]?.name }}</strong> - {{ group.sources.filter((item) => !item.unlinked_at).length }} aktif dari {{ group.sources.length }} pendaftaran</p>
         <p v-if="!group.same_owner" class="muted">Pemilik berbeda; admin perlu meninjau tujuan dan hak aksesnya.</p>
         <ul>
           <li v-for="item in group.sources" :key="item.id">
-            {{ item.name }} ({{ item.source_code }}) - {{ item.status }}
-            <button type="button" @click="run(() => openDuplicateSource(item.id))">Buka sumber</button>
-            <span v-if="item.id === group.suggested_source_id"> - sumber paling awal</span>
+            {{ item.name }} ({{ item.source_code }}) - {{ item.unlinked_at ? 'UNLINKED' : item.status }}
+            <button v-if="!item.unlinked_at" type="button" @click="run(() => openDuplicateSource(item.id))">Buka sumber</button>
+            <span v-if="item.id === group.suggested_source_id"> - sumber utama yang disarankan</span>
+            <template v-if="user?.role === 'PLATFORM_ADMIN'">
+              <button v-if="item.unlinked_at" type="button" :disabled="busy" @click="run(() => restoreDuplicate(item))">Pulihkan</button>
+              <div v-else-if="group.sources.some((other) => other.id !== item.id && !other.unlinked_at)" class="toolbar">
+                <label>Sumber utama
+                  <select v-model="canonicalSourceIds[item.id]" aria-label="Sumber utama setelah unlink">
+                    <option value="">Pilih sumber utama</option>
+                    <option v-for="other in group.sources.filter((source) => source.id !== item.id && !source.unlinked_at)" :key="other.id" :value="other.id">{{ other.name }} ({{ other.source_code }})</option>
+                  </select>
+                </label>
+                <label>Alasan unlink
+                  <input v-model="unlinkReasons[item.id]" type="text" maxlength="500" placeholder="Contoh: pendaftaran ganda" />
+                </label>
+                <button type="button" :disabled="busy || !canonicalSourceIds[item.id] || !unlinkReasons[item.id]?.trim()" @click="run(() => unlinkDuplicate(item))">Unlink</button>
+              </div>
+            </template>
           </li>
         </ul>
       </div>
