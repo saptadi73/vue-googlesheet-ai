@@ -8,6 +8,7 @@ const routes = [
   '/dashboard',
   '/chat',
   '/workspace',
+  '/sources',
   '/configurations/config-id/review',
   '/masters',
   '/masters/new',
@@ -31,6 +32,19 @@ const routes = [
 ]
 
 describe('page help registry', () => {
+  it('explains source tracking and safe unlink/restore flow', () => {
+    const help = getPageHelp('/sources')
+    expect(help.title).toContain('Sumber')
+    expect(help.steps.join(' ')).toContain('pagination')
+    expect(help.notes?.join(' ')).toContain('dua konfirmasi')
+  })
+
+  it('points ETL reviewers to guidance for each wizard step', () => {
+    expect(getPageHelp('/configurations/config-id/review').notes?.join(' ')).toContain(
+      'ikon bantuan di samping setiap tahap wizard',
+    )
+  })
+
   it.each(routes)('provides specific guidance for %s', (path) => {
     const help = getPageHelp(path)
     expect(help.title).not.toBe('Bantuan halaman')
@@ -59,5 +73,8 @@ describe('page help registry', () => {
     expect(
       getPageHelp('/masters/new').examples?.some((item) => item.label === 'Business key'),
     ).toBe(true)
+    expect(
+      getPageHelp('/sources/source-id/sheets/sheet-id/column-bindings').examples,
+    ).toContainEqual({ label: 'Field master', value: 'product_code · berisi SKU-001 dan nilainya unik' })
   })
 })

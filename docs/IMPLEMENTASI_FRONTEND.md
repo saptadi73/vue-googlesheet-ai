@@ -14,6 +14,21 @@ Klasifikasi tab BE02 serta registry dan binding master BE03 sudah tersedia; liha
 resolver referensi, dependency plan, pemeriksaan orphan, dan deployment FK tersedia
 melalui halaman batch, master, serta binding terkait.
 
+Daftar sumber utama tersedia pada **Sumber & tracking** (`/sources`). Tabel reusable mendukung
+pencarian dan pagination agar daftar panjang tidak terpotong pada pilihan Workspace. Setiap baris
+menunjukkan status discovery, profiling, konfigurasi/binding master, pemuatan, serta Data Owner/
+Data Steward dan menyediakan navigasi **Buka sumber**. Sumber unlink disembunyikan secara default;
+admin dapat menyertakannya untuk pemulihan. Unlink memerlukan alasan dan dua konfirmasi, pemulihan
+juga memerlukan dua konfirmasi, dan backend tetap memeriksa relasi aktif.
+
+Bantuan kontekstual `/sources`, panduan umum, dan Tanya AI mengarahkan pengguna ke daftar ini saat
+sumber tidak muncul di dropdown Workspace. Bantuan menjelaskan bahwa kegagalan tahap tidak
+menghapus sumber dan binding master approved belum berarti record sudah dimuat.
+Ikon bantuan per tahap membuka modal langkah operasional; ikon peringatan hanya muncul bila
+backend menyertakan kegagalan terakhir untuk tahap tersebut, beserta kode dan waktunya. Tombol
+**Riwayat** membuka audit trail yang dapat dipaginasi untuk memeriksa aktivitas dan percobaan job,
+termasuk aktor, status, dan pesan kegagalan.
+
 Binding kolom referensi master tersedia dari Workspace ETL melalui tautan **Atur
 referensi master**. Editor membuat draft per header sumber terhadap field master
 approved; reviewer menyetujui atau menolak draft dengan revision terbaru.

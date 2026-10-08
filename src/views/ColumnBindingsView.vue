@@ -175,7 +175,8 @@ watch(
     <section class="panel">
       <h2>Rekomendasi binding</h2>
       <p class="muted">
-        Kandidat dihitung dari kemiripan nama kolom. Tidak ada kandidat yang disimpan otomatis.
+        Kandidat memakai kemiripan nama setelah normalisasi ejaan umum dan padanan Indonesia/Inggris.
+        Rekomendasi hanya petunjuk; periksa field dan nilainya sebelum menyimpan.
       </p>
       <button :disabled="busy || !profile" @click="run(loadRecommendations)">
         Muat rekomendasi
@@ -190,16 +191,21 @@ watch(
           <div
             v-for="candidate in item.candidates"
             :key="`${candidate.master_definition_id}-${candidate.master_field}`"
-            class="toolbar"
+            class="recommendation-candidate"
           >
-            <span>{{ candidate.master_field }} · skor {{ candidate.score }}</span>
+            <div class="recommendation-candidate__details">
+              <strong>{{ candidate.master_name }} ({{ candidate.master_code }} v{{ candidate.master_version }}) → {{ candidate.master_field }}</strong>
+              <span class="tag" :class="`recommendation-confidence--${candidate.confidence.toLowerCase()}`">
+                {{ candidate.confidence === 'HIGH' ? 'Kecocokan tinggi' : candidate.confidence === 'MEDIUM' ? 'Kecocokan sedang' : 'Kecocokan rendah' }} · {{ Math.round(candidate.score * 100) }}%
+              </span>
+              <span class="muted">{{ candidate.field_type }}<template v-if="candidate.is_business_key"> · business key</template></span>
+              <small class="muted">{{ candidate.match_reason }}</small>
+            </div>
             <button
               v-if="editor"
               :disabled="busy"
               @click="run(() => useRecommendation(item.source_column, candidate))"
-            >
-              Gunakan untuk ditinjau
-            </button>
+            >Gunakan untuk ditinjau</button>
           </div>
         </article>
       </template>
@@ -297,3 +303,13 @@ watch(
     </section>
   </EtlShell>
 </template>
+
+<style scoped>
+.recommendation-candidate { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid #dce8e2; }
+.recommendation-candidate__details { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; }
+.recommendation-candidate__details small { flex-basis: 100%; }
+.recommendation-confidence--high { color: #087443; background: #e6f5ed; }
+.recommendation-confidence--medium { color: #8a5a00; background: #fff4d6; }
+.recommendation-confidence--low { color: #7b4a08; background: #fff4e5; }
+@media (max-width: 640px) { .recommendation-candidate { align-items: flex-start; flex-direction: column; } }
+</style>

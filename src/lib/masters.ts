@@ -93,7 +93,18 @@ export interface ColumnBinding {
 }
 export interface ColumnBindingRecommendation {
   source_column: string
-  candidates: Array<{ master_definition_id: string; master_field: string; score: number }>
+  candidates: Array<{
+    master_definition_id: string
+    master_code: string
+    master_name: string
+    master_version: number
+    master_field: string
+    field_type: string
+    is_business_key: boolean
+    score: number
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW'
+    match_reason: string
+  }>
 }
 export interface ColumnBindingRecommendations {
   items: ColumnBindingRecommendation[]

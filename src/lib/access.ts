@@ -1,6 +1,6 @@
 export function landingPathForRole(role?: string): string {
   if (role === 'PLATFORM_ADMIN') return '/admin'
-  if (role === 'SOURCE_OWNER' || role === 'DATA_STEWARD') return '/workspace'
+  if (role === 'SOURCE_OWNER' || role === 'DATA_STEWARD') return '/sources'
   if (role === 'TECHNICAL_APPROVER') return '/import-reviews'
   return '/dashboard'
 }

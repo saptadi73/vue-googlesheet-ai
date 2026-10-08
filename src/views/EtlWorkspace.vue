@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
-import { isAxiosError } from 'axios'
+import { useRoute } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import {
   call,
@@ -31,6 +31,7 @@ const sourceId = ref(''),
   busy = ref(false),
   job = ref<Job | null>(null)
 const offset = ref(0)
+const route = useRoute()
 function emptyAccessMetadata() {
   return {
     owner_unit_id: '', business_domain_id: '', jurisdiction_id: '', purpose_id: '',
@@ -54,16 +55,6 @@ const registrationJobId = ref('')
 const registrationSourceId = ref('')
 const registrationReused = ref(false)
 const registrationDuplicateIds = ref<string[]>([])
-type DuplicateGroup = {
-  spreadsheet_id: string
-  same_owner: boolean
-  suggested_source_id: string | null
-  sources: { id: string; source_code: string; name: string; owner_user_id: string; status: string; unlinked_at: string | null; unlinked_to_source_id: string | null }[]
-}
-const duplicateGroups = ref<DuplicateGroup[]>([])
-const duplicateGroupsUnavailable = ref(false)
-const canonicalSourceIds = ref<Record<string, string>>({})
-const unlinkReasons = ref<Record<string, string>>({})
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
@@ -196,21 +187,6 @@ async function changePage(delta: number) {
 async function load() {
   const nextSources = await call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`)
   sources.value = nextSources
-  try {
-    duplicateGroups.value = await call<DuplicateGroup[]>('GET', '/sources/duplicate-groups')
-    duplicateGroupsUnavailable.value = false
-  } catch (cause) {
-    const legacyRoute = isAxiosError<{ errors?: { details?: { field?: string }[] }[] }>(cause) &&
-      (cause.response?.status === 404 || (
-        cause.response?.status === 422 &&
-        cause.response.data?.errors?.some((issue) =>
-          issue.details?.some((detail) => detail.field === 'path.source_id'),
-        )
-      ))
-    if (!legacyRoute) throw cause
-    duplicateGroups.value = []
-    duplicateGroupsUnavailable.value = true
-  }
 }
 async function openDuplicateSource(id: string) {
   if (!sources.value.some((source) => source.id === id)) {
@@ -219,27 +195,6 @@ async function openDuplicateSource(id: string) {
   }
   sourceId.value = id
   await selectSource()
-}
-async function unlinkDuplicate(item: DuplicateGroup['sources'][number]) {
-  const canonicalId = canonicalSourceIds.value[item.id]
-  const reason = unlinkReasons.value[item.id]?.trim()
-  if (!canonicalId || !reason) return
-  const canonical = duplicateGroups.value.flatMap((group) => group.sources).find((source) => source.id === canonicalId)
-  if (!window.confirm(`Unlink ${item.name} (${item.source_code}) dan gunakan ${canonical?.name || 'sumber utama'}? Riwayat tetap tersimpan.`)) return
-  await call('POST', `/sources/${item.id}/unlink`, { canonical_source_id: canonicalId, reason })
-  if (sourceId.value === item.id) {
-    sourceId.value = ''
-    sheetId.value = ''
-    sheets.value = []
-  }
-  await load()
-  notice.value = `Sumber ${item.name} berhasil di-unlink.`
-}
-async function restoreDuplicate(item: DuplicateGroup['sources'][number]) {
-  if (!window.confirm(`Pulihkan sumber ${item.name} (${item.source_code})?`)) return
-  await call('POST', `/sources/${item.id}/restore`)
-  await load()
-  notice.value = `Sumber ${item.name} dipulihkan.`
 }
 async function loadRegistrationOptions() {
   const accountId = user.value?.id
@@ -476,7 +431,7 @@ async function enqueue(path: string, body?: unknown) {
 }
 watch(
   user,
-  () => {
+  async () => {
     generation++
     clearTimeout(timer)
     sources.value = []
@@ -504,11 +459,19 @@ watch(
     registrationSourceId.value = ''
     registrationReused.value = false
     registrationDuplicateIds.value = []
-    duplicateGroups.value = []
-    duplicateGroupsUnavailable.value = false
     offset.value = 0
-    if (canRead.value) void run(async () => {
+    if (canRead.value) await run(async () => {
       await Promise.all([load(), ...(canEdit.value ? [loadRegistrationOptions()] : [])])
+      const requestedSourceId = typeof route.query.source_id === 'string' ? route.query.source_id : ''
+      if (requestedSourceId) {
+        let requestedSource = sources.value.find((source) => source.id === requestedSourceId)
+        if (!requestedSource) {
+          requestedSource = await call<Source>('GET', `/sources/${requestedSourceId}`)
+          sources.value = [requestedSource, ...sources.value]
+        }
+        sourceId.value = requestedSource.id
+        await selectSource()
+      }
     })
   },
   { immediate: true },
@@ -523,9 +486,9 @@ onBeforeUnmount(() => {
     <p class="eyebrow">DARI SPREADSHEET KE DATA TERVALIDASI</p>
     <h1>Workspace konfigurasi ETL</h1>
     <p class="muted">
-      Hubungkan sumber, minta rekomendasi AI, lalu periksa dan ajukan konfigurasi sebelum
-      menjalankan ETL.
+      Kelola profiling, konfigurasi manual, review, dan pemuatan untuk sumber yang dipilih.
     </p>
+    <p><RouterLink to="/sources">Kembali ke daftar sumber &amp; tracking</RouterLink></p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="notice" role="status" class="success">{{ notice }}</p>
     <details v-if="canEdit" class="panel">
@@ -640,37 +603,6 @@ onBeforeUnmount(() => {
         </p>
       </form>
     </details>
-    <p v-if="duplicateGroupsUnavailable" class="muted">Daftar sumber ganda belum tersedia. Backend perlu diperbarui; daftar sumber tetap dapat digunakan.</p>
-    <section v-if="duplicateGroups.length" class="panel">
-      <h2>Sumber yang terhubung lebih dari sekali</h2>
-      <p class="muted">Pilih sumber utama, lalu unlink pendaftaran duplikat yang tidak digunakan. Riwayat tetap tersimpan. Sumber dengan konfigurasi, data turunan, dependensi, atau job aktif tidak bisa di-unlink.</p>
-      <div v-for="group in duplicateGroups" :key="group.spreadsheet_id">
-        <p><strong>{{ group.sources[0]?.name }}</strong> - {{ group.sources.filter((item) => !item.unlinked_at).length }} aktif dari {{ group.sources.length }} pendaftaran</p>
-        <p v-if="!group.same_owner" class="muted">Pemilik berbeda; admin perlu meninjau tujuan dan hak aksesnya.</p>
-        <ul>
-          <li v-for="item in group.sources" :key="item.id">
-            {{ item.name }} ({{ item.source_code }}) - {{ item.id === group.suggested_source_id ? item.status : 'DUPLIKAT' }}
-            <button v-if="!item.unlinked_at" type="button" @click="run(() => openDuplicateSource(item.id))">Buka sumber</button>
-            <span v-if="item.id === group.suggested_source_id"> - sumber utama yang disarankan</span>
-            <template v-if="user?.role === 'PLATFORM_ADMIN'">
-              <button v-if="item.unlinked_at" type="button" :disabled="busy" @click="run(() => restoreDuplicate(item))">Pulihkan</button>
-              <div v-else-if="group.sources.some((other) => other.id !== item.id && !other.unlinked_at)" class="toolbar">
-                <label>Sumber utama
-                  <select v-model="canonicalSourceIds[item.id]" aria-label="Sumber utama setelah unlink">
-                    <option value="">Pilih sumber utama</option>
-                    <option v-for="other in group.sources.filter((source) => source.id !== item.id && !source.unlinked_at)" :key="other.id" :value="other.id">{{ other.name }} ({{ other.source_code }})</option>
-                  </select>
-                </label>
-                <label>Alasan unlink
-                  <input v-model="unlinkReasons[item.id]" type="text" maxlength="500" placeholder="Contoh: pendaftaran ganda" />
-                </label>
-                <button type="button" :disabled="busy || !canonicalSourceIds[item.id] || !unlinkReasons[item.id]?.trim()" @click="run(() => unlinkDuplicate(item))">Unlink</button>
-              </div>
-            </template>
-          </li>
-        </ul>
-      </div>
-    </section>
     <section class="panel">
       <h2>Pilih sumber dan tab</h2>
       <div class="grid">

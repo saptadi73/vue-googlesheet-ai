@@ -45,6 +45,11 @@ export const operationalNavigation: NavigationGroup[] = [
     label: 'Operasional data',
     items: [
       {
+        label: 'Sumber & tracking',
+        to: '/sources',
+        icon: Database,
+      },
+      {
         label: 'Workspace ETL',
         to: '/workspace',
         icon: Briefcase,

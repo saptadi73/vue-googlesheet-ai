@@ -18,6 +18,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import CardSkeleton from '@/components/ui/CardSkeleton.vue'
 import {
   CircleCheck,
+  CircleHelp,
   CircleX,
   Copy,
   Download,
@@ -75,7 +76,53 @@ const error = ref(''),
   notice = ref(''),
   busy = ref(false),
   step = ref(0),
+  helpStep = ref<number | null>(null),
   comment = ref('')
+const stepGuides = [
+  {
+    title: '1. Identitas dataset',
+    purpose: 'Memberi nama dan arti bisnis pada dataset agar pengguna memahami satu baris data mewakili apa.',
+    instructions: ['Isi Nama bisnis yang mudah dikenali dan Kode produk data yang stabil.', 'Jelaskan isi dataset, sumbernya, dan batas cakupannya.', 'Tulis makna satu baris (grain) secara spesifik; ini membantu menghindari hitung ganda.'],
+    example: 'Nama: Penjualan Cabang · Grain: satu baris per transaksi per produk.',
+  },
+  {
+    title: '2. Kolom dan sensitivitas',
+    purpose: 'Memetakan setiap header sumber menjadi field database dan menentukan tipe serta perlindungan datanya.',
+    instructions: ['Periksa Nama bisnis, Kolom database, dan Tipe untuk setiap header.', 'Tandai nullable hanya jika nilai boleh kosong; business key harus stabil, unik, dan tidak nullable untuk UPSERT.', 'Tandai primary key hanya bila kolom sumber memang berisi identitas record yang stabil. Atur sensitivitas sesuai isi nyata kolom.', 'Gunakan bagian taxonomy atau referensi master pada kolom bila nilai harus mengacu pada daftar terkendali atau record master.'],
+    example: 'Kode Produk → product_code (text, wajib); Nilai Penjualan → sales_amount (numeric).',
+  },
+  {
+    title: '3. Cleansing',
+    purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
+    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Isi parameter transformasi bila diminta dan periksa dampaknya pada contoh data.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis.'],
+    example: 'Kolom kode: trim untuk membuang spasi tepi; pertahankan nol di depan dengan tipe text.',
+  },
+  {
+    title: '4. Kualitas data',
+    purpose: 'Menetapkan pemeriksaan agar nilai tidak sesuai dapat diperingatkan, ditolak, atau diminta untuk ditinjau.',
+    instructions: ['Pilih kolom tujuan dan aturan yang sesuai, seperti min/max, format, allowed_values, atau taxonomy.', 'Pilih tindakan saat gagal: WARN untuk catatan, REJECT_ROW untuk menolak baris, STOP_BATCH untuk menghentikan batch, atau REQUIRE_REVIEW untuk meminta keputusan.', 'Atur severity, threshold, dan owner bila diperlukan. Tipe, nullability, dan key tetap diperiksa otomatis.'],
+    example: 'sales_amount minimal 0; jika format kode salah, gunakan REQUIRE_REVIEW bila perlu koreksi steward.',
+  },
+  {
+    title: '5. Pemuatan',
+    purpose: 'Memilih tabel tujuan dan cara data baru digabungkan dengan data yang sudah ada.',
+    instructions: ['Periksa schema dan tentukan nama dasar tabel sesuai format yang diizinkan.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.'],
+    example: 'Spreadsheet transaksi bertambah setiap hari: APPEND. Snapshot katalog produk lengkap: FULL_REFRESH atau UPSERT dengan product_code.',
+  },
+  {
+    title: '6. Analitik dan akses',
+    purpose: 'Menentukan field yang dapat dipakai untuk pencarian dan chart, serta role yang boleh mengakses produk data.',
+    instructions: ['Pilih dimensi untuk pengelompokan, misalnya tanggal, cabang, atau kategori.', 'Buat metrik dengan kolom, agregasi, definisi bisnis, unit, dan sinonim yang jelas.', 'Pilih role yang memang perlu akses. Kolom MEDIUM/HIGH tidak tersedia untuk produk analitik.'],
+    example: 'Dimensi: bulan dan cabang · Metrik: total_penjualan = SUM(sales_amount), unit IDR.',
+  },
+  {
+    title: '7. Validasi dan persetujuan',
+    purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
+    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu jalankan validasi lagi.', 'Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak dengan catatan.', 'Setelah approval konfigurasi, deploy tetap tahap terpisah; bila gate rilis aktif, persetujuan IT dan unit terkait juga diperlukan.'],
+    example: 'Jika sumber berubah setelah profiling, ulangi profiling dan validasi agar review memakai snapshot terbaru.',
+  },
+]
+const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
 const fieldIssues = ref<ConfigurationIssue[]>([])
 const defaultInputs = ref(new Map<Quality, string>())
 const hasInvalidDefaults = computed(
@@ -607,17 +654,23 @@ onBeforeRouteUpdate(confirmLeave)
         review. Untuk versi approved/superseded, clone ke draft sebelum review ulang.
       </p>
       <nav class="steps" aria-label="Tahapan review">
-        <button
-          v-for="(label, i) in sectionLabels"
-          :key="label"
-          :class="{ active: step === i }"
-          :aria-current="step === i ? 'step' : undefined"
-          @click="step = i"
-        >
-          {{ i + 1 }}. {{ label }}</button
-        ><button :class="{ active: step === 6 }" @click="step = 6">
-          7. Validasi &amp; persetujuan
-        </button>
+        <div v-for="(label, i) in sectionLabels" :key="label" class="step-control">
+          <button
+            class="step-tab"
+            :class="{ active: step === i }"
+            :aria-current="step === i ? 'step' : undefined"
+            @click="step = i"
+          >{{ i + 1 }}. {{ label }}</button>
+          <button class="step-help" type="button" :aria-label="`Petunjuk langkah ${i + 1}: ${label}`" :title="`Petunjuk ${label}`" @click="helpStep = i">
+            <CircleHelp :size="16" aria-hidden="true" />
+          </button>
+        </div>
+        <div class="step-control">
+          <button class="step-tab" :class="{ active: step === 6 }" :aria-current="step === 6 ? 'step' : undefined" @click="step = 6">7. Validasi &amp; persetujuan</button>
+          <button class="step-help" type="button" aria-label="Petunjuk langkah 7: Validasi dan persetujuan" title="Petunjuk validasi dan persetujuan" @click="helpStep = 6">
+            <CircleHelp :size="16" aria-hidden="true" />
+          </button>
+        </div>
       </nav>
       <fieldset :disabled="!canEdit || busy" class="panel" v-show="step < 6">
         <template v-if="step === 0"
@@ -1409,6 +1462,21 @@ onBeforeRouteUpdate(confirmLeave)
             /><CircleX v-else class="icon" :size="14" />
             {{ decisionModal === 'approve' ? 'Konfirmasi setuju' : 'Konfirmasi tolak' }}
           </button>
+        </template>
+      </Modal>
+      <Modal
+        :open="activeStepGuide !== null"
+        :title="activeStepGuide?.title"
+        @close="helpStep = null"
+      >
+        <p>{{ activeStepGuide?.purpose }}</p>
+        <h3>Yang perlu dilakukan</h3>
+        <ol class="step-help-list">
+          <li v-for="instruction in activeStepGuide?.instructions" :key="instruction">{{ instruction }}</li>
+        </ol>
+        <p v-if="activeStepGuide?.example" class="notice"><strong>Contoh:</strong> {{ activeStepGuide.example }}</p>
+        <template #footer>
+          <button type="button" @click="helpStep = null">Mengerti</button>
         </template>
       </Modal>
       <Card

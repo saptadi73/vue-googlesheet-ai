@@ -75,6 +75,26 @@ const entries: PageHelpEntry[] = [
     ],
   },
   {
+    matches: exact('/sources'),
+    title: 'Sumber dan progres pemrosesan',
+    purpose:
+      'Mencari semua sumber yang terdaftar dan menelusuri progres discovery, profiling, konfigurasi atau binding master, pemuatan data, serta penanggung jawabnya.',
+    steps: [
+      'Cari sumber berdasarkan nama, kode, atau spreadsheet; gunakan pagination untuk menelusuri daftar.',
+      'Periksa status per tahap dan nama Data Owner/Data Steward untuk mengetahui tindak lanjut yang diperlukan.',
+      'Pilih Buka sumber untuk melanjutkan proses pada sumber tersebut di Workspace ETL.',
+      'Tekan ikon tanda tanya di kolom tahap untuk melihat petunjuk dan cara menyelesaikannya. Ikon tanda seru membuka kegagalan terakhir beserta kode dan waktunya.',
+      'Pilih Riwayat untuk meninjau kronologi aktivitas, pelaku, hasil, dan error setiap percobaan job.',
+      'Admin dapat meninjau sumber duplikat, memilih sumber utama, lalu Unlink entri yang tidak dipakai setelah memastikan tidak ada relasi yang menghalangi.',
+      'Aktifkan tampilan sumber unlink bila perlu memulihkan riwayat, lalu gunakan Pulihkan setelah dua konfirmasi.',
+    ],
+    notes: [
+      'Sumber yang gagal profiling atau konfigurasi tetap terdaftar. Perbaiki tahap yang gagal; jangan daftarkan ulang spreadsheet.',
+      'Unlink menyimpan riwayat dan menghapus entri dari daftar aktif. Unlink memerlukan alasan dan dua konfirmasi; pemulihan juga meminta dua konfirmasi.',
+      'Status tracking menjelaskan progres, bukan hak akses. Binding master approved belum berarti record sudah dimuat; periksa batch import dan apply.',
+    ],
+  },
+  {
     matches: exact('/workspace'),
     title: 'Workspace konfigurasi ETL',
     purpose:
@@ -90,8 +110,9 @@ const entries: PageHelpEntry[] = [
       'Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.',
       'Dropdown unit, domain, dan yurisdiksi hanya memuat assignment aktif akun pendaftar. Membuat atribut di Administrasi belum otomatis menugaskannya ke pengguna.',
       'Jika pilihan kosong, minta admin lain memberikan assignment kepada akun Anda di Administrasi → Pengguna, lalu tekan Muat ulang pilihan. Admin tidak dapat memberikan assignment untuk akunnya sendiri.',
-      'Jika sumber sudah terdaftar tetapi discovery gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job untuk melihat penyebabnya.',
-      'Jika Sheet yang sama dikirim ulang oleh pemilik yang sama, sistem memilih sumber lama tanpa membuat job baru. Jika pemiliknya berbeda, minta admin membantu memakai sumber existing. Peringatan URL muncul jika Spreadsheet telah didaftarkan; gunakan sumber yang ada. Pada panel sumber ganda, admin memilih sumber utama, mengisi alasan, lalu menekan Unlink untuk entri yang tidak dipakai. Entri bisa dipulihkan; jika ada konfigurasi, data turunan, dependensi, atau job aktif, unlink ditolak.',
+      'Jika sumber lama tidak muncul pada pilihan, buka menu Sumber & tracking, cari sumber, lalu pilih Buka sumber. Pilihan Workspace hanya memuat sebagian daftar.',
+      'Jika sumber sudah terdaftar tetapi discovery/profiling gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job dan perbaiki tahap yang gagal.',
+      'Untuk duplikat, admin memilih sumber utama, mengisi alasan, lalu menjalankan Unlink dengan dua konfirmasi. Riwayat tetap tersimpan dan admin dapat memulihkan entri dengan dua konfirmasi. Unlink ditolak bila masih ada konfigurasi, data turunan, dependensi, atau job aktif.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
@@ -121,7 +142,10 @@ const entries: PageHelpEntry[] = [
       'Validasi konfigurasi, simpan revisi, lalu submit untuk reviewer.',
       'Reviewer menyetujui; bila gate rilis aktif, IT dan setiap unit terkait juga menyetujui revisi yang sama sebelum deploy.',
     ],
-    notes: ['Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.'],
+    notes: [
+      'Gunakan ikon bantuan di samping setiap tahap wizard untuk melihat tujuan, urutan kerja, dan contoh khusus tahap tersebut.',
+      'Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.',
+    ],
   },
   {
     matches: exact('/masters'),
@@ -191,10 +215,22 @@ const entries: PageHelpEntry[] = [
     purpose:
       'Menghubungkan kolom dataset dinamis ke record master sebagai referensi yang tervalidasi.',
     steps: [
-      'Muat rekomendasi untuk melihat kandidat master dan field yang mirip.',
-      'Pilih master, versi, field tujuan, cardinality, dan aturan wajib.',
+      'Tekan Muat rekomendasi untuk melihat kandidat hasil kemiripan nama header dengan field master aktif yang sudah approved.',
+      'Periksa nama master, field, tipe, penanda business key, tingkat kecocokan, dan alasan kandidat. Gunakan kandidat sebagai awal pemetaan, bukan persetujuan otomatis.',
+      'Pilih kolom sumber yang membawa kode rujukan dan field master yang menyimpan nilai yang sama. Utamakan field unik dan stabil, biasanya business key; UUID internal tidak perlu dimasukkan ke Sheet.',
+      'Pilih cardinality dan centang Referensi wajib ada bila setiap baris harus memiliki rujukan.',
       'Simpan binding sebagai draft dan minta reviewer menyetujuinya.',
-      'Buat batch baru setelah binding berubah agar dependency tidak stale.',
+      'Buat batch import setelah binding approved. Nilai yang tidak ditemukan atau ambigu perlu diselesaikan pada review import.',
+    ],
+    notes: [
+      'Skor hanya membandingkan nama setelah normalisasi ejaan umum dan padanan Indonesia/Inggris. Sistem tidak membaca nilai data untuk membuktikan hubungan; cocokkan contoh nilai sumber dengan record master.',
+      'Satu binding mencari berdasarkan satu field master. Jika business key master gabungan, siapkan satu kode rujukan unik yang tersedia di sumber; field yang tidak unik dapat menghasilkan kecocokan ambigu.',
+    ],
+    examples: [
+      { label: 'Kolom sumber', value: 'Kode Produk · SKU-001' },
+      { label: 'Master tujuan', value: 'Master Produk · approved dan aktif' },
+      { label: 'Field master', value: 'product_code · berisi SKU-001 dan nilainya unik' },
+      { label: 'Cardinality', value: 'MANY_TO_ONE · banyak transaksi boleh merujuk satu produk' },
     ],
   },
   {

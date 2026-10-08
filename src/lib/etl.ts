@@ -307,6 +307,13 @@ export interface Source {
   id: string
   name: string
   source_code: string
+  spreadsheet_id?: string
+  owner_user_id?: string
+  created_at?: string
+  unlinked_at?: string | null
+  unlinked_by?: string | null
+  unlinked_to_source_id?: string | null
+  unlink_reason?: string | null
   status: string
   access_status?: 'ACCESS_POLICY_REQUIRED' | 'POLICY_APPROVED'
   access_revision?: number
