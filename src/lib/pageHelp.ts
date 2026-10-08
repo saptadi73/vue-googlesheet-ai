@@ -82,6 +82,7 @@ const entries: PageHelpEntry[] = [
     steps: [
       'Hubungkan spreadsheet baru dengan nama, URL/ID, pemilik, domain, yurisdiksi, purpose, dan sensitivitas.',
       'Bagikan spreadsheet kepada service account backend sebagai Viewer sebelum profiling.',
+      'Tekan Hubungkan & profiling sekali; baca status di dekat tombol dan buka monitor job bila discovery masih berjalan atau gagal.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
     ],
@@ -89,6 +90,7 @@ const entries: PageHelpEntry[] = [
       'Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.',
       'Dropdown unit, domain, dan yurisdiksi hanya memuat assignment aktif akun pendaftar. Membuat atribut di Administrasi belum otomatis menugaskannya ke pengguna.',
       'Jika pilihan kosong, minta admin lain memberikan assignment kepada akun Anda di Administrasi → Pengguna, lalu tekan Muat ulang pilihan. Admin tidak dapat memberikan assignment untuk akunnya sendiri.',
+      'Jika sumber sudah terdaftar tetapi discovery gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job untuk melihat penyebabnya.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },

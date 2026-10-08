@@ -143,6 +143,12 @@ Kontrak backend dan urutan rollout ada di
 
 ### Assignment pendaftaran sumber
 
+Pada form Hubungkan Google Sheet baru, hasil request pendaftaran dan job discovery
+sekarang tampil tepat di bawah tombol. Tombol tetap nonaktif setelah API menerima
+sumber agar klik berulang tidak membuat sumber duplikat. Jika job gagal, sumber
+sudah tercatat: pengguna membuka monitor job dan tidak mendaftarkan Sheet yang sama
+lagi. Kesalahan request dan validasi field wajib ditampilkan di dekat form.
+
 Panel assignment di Administrasi sekarang membedakan unit/departemen dari domain
 bisnis dan yurisdiksi wilayah. Daftar checkbox multi-unit hanya berisi DEPARTMENT
 aktif; domain dan yurisdiksi dipilih pada form Atribut untuk pengguna yang sama.

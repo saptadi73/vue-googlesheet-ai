@@ -51,6 +51,10 @@ test('editor registers a source with assigned BE16 metadata', async ({ page }) =
   await page.getByLabel('Data steward').selectOption('steward-id')
   await page.getByLabel('Sensitivitas').selectOption('MEDIUM')
   await page.getByRole('button', { name: 'Hubungkan & profiling' }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Sumber sudah terdaftar, tetapi discovery gagal' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Buka monitor job discovery' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hubungkan & profiling' })).toBeDisabled()
+  expect(mock.requests.filter((request) => request.path === '/sources/google-sheets')).toHaveLength(1)
   expect(
     mock.requests.find((request) => request.path === '/sources/google-sheets')?.body,
   ).toMatchObject({

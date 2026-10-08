@@ -42,6 +42,11 @@ const registration = ref({
   sync_schedule: '',
   access_metadata: emptyAccessMetadata(),
 })
+const registrationBusy = ref(false)
+const registrationError = ref('')
+const registrationMessage = ref('')
+const registrationJobId = ref('')
+const registrationSourceId = ref('')
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
@@ -295,11 +300,22 @@ async function poll(id: string, epoch: number) {
     const result = await call<Job>('GET', `/jobs/${id}`)
     if (epoch !== generation) return
     job.value = result
+    if (id === registrationJobId.value) {
+      if (result.status === 'FAILED') {
+        registrationError.value = `Sumber sudah terdaftar, tetapi discovery gagal: ${result.error_code || 'JOB_FAILED'} ${result.error_message || ''}. Periksa monitor job; jangan daftarkan Sheet yang sama lagi.`
+      } else if (result.status === 'SUCCEEDED') {
+        registrationMessage.value = 'Sumber berhasil didaftarkan dan discovery selesai. Pilih sumber serta tab di bawah untuk melanjutkan.'
+      } else {
+        registrationMessage.value = `Sumber sudah terdaftar. Job discovery ${result.status.toLowerCase()}; pantau statusnya tanpa mengulang pendaftaran.`
+      }
+    }
     if (['QUEUED', 'RUNNING'].includes(result.status) && Date.now() < pollDeadline)
       timer = setTimeout(() => void poll(id, epoch), 2500)
     else if (['QUEUED', 'RUNNING'].includes(result.status))
-      error.value =
-        'Batas pemantauan tercapai. Buka monitor job untuk melanjutkan; jangan ulangi enqueue.'
+      {
+        error.value = 'Batas pemantauan tercapai. Buka monitor job untuk melanjutkan; jangan ulangi enqueue.'
+        if (id === registrationJobId.value) registrationError.value = error.value
+      }
     else {
       await load()
       if (sourceId.value)
@@ -310,6 +326,34 @@ async function poll(id: string, epoch: number) {
     }
   } catch (e) {
     error.value = getApiErrorMessage(e)
+    if (id === registrationJobId.value) registrationError.value = `Sumber sudah terdaftar, tetapi status job tidak dapat dimuat: ${error.value}. Periksa monitor job sebelum mencoba lagi.`
+  }
+}
+async function submitRegistration() {
+  if (registrationBusy.value || registrationJobId.value || !registrationReady.value) return
+  registrationBusy.value = true
+  registrationError.value = ''
+  registrationMessage.value = 'Mengirim pendaftaran sumber...'
+  try {
+    const result = await call<{ job_id: string; source: Source }>('POST', '/sources/google-sheets', {
+      ...registration.value,
+      sync_schedule: registration.value.sync_schedule.trim() || null,
+    })
+    registrationSourceId.value = result.source.id
+    registrationJobId.value = result.job_id
+    sourceId.value = result.source.id
+    sources.value = [result.source, ...sources.value.filter((item) => item.id !== result.source.id)]
+    registrationMessage.value = 'Sumber sudah terdaftar. Menunggu hasil discovery dari worker; jangan tekan Hubungkan lagi.'
+    job.value = { id: result.job_id, status: 'QUEUED', kind: 'DISCOVER', source_id: result.source.id }
+    clearTimeout(timer)
+    generation++
+    pollDeadline = Date.now() + 120_000
+    await poll(result.job_id, generation)
+  } catch (cause) {
+    registrationError.value = `Pendaftaran belum dikonfirmasi: ${getApiErrorMessage(cause)}. Periksa daftar sumber sebelum mencoba lagi.`
+    registrationMessage.value = ''
+  } finally {
+    registrationBusy.value = false
   }
 }
 async function enqueue(path: string, body?: unknown) {
@@ -342,6 +386,11 @@ watch(
     selectedPolicyId.value = ''
     rejectReason.value = 'SCOPE_MISMATCH'
     registration.value.access_metadata = emptyAccessMetadata()
+    registrationBusy.value = false
+    registrationError.value = ''
+    registrationMessage.value = ''
+    registrationJobId.value = ''
+    registrationSourceId.value = ''
     offset.value = 0
     if (canRead.value) void run(async () => {
       await Promise.all([load(), ...(canEdit.value ? [loadRegistrationOptions()] : [])])
@@ -366,16 +415,7 @@ onBeforeUnmount(() => {
     <p v-if="notice" role="status" class="success">{{ notice }}</p>
     <details v-if="canEdit" class="panel">
       <summary>Hubungkan Google Sheet baru</summary>
-      <form
-        @submit.prevent="
-          run(() =>
-            enqueue('/sources/google-sheets', {
-              ...registration,
-              sync_schedule: registration.sync_schedule.trim() || null,
-            }),
-          )
-        "
-      >
+      <form @submit.prevent="submitRegistration" @invalid.capture="registrationError = 'Lengkapi semua field wajib sebelum menghubungkan Sheet.'">
         <div class="grid">
           <label>Nama sumber<input v-model="registration.name" required maxlength="200" /></label>
           <label>URL spreadsheet<input v-model="registration.spreadsheet_url" required /></label>
@@ -464,7 +504,15 @@ onBeforeUnmount(() => {
           Bagikan spreadsheet ke email service account backend dengan akses Viewer sebelum
           menghubungkan.
         </p>
-        <button class="primary" :disabled="busy || !registrationReady">Hubungkan &amp; profiling</button>
+        <button class="primary" :disabled="busy || registrationBusy || !!registrationJobId || !registrationReady">
+          {{ registrationBusy ? 'Menghubungkan...' : 'Hubungkan & profiling' }}
+        </button>
+        <p v-if="registrationMessage" role="status" class="notice">{{ registrationMessage }}</p>
+        <p v-if="registrationError" role="alert" class="error">{{ registrationError }}</p>
+        <p v-if="registrationJobId" class="muted">
+          <RouterLink :to="{ path: '/jobs', query: { job: registrationJobId } }">Buka monitor job discovery</RouterLink>
+          <span v-if="registrationSourceId"> · Sumber sudah tercatat di sistem.</span>
+        </p>
       </form>
     </details>
     <section class="panel">
