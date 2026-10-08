@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { isAxiosError } from 'axios'
 import EtlShell from '@/components/EtlShell.vue'
 import {
   call,
@@ -48,6 +49,7 @@ const registrationError = ref('')
 const registrationMessage = ref('')
 const registrationJobId = ref('')
 const registrationSourceId = ref('')
+const registrationReused = ref(false)
 const registrationDuplicateIds = ref<string[]>([])
 type DuplicateGroup = {
   spreadsheet_id: string
@@ -56,6 +58,7 @@ type DuplicateGroup = {
   sources: { id: string; source_code: string; name: string; owner_user_id: string; status: string }[]
 }
 const duplicateGroups = ref<DuplicateGroup[]>([])
+const duplicateGroupsUnavailable = ref(false)
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
@@ -186,12 +189,23 @@ async function changePage(delta: number) {
   await run(load)
 }
 async function load() {
-  const [nextSources, nextDuplicates] = await Promise.all([
-    call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`),
-    call<DuplicateGroup[]>('GET', '/sources/duplicate-groups'),
-  ])
+  const nextSources = await call<Source[]>('GET', `/sources?offset=${offset.value}&limit=50`)
   sources.value = nextSources
-  duplicateGroups.value = nextDuplicates
+  try {
+    duplicateGroups.value = await call<DuplicateGroup[]>('GET', '/sources/duplicate-groups')
+    duplicateGroupsUnavailable.value = false
+  } catch (cause) {
+    const legacyRoute = isAxiosError<{ errors?: { details?: { field?: string }[] }[] }>(cause) &&
+      (cause.response?.status === 404 || (
+        cause.response?.status === 422 &&
+        cause.response.data?.errors?.some((issue) =>
+          issue.details?.some((detail) => detail.field === 'path.source_id'),
+        )
+      ))
+    if (!legacyRoute) throw cause
+    duplicateGroups.value = []
+    duplicateGroupsUnavailable.value = true
+  }
 }
 async function openDuplicateSource(id: string) {
   if (!sources.value.some((source) => source.id === id)) {
@@ -338,7 +352,9 @@ async function poll(id: string, epoch: number) {
       if (result.status === 'FAILED') {
         registrationError.value = `Sumber sudah terdaftar, tetapi discovery gagal: ${result.error_code || 'JOB_FAILED'} ${result.error_message || ''}. Periksa monitor job; jangan daftarkan Sheet yang sama lagi.`
       } else if (result.status === 'SUCCEEDED') {
-        registrationMessage.value = 'Sumber berhasil didaftarkan dan discovery selesai. Pilih sumber serta tab di bawah untuk melanjutkan.'
+        registrationMessage.value = registrationReused.value
+          ? 'Spreadsheet ini sudah terhubung dan discovery selesai. Sumber lama dipilih kembali; lanjutkan dari tab yang tersedia.'
+          : 'Sumber berhasil didaftarkan dan discovery selesai. Pilih sumber serta tab di bawah untuk melanjutkan.'
       } else {
         registrationMessage.value = `Sumber sudah terdaftar. Job discovery ${result.status.toLowerCase()}; pantau statusnya tanpa mengulang pendaftaran.`
       }
@@ -374,6 +390,7 @@ async function submitRegistration() {
       sync_schedule: registration.value.sync_schedule.trim() || null,
     })
     registrationSourceId.value = result.source.id
+    registrationReused.value = result.already_registered
     registrationDuplicateIds.value = result.duplicate_source_ids
     registrationJobId.value = result.job_id
     sourceId.value = result.source.id
@@ -428,8 +445,10 @@ watch(
     registrationMessage.value = ''
     registrationJobId.value = ''
     registrationSourceId.value = ''
+    registrationReused.value = false
     registrationDuplicateIds.value = []
     duplicateGroups.value = []
+    duplicateGroupsUnavailable.value = false
     offset.value = 0
     if (canRead.value) void run(async () => {
       await Promise.all([load(), ...(canEdit.value ? [loadRegistrationOptions()] : [])])
@@ -557,6 +576,7 @@ onBeforeUnmount(() => {
         </p>
       </form>
     </details>
+    <p v-if="duplicateGroupsUnavailable" class="muted">Daftar sumber ganda belum tersedia. Backend perlu diperbarui; daftar sumber tetap dapat digunakan.</p>
     <section v-if="duplicateGroups.length" class="panel">
       <h2>Sumber yang terhubung lebih dari sekali</h2>
       <p class="muted">Periksa sumber yang sudah ada sebelum mendaftarkan Sheet lagi. Sumber duplikat tidak dihapus otomatis karena mungkin memiliki metadata atau data turunan berbeda.</p>

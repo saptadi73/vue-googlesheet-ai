@@ -178,6 +178,8 @@ export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiEnvelope<unknown>>(error)) {
     const issue = error.response?.data?.errors?.[0]
     const recovery: Record<string, string> = {
+      SOURCE_ALREADY_REGISTERED:
+        'Spreadsheet ini sudah terhubung pada tenant ini oleh akun lain. Hubungi admin untuk memakai sumber yang ada; jangan daftarkan ulang.',
       NL2SQL_QUOTA_EXCEEDED:
         'Kuota harian tercapai. Tunggu kuota tersedia atau hubungi pengelola; jangan retry berulang.',
       AI_HELP_QUOTA_EXCEEDED:

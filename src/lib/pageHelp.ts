@@ -91,7 +91,7 @@ const entries: PageHelpEntry[] = [
       'Dropdown unit, domain, dan yurisdiksi hanya memuat assignment aktif akun pendaftar. Membuat atribut di Administrasi belum otomatis menugaskannya ke pengguna.',
       'Jika pilihan kosong, minta admin lain memberikan assignment kepada akun Anda di Administrasi → Pengguna, lalu tekan Muat ulang pilihan. Admin tidak dapat memberikan assignment untuk akunnya sendiri.',
       'Jika sumber sudah terdaftar tetapi discovery gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job untuk melihat penyebabnya.',
-      'Jika Sheet yang sama dikirim ulang oleh pemilik yang sama, sistem memilih sumber lama tanpa membuat job baru. Panel sumber ganda membantu memilih sumber yang benar; minta admin meninjau duplikat lama sebelum pembersihan.',
+      'Jika Sheet yang sama dikirim ulang oleh pemilik yang sama, sistem memilih sumber lama tanpa membuat job baru. Jika pemiliknya berbeda, minta admin membantu memakai sumber existing. Panel sumber ganda membantu meninjau duplikat lama sebelum pembersihan.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
