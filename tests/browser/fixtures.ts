@@ -217,6 +217,11 @@ export async function setup(page: Page) {
       username = body.username
       return ok({ access_token: `token-${++tokenNumber}`, refresh_token: `refresh-${tokenNumber}` })
     }
+    if (path === '/auth/refresh')
+      return ok({
+        access_token: `token-${++tokenNumber}`,
+        refresh_token: `refresh-${tokenNumber}`,
+      })
     if (path === '/auth/me')
       return ok({
         id: `${username}-id`,

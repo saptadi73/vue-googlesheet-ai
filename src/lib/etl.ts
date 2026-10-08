@@ -3,6 +3,7 @@ import {
   api,
   clearSession,
   onSessionCleared,
+  restoreSessionTokens,
   setSession,
   type TokenPair,
   type ApiEnvelope,
@@ -457,6 +458,10 @@ export async function login(credentials: {
     clearSession()
     throw e
   }
+}
+export async function restoreSession() {
+  if (!(await restoreSessionTokens())) return
+  user.value = await call<User>('GET', '/auth/me')
 }
 export async function logout() {
   try {

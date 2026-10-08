@@ -5,10 +5,20 @@ import './assets/main.css'
 
 import App from './App.vue'
 import router from './router'
+import { restoreSession } from './lib/etl'
 
 const app = createApp(App)
 
-app.use(createPinia())
-app.use(router)
+async function start() {
+  try {
+    await restoreSession()
+  } catch (error) {
+    console.error('Gagal memulihkan sesi pengguna:', error)
+  }
 
-app.mount('#app')
+  app.use(createPinia())
+  app.use(router)
+  app.mount('#app')
+}
+
+void start()

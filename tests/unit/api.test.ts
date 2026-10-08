@@ -42,8 +42,45 @@ beforeEach(() => {
 afterEach(() => {
   axios.defaults.adapter = originalAdapter
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 describe('API session contract', () => {
+  it('restores a tab session and persists the rotated refresh token', async () => {
+    const values = new Map([['vue-googlesheet-ai.refresh-token', 'refresh-old']])
+    const storage = {
+      getItem: (key: string) => values.get(key) || null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    }
+    vi.stubGlobal('window', { sessionStorage: storage })
+    axios.defaults.adapter = (config) =>
+      Promise.resolve(
+        response(config, {
+          data: { access_token: 'access-new', refresh_token: 'refresh-new' },
+        }),
+      )
+    const { api, restoreSessionTokens } = await import('../../src/lib/api')
+
+    await expect(restoreSessionTokens()).resolves.toBe(true)
+
+    expect(values.get('vue-googlesheet-ai.refresh-token')).toBe('refresh-new')
+    expect(api.defaults.headers.common.Authorization).toBe('Bearer access-new')
+  })
+  it('removes an expired persisted refresh token', async () => {
+    const values = new Map([['vue-googlesheet-ai.refresh-token', 'expired']])
+    const storage = {
+      getItem: (key: string) => values.get(key) || null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    }
+    vi.stubGlobal('window', { sessionStorage: storage })
+    axios.defaults.adapter = (config) => unauthorized(config)
+    const { restoreSessionTokens } = await import('../../src/lib/api')
+
+    await expect(restoreSessionTokens()).rejects.toBeDefined()
+
+    expect(values.has('vue-googlesheet-ai.refresh-token')).toBe(false)
+  })
   it('shares a rotating refresh across concurrent 401 responses and uses both new tokens', async () => {
     let refreshes = 0
     const gate = deferred<void>()

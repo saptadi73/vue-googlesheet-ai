@@ -72,9 +72,12 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
 
 - **Sesi:** `/login` adalah route publik tunggal. Guard router mengalihkan direct URL anonim sebelum
   komponen privat dimuat dan hanya menerima redirect internal. Login JSON dilanjutkan `/auth/me`;
-  access/refresh token disimpan dalam memori. Request 401 berbagi satu refresh, memakai kedua token
-  baru, dan diulang satu kali. Logout atau refresh gagal kembali ke login. 403/422/429, timeout
-  mutation, dan kegagalan query AI tidak otomatis diulang. Akun berubah membatalkan respons sesi lama.
+  access token disimpan dalam memori, sedangkan refresh token disimpan di `sessionStorage` agar
+  reload tab memulihkan sesi tetapi tab baru tidak mewarisinya. Saat mulai, refresh dilakukan sebelum
+  guard router dan user dimuat ulang lewat `/auth/me`. Request 401 berbagi satu refresh, memakai
+  kedua token baru, dan diulang satu kali. Logout atau refresh token kedaluwarsa menghapus sesi.
+  403/422/429, timeout mutation, dan kegagalan query AI tidak otomatis diulang. Akun berubah
+  membatalkan respons sesi lama.
 - **Role:** landing setelah login adalah `/admin` untuk admin, `/workspace` untuk owner/steward,
   `/import-reviews` untuk approver, dan `/dashboard` untuk analyst/viewer. Menu dan request awal
   memakai kelompok hak S/E/R/D/A dari reference. Route yang tidak sesuai role dialihkan ke landing

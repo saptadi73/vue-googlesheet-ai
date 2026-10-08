@@ -37,6 +37,20 @@ test('admin root landing and session clear return to login', async ({ page }) =>
   await expect(page).toHaveURL('/login?redirect=/admin')
 })
 
+test('refreshing the page restores the active session', async ({ page }) => {
+  const mock = await setup(page)
+  await page.goto('/')
+  await login(page, 'editor')
+  await expect(page).toHaveURL(/\/workspace$/)
+
+  await page.reload()
+
+  await expect(page).toHaveURL(/\/workspace$/)
+  await expect(page.getByRole('button', { name: 'Keluar / ganti akun' })).toBeVisible()
+  expect(mock.requests.filter((request) => request.path === '/auth/refresh')).toHaveLength(1)
+  expect(mock.requests.filter((request) => request.path === '/auth/me')).toHaveLength(2)
+})
+
 test('login rejects an external redirect target', async ({ page }) => {
   await setup(page)
   await page.goto('/login?redirect=//example.com/steal-session')

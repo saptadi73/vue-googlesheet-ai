@@ -27,8 +27,10 @@ export interface TokenPair {
   refresh_token: string
 }
 type SessionConfig = InternalAxiosRequestConfig & { sessionEpoch?: number; retried?: boolean }
+const refreshStorageKey = 'vue-googlesheet-ai.refresh-token'
 let accessToken: string | null = null
-let refreshToken: string | null = null
+let refreshToken: string | null =
+  typeof window === 'undefined' ? null : window.sessionStorage.getItem(refreshStorageKey)
 let epoch = 0
 let refreshFlight: Promise<void> | null = null
 const sessionListeners = new Set<() => void>()
@@ -39,6 +41,7 @@ export function clearSession() {
   epoch++
   refreshFlight = null
   refreshToken = null
+  if (typeof window !== 'undefined') window.sessionStorage.removeItem(refreshStorageKey)
   setAccessToken(null)
   sessionListeners.forEach((callback) => callback())
 }
@@ -46,9 +49,35 @@ export function setSession(tokens: TokenPair) {
   epoch++
   refreshFlight = null
   refreshToken = tokens.refresh_token
+  if (typeof window !== 'undefined')
+    window.sessionStorage.setItem(refreshStorageKey, tokens.refresh_token)
   setAccessToken(tokens.access_token)
 }
 const authApi = axios.create({ baseURL: `${origin}${basePath}`, timeout: 30_000 })
+export async function restoreSessionTokens() {
+  if (!refreshToken) return false
+  const currentEpoch = epoch
+  try {
+    const response = await authApi.post<ApiEnvelope<TokenPair>>('/auth/refresh', {
+      refresh_token: refreshToken,
+    })
+    if (currentEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
+    refreshToken = response.data.data.refresh_token
+    if (typeof window !== 'undefined')
+      window.sessionStorage.setItem(refreshStorageKey, refreshToken)
+    setAccessToken(response.data.data.access_token)
+    return true
+  } catch (failure) {
+    if (
+      currentEpoch === epoch &&
+      axios.isAxiosError(failure) &&
+      (failure.response?.status === 400 || failure.response?.status === 401)
+    ) {
+      clearSession()
+    }
+    throw failure
+  }
+}
 api.interceptors.request.use((config: SessionConfig) => {
   config.sessionEpoch ??= epoch
   if (config.sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
@@ -95,6 +124,8 @@ api.interceptors.response.use(
           })
           if (currentEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
           refreshToken = response.data.data.refresh_token
+          if (typeof window !== 'undefined')
+            window.sessionStorage.setItem(refreshStorageKey, refreshToken)
           setAccessToken(response.data.data.access_token)
         } catch (failure) {
           if (currentEpoch === epoch) clearSession()
