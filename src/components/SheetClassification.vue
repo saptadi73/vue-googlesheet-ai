@@ -92,11 +92,7 @@ watch(
           <button class="primary" :disabled="!choice">Konfirmasi klasifikasi</button>
         </fieldset>
       </form>
-      <RouterLink
-        v-if="classification.dataset_kind === 'MASTER'"
-        class="button"
-        :to="`/sources/${sourceId}/sheets/${sheetId}/master-binding`"
-        >Atur binding master</RouterLink
+      <a v-if="classification.dataset_kind === 'MASTER'" class="button" :href="`/sources/${sourceId}/sheets/${sheetId}/master-binding`">Atur binding master</a
       ></template
     >
   </section>

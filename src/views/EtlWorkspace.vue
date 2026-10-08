@@ -394,10 +394,11 @@ async function poll(id: string, epoch: number) {
       }
     else {
       await load()
-      if (sourceId.value)
-        sheets.value = await call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`)
-      if (sourceId.value)
-        profiles.value = await call<Profile[]>('GET', `/sources/${sourceId.value}/profiling-runs`)
+      const refreshedSourceId = result.source_id || sourceId.value
+      if (refreshedSourceId) {
+        sourceId.value = refreshedSourceId
+        await selectSource()
+      }
       await loadConfigs()
     }
   } catch (e) {
@@ -648,7 +649,7 @@ onBeforeUnmount(() => {
         <p v-if="!group.same_owner" class="muted">Pemilik berbeda; admin perlu meninjau tujuan dan hak aksesnya.</p>
         <ul>
           <li v-for="item in group.sources" :key="item.id">
-            {{ item.name }} ({{ item.source_code }}) - {{ item.unlinked_at ? 'UNLINKED' : item.status }}
+            {{ item.name }} ({{ item.source_code }}) - {{ item.id === group.suggested_source_id ? item.status : 'DUPLIKAT' }}
             <button v-if="!item.unlinked_at" type="button" @click="run(() => openDuplicateSource(item.id))">Buka sumber</button>
             <span v-if="item.id === group.suggested_source_id"> - sumber utama yang disarankan</span>
             <template v-if="user?.role === 'PLATFORM_ADMIN'">
