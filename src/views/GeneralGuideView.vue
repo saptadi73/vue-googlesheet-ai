@@ -90,7 +90,7 @@ const stages = [
     action: 'Buat konfigurasi',
     purpose: 'Menentukan bagaimana kolom sumber dibersihkan, divalidasi, dimuat, dan diterbitkan sebagai produk data.',
     steps: [
-      'Pilih tab lalu buat draft manual atau minta rekomendasi AI.',
+      'Pilih tab lalu gunakan template konfigurasi manual. Sistem mengisi kandidat nama, tipe, dan key dari hasil profiling; Anda tetap memeriksa dan mengubahnya sebelum review.',
       'Periksa mapping kolom, tipe target, transformasi, nullability, dan sensitivitas.',
       'Atur business key, strategi load, aturan kualitas, periode efektif, dan parameter incremental bila diperlukan.',
       'Lengkapi nama produk data, dimensi, metrik, sinonim, unit, serta visualisasi default.',

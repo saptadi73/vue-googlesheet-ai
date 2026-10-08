@@ -746,18 +746,6 @@ onBeforeUnmount(() => {
         <button v-if="sourceId" :disabled="busy" @click="run(loadMigrationPreview)">
           Preview migrasi master
         </button>
-        <button
-          v-if="canEdit"
-          class="primary"
-          :disabled="busy || !sheetId || !selectedSheet?.last_fingerprint || !selectedSheet.enabled"
-          @click="
-            run(() =>
-              enqueue(`/sources/${sourceId}/ai-configurations`, { source_sheet_id: sheetId }),
-            )
-          "
-        >
-          Rekomendasikan konfigurasi AI
-        </button>
       </div>
     </section>
     <section v-if="selectedSource && canEdit" class="panel">

@@ -576,11 +576,11 @@ onBeforeRouteUpdate(confirmLeave)
       <div class="toolbar">
         <span class="tag">{{ record.status }}</span
         ><span>Versi {{ record.version_no }} · revisi {{ record.revision_no }}</span
-        ><span class="muted">Keyakinan AI {{ Math.round(draft.overall_confidence * 100) }}%</span
+        ><span class="muted">Kelengkapan draft {{ Math.round(draft.overall_confidence * 100) }}%</span
         ><span v-if="dirty" class="tag">Perubahan belum disimpan</span>
       </div>
       <p class="notice">
-        Periksa rekomendasi AI, jawab pertanyaan, lalu jalankan dry-run. Persetujuan mengacu pada
+        Periksa mapping dan aturan kualitas, jawab pertanyaan yang tersisa, lalu jalankan dry-run. Persetujuan mengacu pada
         revisi dan snapshot yang diperiksa.
       </p>
       <details>
