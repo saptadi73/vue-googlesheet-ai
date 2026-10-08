@@ -48,6 +48,10 @@ const editor = computed(() => editRoles.includes(user.value?.role || ''))
 const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
 function payload() {
   const definition = copy(draft.value)
+  // A field may be renamed or removed after being selected as a business key.
+  // Remove stale names before validation so the payload matches the visible fields.
+  const fieldNames = new Set(definition.fields.map((field) => field.name))
+  definition.business_key = definition.business_key.filter((key) => fieldNames.has(key))
   definition.aliases = aliases.value
     .split('\n')
     .map((s) => s.trim())
@@ -219,6 +223,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             <label
               >Nama field<input
                 v-model="field.name"
+                @change="
+                  draft.business_key = draft.business_key.filter((key) =>
+                    draft.fields.some((candidate) => candidate.name === key),
+                  )
+                "
                 required
                 pattern="[a-z][a-z0-9_]*"
                 maxlength="63" /></label
@@ -269,6 +278,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             :disabled="
               field.nullable ||
               (draft.business_key.length >= 10 && !draft.business_key.includes(field.name))
+            "
+            @change="
+              ($event.target as HTMLInputElement).checked
+                ? (field.nullable = false)
+                : undefined
             "
           />{{ field.name }}</label
         ><label

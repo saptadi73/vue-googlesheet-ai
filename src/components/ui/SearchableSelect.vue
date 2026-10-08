@@ -60,7 +60,9 @@ function choose(value: string) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'ArrowDown' && isOpen.value) {
+  if (event.key === 'Tab' && isOpen.value) {
+    closeMenu()
+  } else if (event.key === 'ArrowDown' && isOpen.value) {
     event.preventDefault()
     activeIndex.value = Math.min(activeIndex.value + 1, filteredOptions.value.length - 1)
   } else if (event.key === 'ArrowUp' && isOpen.value) {
@@ -99,7 +101,6 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onPointerDown)
       @focus="isOpen = true"
       @input="isOpen = true"
       @keydown="onKeydown"
-      @blur="closeMenu"
     />
     <div v-if="isOpen" :id="listId" class="searchable-select__list" role="listbox">
       <div
