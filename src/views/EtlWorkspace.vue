@@ -17,6 +17,7 @@ import {
 } from '@/lib/etl'
 import ManualDraft from '@/components/ManualDraft.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
+import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { sourceBlockers } from '@/lib/classification'
 import { getApiErrorMessage } from '@/lib/api'
 const sources = ref<Source[]>([]),
@@ -98,6 +99,18 @@ const syncReviews = ref<unknown[] | null>(null)
 const migrationPreview = ref<Record<string, unknown> | null>(null)
 const selectedSource = computed(() => sources.value.find((source) => source.id === sourceId.value))
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value))
+const sourceOptions = computed(() =>
+  sources.value.map((source) => ({
+    value: source.id,
+    label: `${source.name} · ${source.status}`,
+  })),
+)
+const sheetOptions = computed(() =>
+  sheets.value.map((sheet) => ({
+    value: sheet.id,
+    label: `${sheet.sheet_name}${sheet.last_fingerprint ? '' : ' (perlu profiling)'}`,
+  })),
+)
 const currentProfile = computed(
   () =>
     profiles.value
@@ -518,22 +531,26 @@ onBeforeUnmount(() => {
     <section class="panel">
       <h2>Pilih sumber dan tab</h2>
       <div class="grid">
-        <label
-          >Sumber<select v-model="sourceId" :disabled="busy" @change="run(selectSource)">
-            <option value="">Pilih sumber</option>
-            <option v-for="s in sources" :key="s.id" :value="s.id">
-              {{ s.name }} · {{ s.status }}
-            </option>
-          </select></label
-        >
-        <label
-          >Tab Google Sheet<select v-model="sheetId" :disabled="busy" @change="run(loadConfigs)">
-            <option value="">Pilih tab</option>
-            <option v-for="s in sheets" :key="s.id" :value="s.id">
-              {{ s.sheet_name }} {{ s.last_fingerprint ? '' : '(perlu profiling)' }}
-            </option>
-          </select></label
-        >
+        <label>
+          Sumber
+          <SearchableSelect
+            v-model="sourceId"
+            :options="sourceOptions"
+            placeholder="Pilih sumber"
+            :disabled="busy"
+            @change="run(selectSource)"
+          />
+        </label>
+        <label>
+          Tab Google Sheet
+          <SearchableSelect
+            v-model="sheetId"
+            :options="sheetOptions"
+            placeholder="Pilih tab"
+            :disabled="busy"
+            @change="run(loadConfigs)"
+          />
+        </label>
       </div>
       <p v-if="selectedSource" role="status">
         Status akses: {{ selectedSource.access_status === 'POLICY_APPROVED' ? 'Policy approved' : 'Perlu policy akses' }}
