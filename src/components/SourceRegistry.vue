@@ -13,11 +13,13 @@ type TrackedSource = Source & {
   configuration_status: string
   database_status: string
   access_review_status: string
+  it_approval_status: string
+  it_approval_pending_tabs: string[]
   last_failures: Record<string, StageFailure>
   owner_name?: string | null
   steward_name: string | null
   registered_by?: string | null
-  sheets: { id: string; name: string; enabled: boolean; is_present: boolean; presence_status: 'PRESENT' | 'MISSING'; rows_loaded: number; profiling_status: string; configuration_status: string; database_status: string; last_failures: Record<string, StageFailure> }[]
+  sheets: { id: string; name: string; enabled: boolean; is_present: boolean; presence_status: 'PRESENT' | 'MISSING'; rows_loaded: number; profiling_status: string; configuration_status: string; database_status: string; it_approval_status: string; last_failures: Record<string, StageFailure> }[]
 }
 type StageFailure = { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null; job_kind?: string }
 type StageKey = 'discovery' | 'profiling' | 'configuration' | 'database'
@@ -47,6 +49,7 @@ const columns = [
   { key: 'discovery_label', label: 'Discovery' },
   { key: 'profiling_label', label: 'Profiling' },
   { key: 'configuration_label', label: 'Konfigurasi' },
+  { key: 'it_approval_label', label: 'Approval IT' },
   { key: 'database_label', label: 'Database' },
   { key: 'responsibility_details', label: 'Penanggung jawab' },
   { key: 'access_review_status', label: 'Review akses' },
@@ -83,6 +86,7 @@ const tableRows = computed(() => rows.value.map((source) => ({
   discovery_label: statusLabel(source.discovery_status),
   profiling_label: statusLabel(source.profiling_status),
   configuration_label: statusLabel(source.configuration_status),
+  it_approval_label: statusLabel(source.it_approval_status),
   database_label: statusLabel(source.database_status),
   link_status: source.unlinked_at ? `UNLINKED → ${source.unlinked_to_source_id || '—'}` : 'TERHUBUNG',
   actions: '',
@@ -113,7 +117,7 @@ function statusLabel(value: string) {
     RECORDED: 'Tercatat',
     AI_FAILED: 'Rekomendasi AI gagal', PROFILE_FAILED: 'Profiling gagal',
     ACCESS_POLICY_REQUIRED: 'Menunggu policy akses', PENDING: 'Menunggu review',
-    REJECTED: 'Ditolak', IN_PROGRESS: 'Belum lengkap', BINDING_READY: 'Binding siap',
+    REJECTED: 'Ditolak', PENDING_IT_APPROVAL: 'Menunggu IT_APPROVER', NOT_SUBMITTED: 'Belum diajukan', NOT_APPLICABLE: 'Tidak berlaku', IN_PROGRESS: 'Belum lengkap', BINDING_READY: 'Binding siap',
     BINDING_REVIEW: 'Menunggu binding',
   }
   return labels[value] || value || 'Belum dimulai'
@@ -122,7 +126,7 @@ function statusKind(value: unknown): 'success' | 'failure' | 'pending' | 'neutra
   const normalized = String(value || '').toUpperCase()
   if (['SUCCEEDED', 'SUCCEEDED_WITH_WARNINGS', 'ACTIVE', 'APPROVED', 'CONFIRMED', 'BINDING_READY', 'TERHUBUNG'].includes(normalized)) return 'success'
   if (['FAILED', 'PROFILE_FAILED', 'AI_FAILED', 'REJECTED', 'UNLINKED', 'ERROR'].includes(normalized) || normalized.endsWith('_FAILED')) return 'failure'
-  if (['QUEUED', 'RUNNING', 'STARTED', 'IN_PROGRESS', 'PENDING', 'NEEDS_REVIEW', 'READY_FOR_APPROVAL', 'ACCESS_POLICY_REQUIRED', 'BINDING_REVIEW', 'NOT_STARTED', ''].includes(normalized)) return 'pending'
+  if (['QUEUED', 'RUNNING', 'STARTED', 'IN_PROGRESS', 'PENDING', 'NEEDS_REVIEW', 'READY_FOR_APPROVAL', 'ACCESS_POLICY_REQUIRED', 'BINDING_REVIEW', 'PENDING_IT_APPROVAL', 'NOT_SUBMITTED', 'NOT_STARTED', ''].includes(normalized)) return 'pending'
   return 'neutral'
 }
 function showSourceDetail(row: Record<string, unknown>) {
@@ -148,6 +152,10 @@ function openStageHelp(stage: StageKey, row?: Record<string, unknown>) {
 }
 function stageFailure(row: Record<string, unknown>, stage: StageKey): StageFailure | undefined {
   return (row.last_failures as Record<string, StageFailure> | undefined)?.[stage]
+}
+function pendingApprovalTabs(row: Record<string, unknown>): string[] {
+  const tabs = row.it_approval_pending_tabs
+  return Array.isArray(tabs) ? tabs.filter((value): value is string => typeof value === 'string') : []
 }
 function stageStatus(source: TrackedSource, stage: StageKey) {
   const key: Record<StageKey, keyof TrackedSource> = {
@@ -333,6 +341,12 @@ function restoreRow(row: Record<string, unknown>) {
       <template #cell-profiling_label="{ row, value }">
         <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.profiling_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.profiling_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.profiling_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span class="sr-only">{{ value }}</span></span><button v-if="stageFailure(row, 'profiling')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan profiling terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('profiling', row)"><FileText :size="16"/></button></span>
       </template>
+      <template #header-it_approval_label="{ column }">
+        <span class="table-header-help">{{ column.label }}<button class="icon-button help-icon" type="button" aria-label="Petunjuk approval IT" title="Petunjuk approval IT" @click="openStageHelp('configuration')"><CircleHelp :size="16" /></button></span>
+      </template>
+      <template #cell-it_approval_label="{ row, value }">
+        <span class="stage-cell" :title="pendingApprovalTabs(row).length ? `Menunggu IT_APPROVER: ${pendingApprovalTabs(row).join(', ')}` : String(value)"><span class="status-symbol" :class="`status-symbol--${statusKind(row.it_approval_status)}`" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.it_approval_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.it_approval_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span>{{ value }}</span></span><button v-if="pendingApprovalTabs(row).length" class="icon-button" type="button" :aria-label="`Lihat tab yang menunggu IT_APPROVER untuk ${row.name}`" title="Lihat tab menunggu approval" @click="showTabs(row)"><FileText :size="16"/></button></span>
+      </template>
       <template #cell-configuration_label="{ row, value }">
         <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.configuration_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.configuration_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.configuration_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span class="sr-only">{{ value }}</span></span><button v-if="stageFailure(row, 'configuration')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan konfigurasi terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('configuration', row)"><FileText :size="16"/></button></span>
       </template>
@@ -425,7 +439,7 @@ function restoreRow(row: Record<string, unknown>) {
         <ol v-else-if="detailModal.source?.sheets.length" class="tab-list">
           <li v-for="sheet in detailModal.source.sheets" :key="sheet.id">
             <strong>{{ sheet.name }}</strong><span v-if="!sheet.is_present" class="muted"> · tidak ditemukan di spreadsheet</span><span v-else-if="!sheet.enabled" class="muted"> · nonaktif</span>
-            <small>Profil: {{ statusLabel(sheet.profiling_status) }} · Konfigurasi: {{ statusLabel(sheet.configuration_status) }} · Database: {{ statusLabel(sheet.database_status) }}</small>
+            <small>Profil: {{ statusLabel(sheet.profiling_status) }} | Konfigurasi: {{ statusLabel(sheet.configuration_status) }} | Approval IT: {{ statusLabel(sheet.it_approval_status) }} | Database: {{ statusLabel(sheet.database_status) }}</small>
             <p v-for="failure in Object.values(sheet.last_failures || {})" :key="`${failure.stage}-${failure.occurred_at}`" class="stage-failure"><strong>{{ failure.code || 'GAGAL' }}</strong> · {{ failure.message || 'Tidak ada keterangan.' }}</p>
           </li>
         </ol>

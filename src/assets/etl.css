@@ -359,6 +359,74 @@
 .etl .muted {
   color: var(--muted);
 }
+.etl .tab-tracking {
+  margin: 22px 0 12px;
+  padding: 16px;
+  border: 1px solid #dce8e2;
+  border-radius: var(--radius-md);
+  background: #fbfdfc;
+}
+.etl .tab-tracking-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.etl .tab-tracking-heading h3 {
+  margin: 0 0 4px;
+}
+.etl .tab-tracking-heading p {
+  margin: 0;
+}
+.etl .tab-tracking-scroll {
+  overflow-x: auto;
+}
+.etl .tab-tracking-table {
+  min-width: 900px;
+}
+.etl .tab-tracking-table th,
+.etl .tab-tracking-table td {
+  padding: 9px 10px;
+}
+.etl .tab-name-cell {
+  min-width: 170px;
+  font-weight: 600;
+}
+.etl .tab-row-selected {
+  background: #eef8f2;
+}
+.etl .stage-pill {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.etl .stage-done {
+  color: #087443;
+  background: #e8f5ee;
+}
+.etl .stage-progress {
+  color: #895500;
+  background: #fff4da;
+}
+.etl .stage-error {
+  color: #b42318;
+  background: #feeeec;
+}
+.etl .stage-muted {
+  color: #66756d;
+  background: #edf1ef;
+}
+.etl .stage-detail {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+}
 .etl .scroll {
   overflow: auto;
 }

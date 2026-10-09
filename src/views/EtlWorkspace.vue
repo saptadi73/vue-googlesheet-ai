@@ -12,6 +12,7 @@ import {
   type Config,
   type Job,
   type Profile,
+  type SourceSheetTracking,
   type AccessAttribute,
   type AccessKind,
   type SourceAccessMetadata,
@@ -24,6 +25,8 @@ import { getApiErrorMessage } from '@/lib/api'
 const sources = ref<Source[]>([]),
   sheets = ref<Sheet[]>([]),
   configs = ref<Config[]>([])
+const sourceTabTracking = ref<SourceSheetTracking[]>([])
+const deployedConfigs = ref<Record<string, Config>>({})
 const sourceId = ref(''),
   sheetId = ref(''),
   error = ref(''),
@@ -277,6 +280,8 @@ async function selectSource() {
   configs.value = []
   sheets.value = []
   profiles.value = []
+  sourceTabTracking.value = []
+  deployedConfigs.value = {}
   if (sourceId.value) {
     const results = await Promise.all([
       call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`),
@@ -284,7 +289,80 @@ async function selectSource() {
     ])
     sheets.value = results[0]
     profiles.value = results[1]
+    const deployed = await Promise.all(sheets.value
+      .filter((sheet) => sheet.active_configuration_id && sheet.dataset_kind !== 'MASTER')
+      .map(async (sheet) => {
+        try {
+          const config = await call<Config>('GET', `/configurations/${sheet.active_configuration_id}`)
+          return [sheet.id, config] as const
+        } catch {
+          return null
+        }
+      }))
+    deployedConfigs.value = Object.fromEntries(deployed.filter((item): item is NonNullable<typeof item> => item !== null))
+    const source = sources.value.find((item) => item.id === sourceId.value)
+    if (source?.source_code) {
+      try {
+        const matchingSources = await call<Source[]>(`GET`, `/sources?search=${encodeURIComponent(source.source_code)}&limit=100`)
+        sourceTabTracking.value = matchingSources.find((item) => item.id === source.id)?.sheets || []
+      } catch {
+        sourceTabTracking.value = []
+      }
+    }
   }
+}
+const deployedTables = computed(() => sheets.value
+  .filter((sheet) => sheet.is_present && sheet.active_configuration_id && sheet.dataset_kind !== 'MASTER')
+  .map((sheet) => ({ sheet, config: deployedConfigs.value[sheet.id], tracking: tabTracking(sheet) }))
+  .filter((item) => item.config))
+function sourceSheetUrl(sheet: Sheet) {
+  const spreadsheetId = selectedSource.value?.spreadsheet_id
+  if (!spreadsheetId) return ''
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit#gid=${sheet.sheet_id}`
+}
+function physicalTableName(sheet: Sheet) {
+  const target = deployedConfigs.value[sheet.id]?.configuration_json.target_table
+  return target ? `trusted.${target}_${sheet.id.replaceAll('-', '')}` : '—'
+}
+function tabTracking(sheet: Sheet) {
+  return sourceTabTracking.value.find((item) => item.id === sheet.id)
+}
+function latestProfile(sheet: Sheet) {
+  return profiles.value
+    .filter((profile) => profile.source_sheet_id === sheet.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
+}
+function profileTimestamp(sheet: Sheet) {
+  const timestamp = tabTracking(sheet)?.profiled_at || latestProfile(sheet)?.created_at
+  return timestamp ? new Date(timestamp).toLocaleString() : ''
+}
+function tabConfigLabel(sheet: Sheet) {
+  const tracked = tabTracking(sheet)
+  if (sheet.dataset_kind === 'MASTER') return tracked?.master_binding_status || 'Binding belum dimulai'
+  if (sheet.active_configuration_id) return 'ACTIVE'
+  return tracked?.configuration_status || 'Belum dibuat'
+}
+function trackingStatusTone(status: string | null | undefined) {
+  const normalized = (status || '').toUpperCase()
+  if (['SUCCEEDED', 'SUCCEEDED_WITH_WARNINGS', 'ACTIVE', 'DEPLOYED', 'CONFIRMED', 'APPROVED', 'BINDING_READY'].includes(normalized)) return 'stage-done'
+  if (normalized.includes('FAIL') || ['REJECTED', 'BLOCKED'].includes(normalized)) return 'stage-error'
+  if (['NOT_STARTED', 'NOT_SUBMITTED', 'NOT_APPLICABLE', ''].includes(normalized)) return 'stage-muted'
+  return 'stage-progress'
+}
+function statusLabel(status: string | null | undefined) {
+  if (!status || status === 'NOT_STARTED') return 'Belum'
+  return status.replaceAll('_', ' ')
+}
+function tabFailureSummary(sheet: Sheet) {
+  const failures = Object.values(tabTracking(sheet)?.last_failures || {})
+  if (!failures.length) return ''
+  const latest = failures.sort((a, b) => (b.occurred_at || '').localeCompare(a.occurred_at || ''))[0]
+  if (!latest) return ''
+  return [latest.stage, latest.code, latest.message].filter(Boolean).join(' · ')
+}
+function chooseSheet(sheet: Sheet) {
+  sheetId.value = sheet.id
+  void run(loadConfigs)
 }
 async function loadConfigs() {
   configs.value = sheetId.value
@@ -647,6 +725,50 @@ onBeforeUnmount(() => {
         {{ sheets.filter((sheet) => !sheet.is_present).length }} tab lama tidak ditemukan lagi di Google Sheet;
         tab tersebut disembunyikan dari pilihan dan tidak akan diproses. Riwayat tetap tersimpan di Sumber data &amp; tracking.
       </p>
+      <section v-if="selectedSource && sheets.length" class="tab-tracking" aria-labelledby="tab-tracking-title">
+        <div class="tab-tracking-heading">
+          <div>
+            <h3 id="tab-tracking-title">Tahap proses setiap tab</h3>
+            <p class="muted">Tidak semua tab harus diproses. Tab yang dikecualikan tetap tercatat dan tidak ikut sinkronisasi.</p>
+          </div>
+          <span class="muted">{{ sheets.filter((sheet) => sheet.enabled && sheet.is_present).length }} dari {{ sheets.filter((sheet) => sheet.is_present).length }} tab aktif</span>
+        </div>
+        <div class="tab-tracking-scroll">
+          <table class="tab-tracking-table">
+            <thead>
+              <tr><th>Tab</th><th>Discovery</th><th>Profiling</th><th>Klasifikasi</th><th>Konfigurasi / binding</th><th>Approval IT</th><th>Database</th><th>Keikutsertaan</th><th>Catatan kegagalan</th><th>Tindakan</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="sheet in sheets" :key="sheet.id" :class="{ 'tab-row-selected': sheet.id === sheetId }">
+                <td class="tab-name-cell">{{ sheet.sheet_name }}</td>
+                <td><span :class="['stage-pill', sheet.is_present ? 'stage-done' : 'stage-error']">{{ sheet.is_present ? 'Ditemukan' : 'Tidak ditemukan' }}</span></td>
+                <td>
+                  <span :class="['stage-pill', trackingStatusTone(tabTracking(sheet)?.profiling_status || latestProfile(sheet)?.status || (sheet.last_fingerprint ? 'SUCCEEDED' : 'NOT_STARTED'))]">
+                    {{ statusLabel(tabTracking(sheet)?.profiling_status || latestProfile(sheet)?.status || (sheet.last_fingerprint ? 'SUCCEEDED' : 'NOT_STARTED')) }}
+                  </span>
+                  <small v-if="latestProfile(sheet)" class="stage-detail">{{ profileTimestamp(sheet) }}</small>
+                </td>
+                <td>{{ sheet.dataset_kind || (sheet.classification_status === 'CONFIRMED' ? 'Terkonfirmasi' : 'Belum') }}</td>
+                <td><span :class="['stage-pill', trackingStatusTone(tabConfigLabel(sheet))]">{{ statusLabel(tabConfigLabel(sheet)) }}</span></td>
+                <td><span :class="['stage-pill', trackingStatusTone(tabTracking(sheet)?.it_approval_status)]">{{ statusLabel(tabTracking(sheet)?.it_approval_status) }}</span></td>
+                <td>
+                  <span :class="['stage-pill', trackingStatusTone(tabTracking(sheet)?.database_status)]">{{ statusLabel(tabTracking(sheet)?.database_status) }}</span>
+                  <small v-if="(tabTracking(sheet)?.rows_loaded || 0) > 0" class="stage-detail">{{ tabTracking(sheet)?.rows_loaded }} baris dimuat</small>
+                </td>
+                <td><span :class="['stage-pill', sheet.enabled ? 'stage-progress' : 'stage-muted']">{{ sheet.enabled ? 'Diikutkan' : 'Dikecualikan' }}</span></td>
+                <td>
+                  <details v-if="tabFailureSummary(sheet)">
+                    <summary class="stage-error-text">Gagal</summary>
+                    <small>{{ tabFailureSummary(sheet) }}</small>
+                  </details>
+                  <span v-else class="muted">—</span>
+                </td>
+                <td><button type="button" :disabled="!sheet.is_present || busy" @click="chooseSheet(sheet)">{{ sheet.id === sheetId ? 'Tab dipilih' : 'Pilih tab' }}</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
       <p class="muted">Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Untuk mengecek tab terbaru di Google Sheet, jalankan Temukan tab.</p>
       <div class="toolbar">
         <button :disabled="busy || offset === 0" @click="changePage(-50)">Sumber sebelumnya</button
@@ -983,6 +1105,28 @@ onBeforeUnmount(() => {
         ><RouterLink class="button primary" :to="`/configurations/${c.id}/review`"
           >Buka review</RouterLink
         >
+      </div>
+    </section>
+    <section v-if="selectedSource" class="panel">
+      <h2>Tabel hasil ETL aktif pada sumber ini</h2>
+      <p class="muted">Daftar ini menampilkan output NON_MASTER yang sudah dideploy. Setiap baris menautkan kembali ke spreadsheet dan tab sumbernya. Untuk mengubah struktur atau semantic, buat revisi konfigurasi lalu jalankan review dan approval sebelum deploy.</p>
+      <p v-if="!deployedTables.length" class="muted">Belum ada tabel hasil ETL aktif untuk sumber ini. Tab MASTER dikelola melalui binding dan batch import master.</p>
+      <div v-else class="tab-tracking-scroll">
+        <table class="tab-tracking-table">
+          <thead><tr><th>Data product</th><th>Kode semantic</th><th>Tabel database</th><th>Sumber Google Sheet</th><th>Tab</th><th>Status database</th><th>Baris dimuat</th><th>Tindakan</th></tr></thead>
+          <tbody>
+            <tr v-for="item in deployedTables" :key="item.sheet.id">
+              <td>{{ item.config?.configuration_json.dataset_business_name || item.tracking?.data_product_code || '—' }}</td>
+              <td>{{ item.config?.configuration_json.semantic.code || item.tracking?.data_product_code || '—' }}</td>
+              <td><code>{{ physicalTableName(item.sheet) }}</code></td>
+              <td><a v-if="selectedSource?.spreadsheet_id" :href="`https://docs.google.com/spreadsheets/d/${selectedSource.spreadsheet_id}/edit`" target="_blank" rel="noopener noreferrer">Buka spreadsheet</a><span v-else>—</span></td>
+              <td><a v-if="sourceSheetUrl(item.sheet)" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">{{ item.sheet.sheet_name }}</a><span v-else>{{ item.sheet.sheet_name }}</span></td>
+              <td><span :class="['stage-pill', trackingStatusTone(item.tracking?.database_status)]">{{ statusLabel(item.tracking?.database_status) }}</span></td>
+              <td>{{ item.tracking?.rows_loaded ?? 0 }}</td>
+              <td><RouterLink v-if="item.config" :to="`/configurations/${item.config.id}/review`">Buka konfigurasi / buat revisi</RouterLink></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </EtlShell>

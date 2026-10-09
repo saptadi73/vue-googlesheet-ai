@@ -54,6 +54,14 @@ Daftar tab juga dapat dibuka melalui ikon detail agar tabel mudah dipindai.
 Riwayat merupakan catatan aktivitas append-only; status terbaru tetap ditampilkan pada daftar
 tracking.
 
+Halaman **Katalog data** di sidebar menampilkan Data Product aktif lintas sumber dengan pencarian
+dan pagination. Setiap baris menghubungkan nama/deskripsi, tabel fisik, semantic view, versi ETL,
+dimensi/metrik, serta Google Sheet dan tab asal. Gunakan rekomendasi kelengkapan sebagai checklist
+untuk menemukan deskripsi, nama bisnis kolom, dimensi, definisi metrik, atau sinonim yang perlu
+dilengkapi. Perbaiki nilai/header di Google Sheet; ubah mapping, tipe, transformasi, atau struktur
+melalui revisi ETL; kelola deskripsi dan semantic melalui Governance. Buat relasi antardataset hanya
+setelah kunci dan kardinalitas diverifikasi. Saran katalog tidak mengubah data secara otomatis.
+
 Admin juga dapat memilih ikon **Hapus permanen** untuk membersihkan registrasi setup gagal.
 Preview menunjukkan tab, hasil profiling, dan job terminal yang akan dihapus. Tindakan hanya
 diizinkan jika sumber belum memiliki konfigurasi atau data operasional, binding, review import,

@@ -103,6 +103,9 @@ const entries: PageHelpEntry[] = [
       'Hubungkan spreadsheet baru dengan nama, URL/ID, pemilik, domain, yurisdiksi, purpose, dan sensitivitas.',
       'Bagikan spreadsheet kepada service account backend sebagai Viewer sebelum profiling.',
       'Tekan Hubungkan & profiling sekali; baca status di dekat tombol dan buka monitor job bila discovery masih berjalan atau gagal.',
+      'Saat membuka sumber, gunakan tabel Tahap proses setiap tab untuk membandingkan discovery, profiling, klasifikasi, konfigurasi, dan database. Pilih tab hanya untuk melanjutkan langkahnya; tab berstatus Dikecualikan tidak ikut sinkronisasi.',
+      'Tidak semua tab perlu diproses. Biarkan tab yang bukan bagian dari dataset tetap Dikecualikan; aktifkan hanya tab yang memang disetujui untuk dikelola.',
+      'Di bagian bawah Workspace, tabel hasil ETL menampilkan output NON_MASTER yang sudah aktif beserta tautan spreadsheet/tab sumber. Untuk perubahan struktur kolom, mapping, deskripsi atau semantic, buka konfigurasi dan buat revisi; ajukan review dan deploy setelah disetujui.',
       'Jika tab dihapus dari spreadsheet, Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Tekan Temukan tab untuk memeriksa Google Sheet; tab yang hilang akan dinonaktifkan dan dikeluarkan dari pilihan. Riwayat tetap tersimpan. Setelah tab dipulihkan dan discovery dijalankan, aktifkan kembali tab secara manual bila ingin memprosesnya.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
@@ -129,6 +132,22 @@ const entries: PageHelpEntry[] = [
         label: 'Purpose · sensitivitas',
         value: 'Analitik Manajemen · LOW bila sesuai klasifikasi data',
       },
+    ],
+  },
+  {
+    matches: exact('/data-catalog'),
+    title: 'Katalog tabel hasil ETL',
+    purpose: 'Melihat semua Data Product aktif yang dapat diakses, asal spreadsheet/tab, metadata semantic, dan peluang perbaikan untuk analitik/NL2SQL.',
+    steps: [
+      'Cari berdasarkan nama atau kode data product, nama sumber, tab, nama tabel, kolom, dimensi, atau metrik.',
+      'Buka spreadsheet/tab dari kolom sumber untuk memeriksa data asal.',
+      'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, metrik, deskripsi metrik, sinonim, dan relasi antardataset bila dibutuhkan.',
+      'Ubah data/header yang keliru di sumber. Untuk mapping, transformasi, tipe, atau struktur output, buat revisi ETL dan jalani review serta approval. Untuk deskripsi dan metadata semantic, buka Governance.',
+    ],
+    notes: [
+      'Saran metadata bersifat pemeriksaan kelengkapan, bukan AI yang mengubah konfigurasi secara otomatis.',
+      'Relasi join bersifat opsional; buat hanya jika ada kebutuhan analitik lintas dataset dan kolom kunci serta kardinalitasnya sudah dipastikan.',
+      'Katalog hanya menampilkan Data Product aktif yang memang dapat ditemukan oleh akun Anda.',
     ],
   },
   {

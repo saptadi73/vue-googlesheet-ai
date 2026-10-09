@@ -55,6 +55,7 @@ export const operationalNavigation: NavigationGroup[] = [
         icon: Briefcase,
         relatedPaths: ['/configurations', '/sources'],
       },
+      { label: 'Katalog data', to: '/data-catalog', icon: Database },
       { label: 'Batch import', to: '/import-reviews', icon: FileStack },
       { label: 'Persetujuan tayang', to: '/release-approvals', icon: ShieldCheck },
       { label: 'Job & ETL', to: '/jobs', icon: GitBranch },
@@ -83,6 +84,7 @@ export const accountNavigation: NavigationItem[] = [
 ]
 
 export function activeNavigationPath(path: string): string | undefined {
+  if (/^\/sources\/[^/]+\/sheets\/[^/]+\//.test(path)) return '/workspace'
   const items = [
     ...operationalNavigation.flatMap((group) => group.items),
     ...administrationNavigation,

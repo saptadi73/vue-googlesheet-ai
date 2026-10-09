@@ -26,6 +26,11 @@ const router = createRouter({
       component: () => import('@/views/EtlWorkspace.vue'),
     },
     {
+      path: '/data-catalog',
+      name: 'data-product-inventory',
+      component: () => import('@/views/DataProductInventoryView.vue'),
+    },
+    {
       path: '/configurations/:id/review',
       name: 'etl-review',
       meta: { roles: ['PLATFORM_ADMIN', 'SOURCE_OWNER', 'DATA_STEWARD', 'TECHNICAL_APPROVER'] },

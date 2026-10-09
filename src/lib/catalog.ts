@@ -1,6 +1,7 @@
 import type { Column, Metric } from './etl'
 export interface Product {
   id: string
+  source_sheet_id?: string
   code: string
   name: string
   description: string
@@ -11,6 +12,24 @@ export interface Product {
   status: string
   version: number
   freshness_version: number
+}
+export interface ProductInventory extends Product {
+  source_id: string
+  source_name: string
+  source_code: string
+  spreadsheet_id: string
+  spreadsheet_url: string
+  sheet_name: string
+  sheet_id: number
+  source_enabled: boolean
+  source_present: boolean
+  database_schema: string
+  database_table: string
+  semantic_view: string
+  configuration_id: string
+  configuration_version: number
+  configuration_revision: number
+  configuration_status: string
 }
 export interface QueryPlan {
   join_relationships: string[]

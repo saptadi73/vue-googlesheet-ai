@@ -5,6 +5,7 @@ describe('active navigation', () => {
   it.each([
     ['/guide', '/guide'],
     ['/dashboard', '/dashboard'],
+    ['/data-catalog', '/data-catalog'],
     ['/masters/new', '/masters'],
     ['/masters/master-id/storage', '/masters'],
     ['/import-reviews/batch-id', '/import-reviews'],

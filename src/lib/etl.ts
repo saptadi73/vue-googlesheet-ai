@@ -328,9 +328,30 @@ export interface Source {
   concurrency_policy: 'QUEUE_LATEST' | 'SKIP_IF_RUNNING'
   schedule_revision: number
   dependency_source_ids: string[]
+  sheets?: SourceSheetTracking[]
+}
+export interface SourceSheetTracking {
+  id: string
+  name: string
+  enabled: boolean
+  is_present: boolean
+  dataset_kind: 'MASTER' | 'NON_MASTER' | null
+  profiling_status: string
+  profiled_at: string | null
+  configuration_status: string
+  it_approval_status: string
+  configuration_id: string | null
+  configured_at: string | null
+  database_status: string
+  rows_loaded: number
+  loaded_at: string | null
+  master_binding_status: string
+  data_product_code: string | null
+  last_failures: Record<string, { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null }>
 }
 export interface Sheet {
   id: string
+  sheet_id: number
   sheet_name: string
   last_fingerprint: string | null
   range_a1: string
