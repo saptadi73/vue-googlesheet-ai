@@ -2,6 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
+import PagedDataTable from '@/components/ui/PagedDataTable.vue'
+import { api, type ApiEnvelope } from '@/lib/api'
 import ScopeEditor from '@/components/ScopeEditor.vue'
 import {
   call,
@@ -36,11 +38,17 @@ const users = ref<User[]>([]),
   permissionBundles = ref<PermissionBundle[]>([]),
   permissionGrants = ref<PermissionGrant[]>([]),
   accessPolicies = ref<AccessPolicy[]>([]),
-  policyResources = ref<{ code: string; name: string; status: string }[]>([]),
-  evaluationResources = ref<{ code: string; name: string; status: string }[]>([]),
+  policyResources = ref<{ id: string; code: string; name: string; status: string }[]>([]),
+  evaluationResources = ref<{ id: string; code: string; name: string; status: string }[]>([]),
   accessDecision = ref<AccessDecision | null>(null),
   effectiveAccess = ref<EffectiveAccess | null>(null)
-const accessKinds: AccessKind[] = ['DEPARTMENT', 'BUSINESS_DOMAIN', 'JURISDICTION', 'CLEARANCE', 'PURPOSE']
+const accessKinds: AccessKind[] = [
+  'DEPARTMENT',
+  'BUSINESS_DOMAIN',
+  'JURISDICTION',
+  'CLEARANCE',
+  'PURPOSE',
+]
 const accessActions: AccessAction[] = [
   'DISCOVER',
   'READ',
@@ -70,12 +78,12 @@ const attributeForm = ref({ kind: 'DEPARTMENT' as AccessKind, code: '', label: '
 const assignmentForm = ref({ attribute_id: '', valid_from: '', valid_to: '', note: '' })
 const unitIds = ref<string[]>([])
 const unitForm = ref({ valid_from: '', valid_to: '', note: '' })
-const assignedAttributeIds = computed(() => new Set(
-  (effectiveAccess.value?.assignments || []).map((item) => item.attribute_id),
-))
-const activeUnits = computed(() => attributes.value.filter(
-  (item) => item.kind === 'DEPARTMENT' && item.is_active,
-))
+const assignedAttributeIds = computed(
+  () => new Set((effectiveAccess.value?.assignments || []).map((item) => item.attribute_id)),
+)
+const activeUnits = computed(() =>
+  attributes.value.filter((item) => item.kind === 'DEPARTMENT' && item.is_active),
+)
 const registrationScopeKinds = ['DEPARTMENT', 'BUSINESS_DOMAIN', 'JURISDICTION'] as const
 const registrationScopeLabels: Record<AccessKind, string> = {
   DEPARTMENT: 'Unit/departemen',
@@ -95,7 +103,11 @@ const sourceApprovers = ref<SourceApprovers | null>(null)
 const sourceOffset = ref(0)
 const sourcePageSize = 100
 const sourceHasNext = ref(false)
-const approverForm = ref({ metadata_review: [] as string[], configuration: [] as string[], import_review: [] as string[] })
+const approverForm = ref({
+  metadata_review: [] as string[],
+  configuration: [] as string[],
+  import_review: [] as string[],
+})
 const reviewerUsers = ref<{ id: string; username: string; role: string }[]>([])
 type ReleaseGroup = { unit_id: string; approver_ids: string[] }
 type ReleasePolicy = {
@@ -104,22 +116,29 @@ type ReleasePolicy = {
   configured: boolean
   policy: { technical_approver_ids: string[]; unit_groups: ReleaseGroup[] }
 }
-const releaseCandidates = ref<{ id: string; username: string; role: string; unit_ids: string[] }[]>([])
+const releaseCandidates = ref<{ id: string; username: string; role: string; unit_ids: string[] }[]>(
+  [],
+)
 const releasePolicy = ref<ReleasePolicy | null>(null)
 const releaseUnitId = ref('')
 const releaseForm = ref<{ technical_approver_ids: string[]; unit_groups: ReleaseGroup[] }>({
-  technical_approver_ids: [], unit_groups: [],
+  technical_approver_ids: [],
+  unit_groups: [],
 })
-const technicalCandidates = computed(() => releaseCandidates.value.filter(
-  (candidate) => ['PLATFORM_ADMIN', 'TECHNICAL_APPROVER'].includes(candidate.role),
-))
+const technicalCandidates = computed(() =>
+  releaseCandidates.value.filter((candidate) =>
+    ['PLATFORM_ADMIN', 'TECHNICAL_APPROVER'].includes(candidate.role),
+  ),
+)
 function unitCandidates(unitId: string) {
   return releaseCandidates.value.filter((candidate) => candidate.unit_ids.includes(unitId))
 }
 function addReleaseUnit() {
-  if (!releaseUnitId.value || releaseForm.value.unit_groups.some(
-    (group) => group.unit_id === releaseUnitId.value,
-  )) return
+  if (
+    !releaseUnitId.value ||
+    releaseForm.value.unit_groups.some((group) => group.unit_id === releaseUnitId.value)
+  )
+    return
   releaseForm.value.unit_groups.push({ unit_id: releaseUnitId.value, approver_ids: [] })
   releaseUnitId.value = ''
 }
@@ -132,6 +151,18 @@ const bundleForm = ref({ code: '', label: '', description: '', actions: [] as Ac
 const permissionForm = ref({ bundle_id: '', valid_from: '', valid_to: '', note: '' })
 const policyResourceSearch = ref('')
 const evaluationResourceSearch = ref('')
+const policyResourceOffset = ref(0)
+const evaluationResourceOffset = ref(0)
+const resourcePageSize = 10
+const policyResourceTotal = ref(0)
+const evaluationResourceTotal = ref(0)
+const policyResourceColumns = [
+  { key: 'code', label: 'Kode resource' },
+  { key: 'name', label: 'Nama' },
+  { key: 'status', label: 'Status' },
+  { key: 'select', label: 'Pilihan' },
+]
+const evaluationResourceColumns = policyResourceColumns
 const policyForm = ref({
   code: '',
   label: '',
@@ -157,7 +188,10 @@ async function loadUsers() {
   users.value = await call<User[]>('GET', `/users?offset=${offset.value}&limit=25`)
 }
 async function loadSources() {
-  const page = await call<Source[]>('GET', `/sources?offset=${sourceOffset.value}&limit=${sourcePageSize}`)
+  const page = await call<Source[]>(
+    'GET',
+    `/sources?offset=${sourceOffset.value}&limit=${sourcePageSize}`,
+  )
   sources.value = page
   sourceHasNext.value = page.length === sourcePageSize
 }
@@ -192,16 +226,25 @@ async function loadReleasePolicy() {
   releaseForm.value = {
     technical_approver_ids: [...result.policy.technical_approver_ids],
     unit_groups: result.policy.unit_groups.map((group) => ({
-      unit_id: group.unit_id, approver_ids: [...group.approver_ids],
+      unit_id: group.unit_id,
+      approver_ids: [...group.approver_ids],
     })),
   }
 }
+function resetApproverPolicy() {
+  sourceApprovers.value = null
+  releasePolicy.value = null
+}
 async function saveReleasePolicy() {
   if (!releasePolicy.value || !approvalSourceId.value) return
-  const result = await call<ReleasePolicy>('PUT',
-    `/release-approvals/sources/${approvalSourceId.value}/policy`, {
-      revision: releasePolicy.value.revision, ...releaseForm.value,
-    })
+  const result = await call<ReleasePolicy>(
+    'PUT',
+    `/release-approvals/sources/${approvalSourceId.value}/policy`,
+    {
+      revision: releasePolicy.value.revision,
+      ...releaseForm.value,
+    },
+  )
   releasePolicy.value = result
   notice.value = 'Aturan persetujuan siap tayang tersimpan. Persetujuan versi lama perlu diulang.'
 }
@@ -220,10 +263,14 @@ async function loadSourceApprovers() {
 }
 async function saveSourceApprovers() {
   if (!sourceApprovers.value || !approvalSourceId.value) return
-  const result = await call<SourceApprovers>('PUT', `/sources/${approvalSourceId.value}/approvers`, {
-    revision: sourceApprovers.value.revision,
-    ...approverForm.value,
-  })
+  const result = await call<SourceApprovers>(
+    'PUT',
+    `/sources/${approvalSourceId.value}/approvers`,
+    {
+      revision: sourceApprovers.value.revision,
+      ...approverForm.value,
+    },
+  )
   sourceApprovers.value = result
   notice.value = 'Daftar approver sumber tersimpan.'
 }
@@ -263,35 +310,57 @@ async function loadAccessPolicies() {
 async function loadPolicyResources() {
   const resourceType = policyForm.value.resource_type
   const search = policyResourceSearch.value.trim()
+  const offset = policyResourceOffset.value
   const accountId = user.value?.id
-  const resources = await call<{ code: string; name: string; status: string }[]>(
-    'GET',
-    `/access/resources?resource_type=${resourceType}&search=${encodeURIComponent(search)}`,
+  const response = await api.get<
+    ApiEnvelope<{ id: string; code: string; name: string; status: string }[]>
+  >(
+    `/access/resources?resource_type=${resourceType}&search=${encodeURIComponent(search)}&offset=${offset}&limit=${resourcePageSize}`,
   )
-  if (user.value?.id === accountId && policyForm.value.resource_type === resourceType && policyResourceSearch.value.trim() === search) {
-    policyResources.value = resources
-    if (!resources.some((resource) => resource.code === policyForm.value.resource_id)) {
-      policyForm.value.resource_id = ''
-    }
+  if (
+    user.value?.id === accountId &&
+    policyForm.value.resource_type === resourceType &&
+    policyResourceSearch.value.trim() === search &&
+    policyResourceOffset.value === offset
+  ) {
+    policyResources.value = response.data.data
+    policyResourceTotal.value = Number(response.data.meta.total || 0)
   }
 }
 async function loadEvaluationResources() {
   const resourceType = evaluationForm.value.resource_type
   const search = evaluationResourceSearch.value.trim()
+  const offset = evaluationResourceOffset.value
   const accountId = user.value?.id
-  const resources = await call<{ code: string; name: string; status: string }[]>(
-    'GET',
-    `/access/resources?resource_type=${resourceType}&search=${encodeURIComponent(search)}`,
+  const response = await api.get<
+    ApiEnvelope<{ id: string; code: string; name: string; status: string }[]>
+  >(
+    `/access/resources?resource_type=${resourceType}&search=${encodeURIComponent(search)}&offset=${offset}&limit=${resourcePageSize}`,
   )
   if (
     user.value?.id === accountId &&
     evaluationForm.value.resource_type === resourceType &&
-    evaluationResourceSearch.value.trim() === search
+    evaluationResourceSearch.value.trim() === search &&
+    evaluationResourceOffset.value === offset
   ) {
-    evaluationResources.value = resources
-    if (!resources.some((resource) => resource.code === evaluationForm.value.resource_id))
-      evaluationForm.value.resource_id = ''
+    evaluationResources.value = response.data.data
+    evaluationResourceTotal.value = Number(response.data.meta.total || 0)
   }
+}
+function selectPolicyResource(row: Record<string, unknown>) {
+  policyForm.value.resource_id = String(row.code)
+}
+function selectEvaluationResource(row: Record<string, unknown>) {
+  evaluationForm.value.resource_id = String(row.code)
+  invalidateAccessDecision()
+}
+function setPolicyResourcePage(offset: number) {
+  policyResourceOffset.value = offset
+  void run(loadPolicyResources)
+}
+function setEvaluationResourcePage(offset: number) {
+  evaluationResourceOffset.value = offset
+  void run(loadEvaluationResources)
 }
 async function createAccessPolicy() {
   const policy = await call<AccessPolicy>('POST', '/access/policies', {
@@ -359,8 +428,7 @@ async function loadUserAccess(userId: string) {
 }
 async function grantAssignment() {
   if (!selected.value) return
-  if (selectedIsCurrentUser.value)
-    throw new Error('Assignment harus diberikan oleh admin lain.')
+  if (selectedIsCurrentUser.value) throw new Error('Assignment harus diberikan oleh admin lain.')
   const payload: Record<string, unknown> = {
     attribute_id: assignmentForm.value.attribute_id,
     note: assignmentForm.value.note,
@@ -380,12 +448,13 @@ async function grantAssignment() {
 async function grantUnits() {
   if (!selected.value || !unitIds.value.length) return
   const targetName = selected.value.username
-  const unitNames = activeUnits.value.filter((item) => unitIds.value.includes(item.id)).map((item) => item.label)
+  const unitNames = activeUnits.value
+    .filter((item) => unitIds.value.includes(item.id))
+    .map((item) => item.label)
   const payload: Record<string, unknown> = { unit_ids: unitIds.value, note: unitForm.value.note }
   if (unitForm.value.valid_from)
     payload.valid_from = new Date(unitForm.value.valid_from).toISOString()
-  if (unitForm.value.valid_to)
-    payload.valid_to = new Date(unitForm.value.valid_to).toISOString()
+  if (unitForm.value.valid_to) payload.valid_to = new Date(unitForm.value.valid_to).toISOString()
   await call('POST', `/access/users/${selected.value.id}/unit-assignments`, payload)
   unitIds.value = []
   unitForm.value = { valid_from: '', valid_to: '', note: '' }
@@ -394,8 +463,7 @@ async function grantUnits() {
 }
 async function revokeAssignment(item: UserAssignment) {
   if (!selected.value) return
-  if (selectedIsCurrentUser.value)
-    throw new Error('Assignment harus dicabut oleh admin lain.')
+  if (selectedIsCurrentUser.value) throw new Error('Assignment harus dicabut oleh admin lain.')
   await call('POST', `/access/assignments/${item.id}/revoke`, {
     revision: item.revision,
     note: 'Dicabut melalui administrasi pengguna',
@@ -526,16 +594,34 @@ watch(
   { immediate: true },
 )
 watch(evaluationForm, invalidateAccessDecision, { deep: true })
-watch(() => policyForm.value.resource_type, () => {
-  policyForm.value.resource_id = ''
-  policyResourceSearch.value = ''
-  policyResources.value = []
+watch(
+  () => policyForm.value.resource_type,
+  () => {
+    policyForm.value.resource_id = ''
+    policyResourceSearch.value = ''
+    policyResourceOffset.value = 0
+    policyResourceTotal.value = 0
+    policyResources.value = []
+    if (allowed.value) void run(loadPolicyResources)
+  },
+)
+watch(
+  () => evaluationForm.value.resource_type,
+  () => {
+    evaluationForm.value.resource_id = ''
+    evaluationResourceSearch.value = ''
+    evaluationResourceOffset.value = 0
+    evaluationResourceTotal.value = 0
+    evaluationResources.value = []
+    if (allowed.value) void run(loadEvaluationResources)
+  },
+)
+watch(policyResourceSearch, () => {
+  policyResourceOffset.value = 0
   if (allowed.value) void run(loadPolicyResources)
 })
-watch(() => evaluationForm.value.resource_type, () => {
-  evaluationForm.value.resource_id = ''
-  evaluationResourceSearch.value = ''
-  evaluationResources.value = []
+watch(evaluationResourceSearch, () => {
+  evaluationResourceOffset.value = 0
   if (allowed.value) void run(loadEvaluationResources)
 })
 </script>
@@ -724,29 +810,56 @@ watch(() => evaluationForm.value.resource_type, () => {
     </section>
     <section v-if="selected" class="panel">
       <h2>Assignment akses {{ selected.username }}</h2>
-      <p class="muted">Akun pengelola saat ini: {{ user?.username }}. Pilih beberapa unit secara eksplisit; struktur induk tidak memberi akses turunan otomatis.</p>
-      <p class="notice">Untuk mendaftarkan Google Sheet, {{ selected.username }} perlu assignment aktif pada unit/departemen, domain bisnis, dan yurisdiksi wilayah. Ketiganya harus diberikan kepada akun pendaftar yang sama. Pilihan unit di bawah hanya berisi atribut DEPARTMENT; domain dan yurisdiksi diberikan lewat form Atribut.</p>
+      <p class="muted">
+        Akun pengelola saat ini: {{ user?.username }}. Pilih beberapa unit secara eksplisit;
+        struktur induk tidak memberi akses turunan otomatis.
+      </p>
+      <p class="notice">
+        Untuk mendaftarkan Google Sheet, {{ selected.username }} perlu assignment aktif pada
+        unit/departemen, domain bisnis, dan yurisdiksi wilayah. Ketiganya harus diberikan kepada
+        akun pendaftar yang sama. Pilihan unit di bawah hanya berisi atribut DEPARTMENT; domain dan
+        yurisdiksi diberikan lewat form Atribut.
+      </p>
       <div v-if="effectiveAccess" class="toolbar">
         <span v-for="kind in registrationScopeKinds" :key="kind" class="tag">
-          {{ registrationScopeLabels[kind] }}: {{ effectiveAccess.dimensions[kind]?.join(', ') || 'Belum ditugaskan' }}
+          {{ registrationScopeLabels[kind] }}:
+          {{ effectiveAccess.dimensions[kind]?.join(', ') || 'Belum ditugaskan' }}
         </span>
       </div>
       <form @submit.prevent="run(grantUnits)">
         <fieldset :disabled="busy || selectedIsCurrentUser">
           <legend>Berikan unit/departemen ({{ activeUnits.length }} tersedia)</legend>
-          <p class="muted">Centang unit yang belum ditugaskan, lalu tekan Berikan unit. Jika tombol menunjukkan 0 unit, belum ada kotak yang dicentang.</p>
+          <p class="muted">
+            Centang unit yang belum ditugaskan, lalu tekan Berikan unit. Jika tombol menunjukkan 0
+            unit, belum ada kotak yang dicentang.
+          </p>
           <div class="toolbar">
             <label v-for="unit in activeUnits" :key="unit.id" class="check">
-              <input v-model="unitIds" type="checkbox" :value="unit.id" :disabled="assignedAttributeIds.has(unit.id)" />{{ unit.label }} ({{ unit.code }}){{ assignedAttributeIds.has(unit.id) ? ' · sudah aktif' : '' }}
+              <input
+                v-model="unitIds"
+                type="checkbox"
+                :value="unit.id"
+                :disabled="assignedAttributeIds.has(unit.id)"
+              />{{ unit.label }} ({{ unit.code }}){{
+                assignedAttributeIds.has(unit.id) ? ' · sudah aktif' : ''
+              }}
             </label>
           </div>
-          <p v-if="!activeUnits.length" class="notice">Belum ada unit aktif di Registry akses. Buat atribut jenis DEPARTMENT terlebih dahulu.</p>
+          <p v-if="!activeUnits.length" class="notice">
+            Belum ada unit aktif di Registry akses. Buat atribut jenis DEPARTMENT terlebih dahulu.
+          </p>
           <div class="grid">
-            <label>Berlaku mulai unit<input v-model="unitForm.valid_from" type="datetime-local" /></label>
-            <label>Berlaku sampai unit<input v-model="unitForm.valid_to" type="datetime-local" /></label>
+            <label
+              >Berlaku mulai unit<input v-model="unitForm.valid_from" type="datetime-local"
+            /></label>
+            <label
+              >Berlaku sampai unit<input v-model="unitForm.valid_to" type="datetime-local"
+            /></label>
             <label>Alasan akses unit<input v-model="unitForm.note" maxlength="500" /></label>
           </div>
-          <button class="primary" :disabled="busy || selectedIsCurrentUser || !unitIds.length">Berikan {{ unitIds.length }} unit kepada {{ selected.username }}</button>
+          <button class="primary" :disabled="busy || selectedIsCurrentUser || !unitIds.length">
+            Berikan {{ unitIds.length }} unit kepada {{ selected.username }}
+          </button>
         </fieldset>
       </form>
       <p v-if="selectedIsCurrentUser" class="notice">
@@ -756,14 +869,21 @@ watch(() => evaluationForm.value.resource_type, () => {
         <label
           >Atribut<select v-model="assignmentForm.attribute_id" required>
             <option value="" disabled>Pilih atribut</option>
-            <optgroup v-for="kind in accessKinds" :key="kind" :label="registrationScopeLabels[kind]">
+            <optgroup
+              v-for="kind in accessKinds"
+              :key="kind"
+              :label="registrationScopeLabels[kind]"
+            >
               <option
-                v-for="item in attributes.filter((candidate) => candidate.kind === kind && candidate.is_active)"
+                v-for="item in attributes.filter(
+                  (candidate) => candidate.kind === kind && candidate.is_active,
+                )"
                 :key="item.id"
                 :value="item.id"
                 :disabled="assignedAttributeIds.has(item.id)"
               >
-                {{ item.code }} · {{ item.label }}{{ assignedAttributeIds.has(item.id) ? ' · sudah aktif' : '' }}
+                {{ item.code }} · {{ item.label
+                }}{{ assignedAttributeIds.has(item.id) ? ' · sudah aktif' : '' }}
               </option>
             </optgroup>
           </select></label
@@ -844,27 +964,53 @@ watch(() => evaluationForm.value.resource_type, () => {
     </section>
     <section class="panel">
       <h2>Approver per sumber data</h2>
-      <p class="muted">Pilih reviewer untuk masing-masing keputusan. Penunjukan ini tidak memberi izin membaca data; akses tetap diatur oleh assignment unit dan policy.</p>
-      <label>Sumber data
-        <select v-model="approvalSourceId" @change="sourceApprovers = null; releasePolicy = null">
+      <p class="muted">
+        Pilih reviewer untuk masing-masing keputusan. Penunjukan ini tidak memberi izin membaca
+        data; akses tetap diatur oleh assignment unit dan policy.
+      </p>
+      <label
+        >Sumber data
+        <select v-model="approvalSourceId" @change="resetApproverPolicy">
           <option value="">Pilih sumber</option>
-          <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }} ({{ source.source_code }})</option>
+          <option v-for="source in sources" :key="source.id" :value="source.id">
+            {{ source.name }} ({{ source.source_code }})
+          </option>
         </select>
       </label>
       <div class="toolbar">
-        <button type="button" :disabled="busy || sourceOffset === 0" @click="run(() => changeSourcePage(-1))">Sumber sebelumnya</button>
+        <button
+          type="button"
+          :disabled="busy || sourceOffset === 0"
+          @click="run(() => changeSourcePage(-1))"
+        >
+          Sumber sebelumnya
+        </button>
         <span>Sumber {{ sourceOffset + 1 }}–{{ sourceOffset + sources.length }}</span>
-        <button type="button" :disabled="busy || !sourceHasNext" @click="run(() => changeSourcePage(1))">Sumber berikutnya</button>
+        <button
+          type="button"
+          :disabled="busy || !sourceHasNext"
+          @click="run(() => changeSourcePage(1))"
+        >
+          Sumber berikutnya
+        </button>
       </div>
-      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadSourceApprovers)">Muat approver</button>
+      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadSourceApprovers)">
+        Muat approver
+      </button>
       <form v-if="sourceApprovers" @submit.prevent="run(saveSourceApprovers)">
-        <p v-if="!sourceApprovers.configured" class="notice">Sumber lama masih mengikuti reviewer berbasis role sampai daftar ini disimpan.</p>
+        <p v-if="!sourceApprovers.configured" class="notice">
+          Sumber lama masih mengikuti reviewer berbasis role sampai daftar ini disimpan.
+        </p>
         <fieldset :disabled="busy">
           <div v-for="workflow in approvalWorkflows" :key="workflow.key">
             <h3>{{ workflow.label }}</h3>
             <div class="toolbar">
               <label v-for="reviewer in reviewerUsers" :key="reviewer.id" class="check">
-                <input v-model="approverForm[workflow.key]" type="checkbox" :value="reviewer.id" />{{ reviewer.username }} · {{ reviewer.role }}
+                <input
+                  v-model="approverForm[workflow.key]"
+                  type="checkbox"
+                  :value="reviewer.id"
+                />{{ reviewer.username }} · {{ reviewer.role }}
               </label>
             </div>
           </div>
@@ -874,40 +1020,112 @@ watch(() => evaluationForm.value.resource_type, () => {
     </section>
     <section class="panel">
       <h2>Persetujuan sebelum data tayang</h2>
-      <p class="muted">Gunakan sumber yang dipilih di atas. Satu pemeriksa IT dan satu approver dari setiap unit terkait harus menyetujui revisi konfigurasi sebelum deploy. Perubahan aturan membatalkan persetujuan sebelumnya.</p>
-      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadReleasePolicy)">Muat aturan siap tayang</button>
+      <p class="muted">
+        Gunakan sumber yang dipilih di atas. Satu pemeriksa IT dan satu approver dari setiap unit
+        terkait harus menyetujui revisi konfigurasi sebelum deploy. Perubahan aturan membatalkan
+        persetujuan sebelumnya.
+      </p>
+      <button type="button" :disabled="busy || !approvalSourceId" @click="run(loadReleasePolicy)">
+        Muat aturan siap tayang
+      </button>
       <form v-if="releasePolicy" @submit.prevent="run(saveReleasePolicy)">
-        <p v-if="!releasePolicy.configured" class="notice">Aturan belum aktif untuk sumber ini. Simpan daftar pemeriksa IT untuk mengaktifkan gate rilis.</p>
+        <p v-if="!releasePolicy.configured" class="notice">
+          Aturan belum aktif untuk sumber ini. Simpan daftar pemeriksa IT untuk mengaktifkan gate
+          rilis.
+        </p>
         <fieldset :disabled="busy">
           <h3>Pemeriksa IT</h3>
-          <p class="muted">Pilih satu atau beberapa akun; satu pemeriksa yang ditunjuk cukup untuk tahap IT.</p>
+          <p class="muted">
+            Pilih satu atau beberapa akun; satu pemeriksa yang ditunjuk cukup untuk tahap IT.
+          </p>
           <div class="toolbar">
             <label v-for="candidate in technicalCandidates" :key="candidate.id" class="check">
-              <input v-model="releaseForm.technical_approver_ids" type="checkbox" :value="candidate.id" :disabled="releaseForm.unit_groups.some((group) => group.approver_ids.includes(candidate.id))" />{{ candidate.username }} · {{ candidate.role }}
+              <input
+                v-model="releaseForm.technical_approver_ids"
+                type="checkbox"
+                :value="candidate.id"
+                :disabled="
+                  releaseForm.unit_groups.some((group) => group.approver_ids.includes(candidate.id))
+                "
+              />{{ candidate.username }} · {{ candidate.role }}
             </label>
           </div>
           <h3>Unit terkait</h3>
           <div class="toolbar">
-            <label>Tambahkan unit
+            <label
+              >Tambahkan unit
               <select v-model="releaseUnitId">
                 <option value="">Pilih unit</option>
-                <option v-for="unit in attributes.filter((item) => item.kind === 'DEPARTMENT' && item.is_active && !releaseForm.unit_groups.some((group) => group.unit_id === item.id))" :key="unit.id" :value="unit.id">{{ unit.label }}</option>
+                <option
+                  v-for="unit in attributes.filter(
+                    (item) =>
+                      item.kind === 'DEPARTMENT' &&
+                      item.is_active &&
+                      !releaseForm.unit_groups.some((group) => group.unit_id === item.id),
+                  )"
+                  :key="unit.id"
+                  :value="unit.id"
+                >
+                  {{ unit.label }}
+                </option>
               </select>
             </label>
-            <button type="button" :disabled="!releaseUnitId" @click="addReleaseUnit">Tambah unit approval</button>
+            <button type="button" :disabled="!releaseUnitId" @click="addReleaseUnit">
+              Tambah unit approval
+            </button>
           </div>
           <div v-for="group in releaseForm.unit_groups" :key="group.unit_id" class="card-row">
-            <div class="toolbar"><strong>{{ attributes.find((item) => item.id === group.unit_id)?.label || group.unit_id }}</strong>
-              <button type="button" @click="releaseForm.unit_groups = releaseForm.unit_groups.filter((item) => item.unit_id !== group.unit_id)">Hapus unit</button>
-            </div>
-            <p class="muted">Pilih approver yang memiliki assignment aktif pada unit ini. Satu persetujuan per unit cukup.</p>
             <div class="toolbar">
-              <label v-for="candidate in unitCandidates(group.unit_id)" :key="candidate.id" class="check">
-                <input v-model="group.approver_ids" type="checkbox" :value="candidate.id" :disabled="releaseForm.technical_approver_ids.includes(candidate.id) || releaseForm.unit_groups.some((other) => other.unit_id !== group.unit_id && other.approver_ids.includes(candidate.id))" />{{ candidate.username }}
+              <strong>{{
+                attributes.find((item) => item.id === group.unit_id)?.label || group.unit_id
+              }}</strong>
+              <button
+                type="button"
+                @click="
+                  releaseForm.unit_groups = releaseForm.unit_groups.filter(
+                    (item) => item.unit_id !== group.unit_id,
+                  )
+                "
+              >
+                Hapus unit
+              </button>
+            </div>
+            <p class="muted">
+              Pilih approver yang memiliki assignment aktif pada unit ini. Satu persetujuan per unit
+              cukup.
+            </p>
+            <div class="toolbar">
+              <label
+                v-for="candidate in unitCandidates(group.unit_id)"
+                :key="candidate.id"
+                class="check"
+              >
+                <input
+                  v-model="group.approver_ids"
+                  type="checkbox"
+                  :value="candidate.id"
+                  :disabled="
+                    releaseForm.technical_approver_ids.includes(candidate.id) ||
+                    releaseForm.unit_groups.some(
+                      (other) =>
+                        other.unit_id !== group.unit_id &&
+                        other.approver_ids.includes(candidate.id),
+                    )
+                  "
+                />{{ candidate.username }}
               </label>
             </div>
           </div>
-          <button class="primary" :disabled="busy || !releaseForm.technical_approver_ids.length || releaseForm.unit_groups.some((group) => !group.approver_ids.length)">Simpan aturan siap tayang</button>
+          <button
+            class="primary"
+            :disabled="
+              busy ||
+              !releaseForm.technical_approver_ids.length ||
+              releaseForm.unit_groups.some((group) => !group.approver_ids.length)
+            "
+          >
+            Simpan aturan siap tayang
+          </button>
         </fieldset>
       </form>
     </section>
@@ -934,24 +1152,44 @@ watch(() => evaluationForm.value.resource_type, () => {
               <option>TAXONOMY</option>
             </select></label
           >
-          <label
-            >Resource<select v-model="policyForm.resource_id" required>
-              <option value="" disabled>Pilih resource</option>
-              <option v-for="resource in policyResources" :key="resource.code" :value="resource.code">
-                {{ resource.code }} · {{ resource.name }} ({{ resource.status }})
-              </option>
-            </select></label>
         </div>
-        <div class="toolbar">
-          <label>Cari kode resource<input v-model="policyResourceSearch" maxlength="63" /></label>
-          <button type="button" :disabled="busy" @click="run(loadPolicyResources)">Cari resource</button>
-        </div>
+
+        <label
+          >Resource terpilih<input
+            :value="policyForm.resource_id || 'Pilih resource dari tabel di bawah'"
+            readonly
+        /></label>
+        <PagedDataTable
+          :rows="policyResources as unknown as Record<string, unknown>[]"
+          :columns="policyResourceColumns"
+          :total="policyResourceTotal"
+          :offset="policyResourceOffset"
+          :limit="resourcePageSize"
+          :search="policyResourceSearch"
+          :loading="busy"
+          empty-text="Resource tidak ditemukan. Coba kata kunci lain."
+          @update:search="policyResourceSearch = $event"
+          @page="setPolicyResourcePage"
+        >
+          <template #cell-select="{ row }">
+            <button
+              type="button"
+              :disabled="policyForm.resource_id === String(row.code)"
+              @click="selectPolicyResource(row)"
+            >
+              {{ policyForm.resource_id === String(row.code) ? 'Dipilih' : 'Pilih' }}
+            </button>
+          </template>
+        </PagedDataTable>
         <div class="toolbar">
           <label v-for="action in accessActions" :key="`policy-${action}`" class="check">
             <input v-model="policyForm.actions" type="checkbox" :value="action" />{{ action }}
           </label>
         </div>
-        <label v-if="policyForm.effect === 'ALLOW' && policyForm.actions.includes('EXPORT')" class="check">
+        <label
+          v-if="policyForm.effect === 'ALLOW' && policyForm.actions.includes('EXPORT')"
+          class="check"
+        >
           <input v-model="policyForm.export_allowed" type="checkbox" />Izinkan ekspor data
         </label>
         <p>Atribut subject wajib:</p>
@@ -969,7 +1207,10 @@ watch(() => evaluationForm.value.resource_type, () => {
             {{ attribute.kind }} · {{ attribute.code }}
           </label>
         </div>
-        <button class="primary" :disabled="busy || policyForm.actions.length === 0">
+        <button
+          class="primary"
+          :disabled="busy || policyForm.actions.length === 0 || !policyForm.resource_id"
+        >
           Buat policy DRAFT
         </button>
       </form>
@@ -1014,31 +1255,47 @@ watch(() => evaluationForm.value.resource_type, () => {
             <option>TAXONOMY</option>
           </select></label
         ><label
-          >Resource evaluasi<select v-model="evaluationForm.resource_id" required>
-            <option value="" disabled>Pilih resource</option>
-            <option
-              v-for="resource in evaluationResources"
-              :key="resource.code"
-              :value="resource.code"
-            >
-              {{ resource.code }} · {{ resource.name }} ({{ resource.status }})
-            </option>
-          </select></label
-        ><button class="primary" :disabled="busy">
+          >Resource evaluasi terpilih<input
+            :value="evaluationForm.resource_id || 'Pilih resource dari tabel di bawah'"
+            readonly /></label
+        ><button class="primary" :disabled="busy || !evaluationForm.resource_id">
           Evaluasi {{ selected ? selected.username : 'akun sendiri' }}
         </button>
       </form>
-      <div class="toolbar">
-        <label>Cari resource evaluasi<input v-model="evaluationResourceSearch" maxlength="63" /></label>
-        <button type="button" :disabled="busy" @click="run(loadEvaluationResources)">
-          Cari resource
-        </button>
-      </div>
+
+      <PagedDataTable
+        :rows="evaluationResources as unknown as Record<string, unknown>[]"
+        :columns="evaluationResourceColumns"
+        :total="evaluationResourceTotal"
+        :offset="evaluationResourceOffset"
+        :limit="resourcePageSize"
+        :search="evaluationResourceSearch"
+        :loading="busy"
+        empty-text="Resource tidak ditemukan. Coba kata kunci lain."
+        @update:search="evaluationResourceSearch = $event"
+        @page="setEvaluationResourcePage"
+      >
+        <template #cell-select="{ row }">
+          <button
+            type="button"
+            :disabled="evaluationForm.resource_id === String(row.code)"
+            @click="selectEvaluationResource(row)"
+          >
+            {{ evaluationForm.resource_id === String(row.code) ? 'Dipilih' : 'Pilih' }}
+          </button>
+        </template>
+      </PagedDataTable>
       <template v-if="accessDecision">
-        <p role="status">{{ accessDecision.allowed ? 'Diizinkan' : 'Ditolak' }} · {{ accessDecision.reason_code }}</p>
+        <p role="status">
+          {{ accessDecision.allowed ? 'Diizinkan' : 'Ditolak' }} · {{ accessDecision.reason_code }}
+        </p>
         <p class="muted">
           Policy revision:
-          {{ accessDecision.policy_revisions.map((item) => `${item.id}#${item.revision}`).join(', ') || 'tidak ada' }}
+          {{
+            accessDecision.policy_revisions
+              .map((item) => `${item.id}#${item.revision}`)
+              .join(', ') || 'tidak ada'
+          }}
         </p>
         <p v-if="evaluationForm.action === 'EXPORT'" role="status">
           Ekspor {{ accessDecision.export_allowed ? 'diizinkan' : 'tidak diizinkan' }}
