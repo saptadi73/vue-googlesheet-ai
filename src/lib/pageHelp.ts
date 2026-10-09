@@ -303,7 +303,8 @@ const entries: PageHelpEntry[] = [
     title: 'Review batch import',
     purpose: 'Membuat dan memantau batch yang akan memuat snapshot sumber ke target terpercaya.',
     steps: [
-      'Pilih sumber, tab, dan konfigurasi active/approved.',
+      'Cari sumber di tabel daftar sumber; kolom status menunjukkan discovery, profiling, konfigurasi/binding, approval IT, dan database. Pilih sumber yang tepat.',
+      'Pilih tab yang sudah diklasifikasikan dan konfigurasi active/approved bila diperlukan.',
       'Buat batch import dan tunggu proses staging serta pemeriksaan.',
       'Buka detail batch untuk menyelesaikan temuan dan pertanyaan.',
       'Jalankan preview, approval, lalu apply setelah seluruh blocker selesai.',
@@ -393,7 +394,8 @@ const entries: PageHelpEntry[] = [
     title: 'Persetujuan sebelum tayang',
     purpose: 'Mencatat pemeriksaan IT dan persetujuan unit terkait untuk revisi konfigurasi yang akan live.',
     steps: [
-      'Buka konfigurasi approved yang masuk ke daftar Anda.',
+      'Cari nama sumber, data product, status, revisi, atau kelompok approver pada tabel. Daftar hanya berisi konfigurasi yang ditugaskan kepada akun Anda.',
+      'Pilih satu konfigurasi untuk membuka ringkasan dan keputusan tiap kelompok.',
       'Periksa nama produk, kolom, metrik, dan konteks sumber; pemeriksa IT juga meninjau hasil validasi konfigurasi.',
       'Pilih kelompok yang menjadi tanggung jawab Anda. Pemeriksa IT melengkapi checklist skema, kualitas, dan keamanan; isi catatan, lalu setujui atau tolak.',
       'Deploy atau rollback baru dapat dilakukan setelah IT dan setiap unit terkait berstatus approved pada revisi yang sama.',

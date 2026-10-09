@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import FormActionRow from '@/components/ui/FormActionRow.vue'
+import PagedDataTable from '@/components/ui/PagedDataTable.vue'
+import { api, type ApiEnvelope } from '@/lib/api'
 import { call, editRoles, reviewRoles, user, type Config, type Sheet, type Source } from '@/lib/etl'
 import { createImportReview, type ImportReview } from '@/lib/importReviews'
 import { useTask } from '@/lib/tasks'
@@ -10,10 +12,23 @@ const router = useRouter(),
   { busy, error, run } = useTask()
 const readable = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const sources = ref<Source[]>([]),
+type TrackedSource = Source & {
+  discovery_status: string
+  profiling_status: string
+  configuration_status: string
+  it_approval_status: string
+  database_status: string
+  sheets: { id: string; name: string; enabled: boolean; is_present: boolean; dataset_kind: string | null }[]
+}
+const sources = ref<TrackedSource[]>([]),
   sheets = ref<Sheet[]>([]),
   configs = ref<Config[]>([]),
   reviews = ref<ImportReview[]>([])
+const selectedSource = ref<TrackedSource | null>(null)
+const sourceSearch = ref('')
+const sourceTotal = ref(0)
+const sourceOffset = ref(0)
+const sourceLimit = 25
 const sourceId = ref(''),
   sheetId = ref(''),
   configId = ref(''),
@@ -21,8 +36,23 @@ const sourceId = ref(''),
 const offset = ref(0),
   hasMore = ref(false)
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value) || null)
+const sourceTableRows = computed(() => sources.value as unknown as Record<string, unknown>[])
+let sourceSearchTimer: ReturnType<typeof setTimeout> | undefined
+const sourceColumns = [
+  { key: 'source', label: 'Sumber' },
+  { key: 'discovery_status', label: 'Discovery' },
+  { key: 'profiling_status', label: 'Profiling' },
+  { key: 'configuration_status', label: 'Konfigurasi / binding' },
+  { key: 'it_approval_status', label: 'Approval IT' },
+  { key: 'database_status', label: 'Database' },
+  { key: 'select', label: 'Pilih' },
+]
 async function loadSources() {
-  sources.value = await call<Source[]>('GET', '/sources?offset=0&limit=100')
+  const response = await api.get<ApiEnvelope<TrackedSource[]>>('/sources/tracking', {
+    params: { offset: sourceOffset.value, limit: sourceLimit, search: sourceSearch.value.trim(), include_unlinked: false },
+  })
+  sources.value = response.data.data
+  sourceTotal.value = Number(response.data.meta.total || 0)
 }
 async function loadSheets() {
   sheets.value = sourceId.value
@@ -57,6 +87,9 @@ watch(
   user,
   () => {
     sources.value = []
+    selectedSource.value = null
+    sourceTotal.value = 0
+    sourceOffset.value = 0
     sheets.value = []
     configs.value = []
     reviews.value = []
@@ -72,6 +105,13 @@ watch(sourceId, () => {
   sheetId.value = ''
   configId.value = ''
   void run(loadSheets)
+})
+watch(sourceSearch, () => {
+  clearTimeout(sourceSearchTimer)
+  sourceSearchTimer = setTimeout(() => {
+    sourceOffset.value = 0
+    void run(loadSources)
+  }, 250)
 })
 watch(sheetId, () => {
   configId.value = ''
@@ -89,16 +129,37 @@ watch(sheetId, () => {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section v-if="editor" class="panel">
       <h2>Buat batch review</h2>
+      <p class="muted">Cari dan pilih sumber pada daftar. Status tiap tahap membantu memastikan sumber siap diproses.</p>
+      <PagedDataTable
+        :rows="sourceTableRows"
+        :columns="sourceColumns"
+        :total="sourceTotal"
+        :offset="sourceOffset"
+        :limit="sourceLimit"
+        :search="sourceSearch"
+        :loading="busy"
+        empty-text="Sumber tidak ditemukan. Periksa kata pencarian atau status tahapnya."
+        @update:search="sourceSearch = $event"
+        @page="sourceOffset = $event; run(loadSources)"
+      >
+        <template #cell-source="{ row }">
+          <strong>{{ row.name }}</strong><small class="muted block">{{ row.source_code }}</small>
+        </template>
+        <template #cell-discovery_status="{ row }">{{ row.discovery_status }}</template>
+        <template #cell-profiling_status="{ row }">{{ row.profiling_status }}</template>
+        <template #cell-configuration_status="{ row }">{{ row.configuration_status }}</template>
+        <template #cell-it_approval_status="{ row }">{{ row.it_approval_status }}</template>
+        <template #cell-database_status="{ row }">{{ row.database_status }}</template>
+        <template #cell-select="{ row }">
+          <button type="button" :class="sourceId === row.id ? 'primary' : ''" :disabled="busy" @click="selectedSource = row as unknown as TrackedSource; sourceId = String(row.id)">
+            {{ sourceId === row.id ? 'Dipilih' : 'Pilih sumber' }}
+          </button>
+        </template>
+      </PagedDataTable>
+      <p v-if="selectedSource" class="notice">Sumber terpilih: <strong>{{ selectedSource.name }}</strong> · {{ selectedSource.source_code }}</p>
       <form class="batch-create-form" @submit.prevent="run(create)">
         <FormActionRow>
           <label
-            >Sumber<select v-model="sourceId" required>
-              <option value="">Pilih sumber</option>
-              <option v-for="s in sources" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.source_code }})
-              </option>
-            </select></label
-          ><label
             >Tab<select v-model="sheetId" required>
               <option value="">Pilih tab</option>
               <option v-for="s in sheets.filter((s) => s.enabled)" :key="s.id" :value="s.id">

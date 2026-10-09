@@ -19,6 +19,14 @@ Bagian Administrasi juga menjelaskan multi-unit eksplisit dan penunjukan approve
 User memilih nama unit dan reviewer dari daftar; UUID tetap dikelola sistem. Unit induk
 tidak otomatis memberi akses ke bawahan, dan penunjukan reviewer tidak membuka data.
 
+Halaman **Batch import** memakai tabel pencarian sumber dan menampilkan status discovery,
+profiling, konfigurasi/binding, approval IT, dan database sebelum sumber dipilih. Setelah memilih
+sumber, pilih tab yang memang akan dimuat dan konfigurasi active/approved yang sesuai. Halaman
+**Persetujuan tayang** menampilkan konfigurasi yang ditugaskan ke approver dalam tabel yang dapat
+dicari menurut sumber, produk, status, revisi, dan kelompok approval; pilih baris untuk membuka
+ringkasan keputusan. Keduanya memakai komponen reusable `PagedDataTable` untuk pencarian dan
+pagination.
+
 Halaman **Persetujuan tayang** menampilkan konfigurasi approved yang ditugaskan kepada
 pengguna. IT dan setiap unit terkait mencatat keputusan serta alasan pada revisi yang
 sama. Bantuan kontekstual menjelaskan bahwa keputusan bisnis memerlukan assignment
