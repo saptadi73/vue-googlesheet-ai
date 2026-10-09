@@ -113,7 +113,7 @@ const sourceOptions = computed(() =>
   })),
 )
 const sheetOptions = computed(() =>
-  sheets.value.map((sheet) => ({
+  sheets.value.filter((sheet) => sheet.is_present).map((sheet) => ({
     value: sheet.id,
     label: `${sheet.sheet_name}${sheet.last_fingerprint ? '' : ' (perlu profiling)'}`,
   })),
@@ -428,6 +428,12 @@ async function enqueue(path: string, body?: unknown) {
   generation++
   pollDeadline = Date.now() + 120_000
   await poll(result.job_id, generation)
+  if (path.endsWith('/discover')) {
+    const missingCount = sheets.value.filter((sheet) => !sheet.is_present).length
+    notice.value = missingCount
+      ? `${missingCount} tab yang telah dihapus dikeluarkan dari pilihan aktif. Riwayatnya tetap tersimpan.`
+      : 'Discovery selesai. Daftar tab telah diperbarui dari Google Sheet.'
+  }
 }
 watch(
   user,
@@ -637,6 +643,11 @@ onBeforeUnmount(() => {
         Review metadata: {{ selectedSource.access_review_status || 'PENDING' }}
         <span v-if="selectedSource.access_review_reason"> · {{ selectedSource.access_review_reason }}</span>
       </p>
+      <p v-if="sheets.some((sheet) => !sheet.is_present)" class="notice" role="status">
+        {{ sheets.filter((sheet) => !sheet.is_present).length }} tab lama tidak ditemukan lagi di Google Sheet;
+        tab tersebut disembunyikan dari pilihan dan tidak akan diproses. Riwayat tetap tersimpan di Sumber data &amp; tracking.
+      </p>
+      <p class="muted">Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Untuk mengecek tab terbaru di Google Sheet, jalankan Temukan tab.</p>
       <div class="toolbar">
         <button :disabled="busy || offset === 0" @click="changePage(-50)">Sumber sebelumnya</button
         ><button :disabled="busy || sources.length < 50" @click="changePage(50)">
@@ -651,7 +662,7 @@ onBeforeUnmount(() => {
             })
           "
         >
-          Muat ulang
+          Muat ulang data tersimpan
         </button>
         <button
           v-if="canEdit"

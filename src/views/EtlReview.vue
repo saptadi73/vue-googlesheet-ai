@@ -143,6 +143,12 @@ let pollDeadline = 0
 const configId = computed(() => String(route.params.id))
 const base = computed(() => `/configurations/${configId.value}`)
 const record = computed(() => details.value?.configuration)
+const isMasterTab = computed(() => details.value?.classification.dataset_kind === 'MASTER')
+const masterBindingPath = computed(() =>
+  record.value
+    ? `/sources/${record.value.source_id}/sheets/${record.value.source_sheet_id}/master-binding`
+    : '/etl',
+)
 const isDraft = computed(
   () => !!record.value && ['AI_DRAFT', 'NEEDS_REVIEW'].includes(record.value.status),
 )
@@ -174,6 +180,20 @@ const ready = computed(
     checkedColumns.value.length === draft.value?.columns.length &&
     checkedSections.value.length === sections.length,
 )
+const submitBlockers = computed(() => {
+  if (!details.value || !draft.value) return ['Konfigurasi belum selesai dimuat.']
+  const blockers: string[] = []
+  if (dirty.value) blockers.push('Simpan perubahan draft terlebih dahulu.')
+  if (details.value.validation.ready_for_review !== true)
+    blockers.push('Dry-run belum lulus atau masih ada pertanyaan/temuan yang wajib diselesaikan.')
+  if (!details.value.validation.snapshot_hash)
+    blockers.push('Snapshot belum tersedia; jalankan dry-run ulang.')
+  if (checkedSections.value.length !== sections.length)
+    blockers.push(`Periksa dan centang seluruh bagian (${checkedSections.value.length}/${sections.length}).`)
+  if (checkedColumns.value.length !== draft.value.columns.length)
+    blockers.push(`Periksa dan centang seluruh mapping kolom (${checkedColumns.value.length}/${draft.value.columns.length}).`)
+  return blockers
+})
 const appendPolicyAvailable = computed(
   () =>
     draft.value?.load_strategy === 'APPEND' &&
@@ -626,10 +646,22 @@ onBeforeRouteUpdate(confirmLeave)
         ><span class="muted">Kelengkapan draft {{ Math.round(draft.overall_confidence * 100) }}%</span
         ><span v-if="dirty" class="tag">Perubahan belum disimpan</span>
       </div>
-      <p class="notice">
+      <p v-if="isMasterTab" class="notice">
+        Tab ini diklasifikasikan sebagai MASTER. Ajukan review definisi master melalui Registry master,
+        bukan review konfigurasi ETL. Untuk pemuatan record, atur dan minta persetujuan binding di
+        <RouterLink :to="masterBindingPath">halaman binding master</RouterLink>, lalu lanjutkan dari
+        Storage &amp; record master.
+      </p>
+      <p v-else class="notice">
         Periksa mapping dan aturan kualitas, jawab pertanyaan yang tersisa, lalu jalankan dry-run. Persetujuan mengacu pada
         revisi dan snapshot yang diperiksa.
       </p>
+      <div v-if="!isMasterTab && !ready" class="notice" role="status">
+        <strong>Review belum dapat diajukan:</strong>
+        <ul>
+          <li v-for="blocker in submitBlockers" :key="blocker">{{ blocker }}</li>
+        </ul>
+      </div>
       <details>
         <summary>Parameter template yang belum didukung</summary>
         <p v-for="item in details.capabilities.unsupported" :key="item">• {{ item }}</p>
@@ -1379,7 +1411,7 @@ onBeforeRouteUpdate(confirmLeave)
           <summary>Rencana tabel &amp; view</summary>
           <pre>{{ JSON.stringify(details.validation.deployment_plan, null, 2) }}</pre>
         </details>
-        <fieldset :disabled="!canEdit || dirty || busy">
+        <fieldset v-if="!isMasterTab" :disabled="!canEdit || dirty || busy">
           <h3>Pernyataan verifikasi</h3>
           <p class="muted">
             Centang setelah memeriksa setiap bagian dan kolom. Perubahan draft membatalkan checklist
@@ -1407,7 +1439,7 @@ onBeforeRouteUpdate(confirmLeave)
             Ajukan review revisi {{ record.revision_no }}
           </button>
         </fieldset>
-        <p v-if="submitted" class="success">Revisi ini sudah diajukan untuk review.</p>
+        <p v-if="submitted && !isMasterTab" class="success">Revisi ini sudah diajukan untuk review.</p>
         <div v-if="reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
           <h3>Keputusan approver</h3>
           <p class="muted">

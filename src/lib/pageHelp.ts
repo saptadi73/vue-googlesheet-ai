@@ -103,6 +103,7 @@ const entries: PageHelpEntry[] = [
       'Hubungkan spreadsheet baru dengan nama, URL/ID, pemilik, domain, yurisdiksi, purpose, dan sensitivitas.',
       'Bagikan spreadsheet kepada service account backend sebagai Viewer sebelum profiling.',
       'Tekan Hubungkan & profiling sekali; baca status di dekat tombol dan buka monitor job bila discovery masih berjalan atau gagal.',
+      'Jika tab dihapus dari spreadsheet, Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Tekan Temukan tab untuk memeriksa Google Sheet; tab yang hilang akan dinonaktifkan dan dikeluarkan dari pilihan. Riwayat tetap tersimpan. Setelah tab dipulihkan dan discovery dijalankan, aktifkan kembali tab secara manual bila ingin memprosesnya.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
     ],

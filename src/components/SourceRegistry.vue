@@ -17,7 +17,7 @@ type TrackedSource = Source & {
   owner_name?: string | null
   steward_name: string | null
   registered_by?: string | null
-  sheets: { id: string; name: string; enabled: boolean; rows_loaded: number; profiling_status: string; configuration_status: string; database_status: string; last_failures: Record<string, StageFailure> }[]
+  sheets: { id: string; name: string; enabled: boolean; is_present: boolean; presence_status: 'PRESENT' | 'MISSING'; rows_loaded: number; profiling_status: string; configuration_status: string; database_status: string; last_failures: Record<string, StageFailure> }[]
 }
 type StageFailure = { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null; job_kind?: string }
 type StageKey = 'discovery' | 'profiling' | 'configuration' | 'database'
@@ -41,6 +41,7 @@ const deletePreview = ref<{ can_delete: boolean; blockers: string[]; will_delete
 const canonicalOptions = ref<Source[]>([])
 const columns = [
   { key: 'name', label: 'Nama sumber' },
+  { key: 'spreadsheet_link', label: 'Google Sheet' },
   { key: 'source_identity', label: 'Identitas sumber' },
   { key: 'sheet_summary', label: 'Tab' },
   { key: 'discovery_label', label: 'Discovery' },
@@ -73,9 +74,12 @@ const activeCanonicalOptions = computed(() => canonicalOptions.value.filter((ite
 ))
 const tableRows = computed(() => rows.value.map((source) => ({
   ...source,
+  spreadsheet_link: source.spreadsheet_id ? `https://docs.google.com/spreadsheets/d/${encodeURIComponent(source.spreadsheet_id)}/edit` : '',
   source_identity: '',
   responsibility_details: '',
-  sheet_summary: source.sheets.length ? `${source.sheets.length} tab` : '0 tab',
+  sheet_summary: source.sheets.length
+    ? `${source.sheets.filter((sheet) => sheet.is_present).length} ditemukan · ${source.sheets.filter((sheet) => !sheet.is_present).length} hilang`
+    : '0 tab',
   discovery_label: statusLabel(source.discovery_status),
   profiling_label: statusLabel(source.profiling_status),
   configuration_label: statusLabel(source.configuration_status),
@@ -298,6 +302,10 @@ function restoreRow(row: Record<string, unknown>) {
       @update:search="search = $event"
       @page="offset = $event; load()"
     >
+      <template #cell-spreadsheet_link="{ row }">
+        <a v-if="row.spreadsheet_link" class="spreadsheet-link" :href="String(row.spreadsheet_link)" target="_blank" rel="noopener noreferrer" :aria-label="`Buka Google Sheet ${row.name} di tab baru`" :title="`Buka Google Sheet ${row.name}`">Buka Sheet</a>
+        <span v-else class="muted">—</span>
+      </template>
       <template #cell-source_identity="{ row }">
         <button class="icon-button" type="button" :aria-label="`Lihat kode sumber dan ID Spreadsheet ${row.name}`" title="Lihat identitas sumber" @click="showSourceDetail(row)"><FileText :size="16" aria-hidden="true" /></button>
       </template>
@@ -416,7 +424,7 @@ function restoreRow(row: Record<string, unknown>) {
         </dl>
         <ol v-else-if="detailModal.source?.sheets.length" class="tab-list">
           <li v-for="sheet in detailModal.source.sheets" :key="sheet.id">
-            <strong>{{ sheet.name }}</strong><span v-if="!sheet.enabled" class="muted"> · nonaktif</span>
+            <strong>{{ sheet.name }}</strong><span v-if="!sheet.is_present" class="muted"> · tidak ditemukan di spreadsheet</span><span v-else-if="!sheet.enabled" class="muted"> · nonaktif</span>
             <small>Profil: {{ statusLabel(sheet.profiling_status) }} · Konfigurasi: {{ statusLabel(sheet.configuration_status) }} · Database: {{ statusLabel(sheet.database_status) }}</small>
             <p v-for="failure in Object.values(sheet.last_failures || {})" :key="`${failure.stage}-${failure.occurred_at}`" class="stage-failure"><strong>{{ failure.code || 'GAGAL' }}</strong> · {{ failure.message || 'Tidak ada keterangan.' }}</p>
           </li>
@@ -436,6 +444,8 @@ function restoreRow(row: Record<string, unknown>) {
 .source-registry__delete .success { color: #116b42; }
 .source-registry__delete .danger { color: #fff; background: #b42318; border-color: #b42318; }
 .danger-icon { color: #b42318; }
+.spreadsheet-link { color: #087443; font-weight: 600; white-space: nowrap; }
+.spreadsheet-link:hover { color: #065f36; text-decoration-thickness: 2px; }
 .icon-button { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; padding: 3px; border: 1px solid #c7d8d0; border-radius: 7px; background: #fff; color: #075d48; vertical-align: middle; }
 .source-value, .stage-cell { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .source-value code { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }

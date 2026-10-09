@@ -337,6 +337,7 @@ export interface Sheet {
   header_row: number
   data_start_row: number
   enabled: boolean
+  is_present: boolean
   active_configuration_id: string | null
   dataset_kind: 'MASTER' | 'NON_MASTER' | null
   classification_status: 'CLASSIFICATION_REQUIRED' | 'CONFIRMED'
