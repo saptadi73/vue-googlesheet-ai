@@ -286,7 +286,7 @@ const stages = [
         <li>Edit nilai, tambah kolom, atau rename header langsung di Google Sheet. Adapter aplikasi hanya membaca, tidak menulis balik ke Sheet.</li>
         <li>Buka sumber dan tab yang sama di Workspace, lalu pilih Profiling ulang. Jangan mendaftarkan ulang sumber; Muat ulang data tersimpan hanya menyegarkan tampilan.</li>
         <li>Gunakan header persis dari profil terbaru sebagai source_column. Profil drift membuat konfigurasi lama stale. Clone konfigurasi approved/active/rejected menjadi draft; bila clone gagal karena header lama hilang, buat draft manual/AI baru.</li>
-        <li>Untuk target fisik NON_MASTER existing, CREATE_ONLY_OR_IDENTICAL tidak mengubah struktur. Penambahan/rename kolom, perubahan tipe atau nullability menghasilkan SCHEMA_CHANGE_UNSAFE: siapkan migrasi manual yang direview sebelum deployment ulang. Approval konfigurasi bukan izin ALTER otomatis.</li>
+        <li>Untuk target NON_MASTER, periksa Preview perubahan schema di langkah Validasi &amp; persetujuan: operasi, jumlah record lama, contoh tanggal dan blocker. Centang konfirmasi schema sebelum submit; approval mengikat fingerprint schema/data. Worker memigrasikan perubahan aman saat deploy, bukan saat dry-run atau approval.</li>
         <li>Range, header/awal data, dan enabled pada tab dengan konfigurasi aktif terkunci (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; minta penanganan lifecycle/migrasi yang direview.</li>
         <li>Untuk master, field nullable baru perlu approval definisi, redeploy storage, serta review binding; record lama bernilai null. Field wajib baru, key, tipe, rename/drop, atau perubahan nullability memerlukan migrasi yang direview, bukan hapus/buat ulang tabel.</li>
         <li>Sync review memprofilkan sumber lalu membuat batch, bukan memperbaiki mapping stale. Periksa profil, draft, validasi snapshot, approval, dan kesiapan target sebelum batch baru diproses.</li>
@@ -296,11 +296,24 @@ const stages = [
     <section class="panel guide-troubleshooting">
       <h2>Tanggal transaksi dan label periode w1/w2/januari</h2>
       <ul>
-        <li>Untuk transaksi atau kejadian, simpan tanggal kejadian nyata. Nilai ISO seperti 2026-01-06 atau tanggal eksplisit yang cocok dengan format date_parse terpilih dapat dipakai; tidak wajib berupa sel native date Google Sheets. Periksa hasil parsing pada validasi snapshot.</li>
+        <li>Untuk transaksi atau kejadian, simpan tanggal kejadian nyata. Nilai ISO seperti 2026-01-06 atau tanggal eksplisit yang cocok dengan parse_date_id dan pola strptime dapat dipakai; tidak wajib berupa sel native date Google Sheets. Periksa hasil parsing pada validasi snapshot.</li>
         <li>Untuk agregat mingguan/bulanan, pertahankan grain periode. Sediakan tahun eksplisit dan batas awal/akhir periode sesuai kalender minggu yang disepakati. Label w1/w2 atau januari saja tidak menentukan tahun atau tanggal.</li>
         <li>Jangan mengarang tanggal transaksi dengan memilih tanggal 1 atau Senin dari label. Jika bisnis memilih tanggal acuan periode, dokumentasikan sebagai tanggal acuan, bukan tanggal setiap transaksi.</li>
         <li>Batas periode membantu pemodelan, tetapi editor/query saat ini tidak menyediakan analisis overlap periode atau expression perhitungan bebas. Siapkan nilai eksplisit di sumber dan gunakan mapping/transformasi serta filter tanggal yang memang didukung.</li>
       </ul>
+    </section>
+
+    <section id="review-ulang-tanggal" class="panel guide-troubleshooting">
+      <h2>Review ulang: kolom baru start_date dan end_date</h2>
+      <ol>
+        <li>Tambahkan tanggal lengkap di Google Sheet, lalu Profiling ulang sumber/tab yang sama. Clone versi approved/active ke draft bila header lama masih ada; jika tidak, buat draft dari profil terbaru. Jangan registrasi ulang sumber.</li>
+        <li>Periksa identitas, grain, dan nama tabel tujuan. Revisi dataset yang sama sebaiknya mempertahankan target lama kecuali perpindahan tabel memang direncanakan dan direview. Draft manual baru bukan salinan seluruh konfigurasi lama.</li>
+        <li>Pada Kolom, map start_date/end_date ke tipe date. Pada Cleansing, tambahkan parse_date_id untuk setiap kolom yang berisi angka serial Sheets: 46023 menjadi 2026-01-01 dan 46053 menjadi 2026-01-31. Pola tanggal boleh kosong untuk serial; text tanggal memakai pola strptime sesuai sumber.</li>
+        <li>Simpan draft lalu Dry-run ulang. TYPE_OR_NULL_ERROR menunjukkan konversi atau nilai wajib bermasalah; baca kolom dan baris asli pada temuan. Jangan menghapus baris atau mengaktifkan nullable hanya untuk menutupi format salah. Isi checklist bagian/kolom lalu Ajukan review setelah tidak ada blocker.</li>
+        <li>Periksa dan konfirmasi preview schema sebelum Ajukan review. Nullable baru didukung (record lama null), perubahan tipe pada tabel kosong, serta bigint serial menjadi date pada tabel berisi data dengan parse_date_id dan semua serial valid. View mengikuti ID tab; perpindahan/proyeksi juga direview.</li>
+        <li>Worker menjaga record lama/ACL, memperbarui hash untuk APPEND dan membatalkan seluruh DDL/view/konversi jika gagal, tanpa CASCADE. Rename/drop fisik, perubahan key, kolom wajib baru pada tabel berisi data/dependency tidak aman tetap diblokir. SCHEMA_MIGRATION_STALE meminta preview/review baru; SCHEMA_REVIEW_REQUIRED meminta clone/review versi lama tanpa bukti schema. Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama.</li>
+        <li>Deploy SUCCEEDED menyiapkan schema dan produk, belum memuat data. Jalankan Sync manual untuk NON_MASTER yang memenuhi syarat dan periksa baris dimuat per tab. Job FAILED lama tetap menjadi riwayat, bukan status percobaan baru.</li>
+      </ol>
     </section>
 
     <section class="panel guide-troubleshooting">

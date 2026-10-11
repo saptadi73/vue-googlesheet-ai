@@ -32,6 +32,25 @@ const routes = [
 ]
 
 describe('page help registry', () => {
+  it('explains serial date conversion and schema migration separately from review approval', () => {
+    for (const path of ['/workspace', '/configurations/config-id/review']) {
+      const help = getPageHelp(path)
+      const content = [...help.steps, ...(help.notes || [])].join(' ')
+      expect(content).toContain('start_date/end_date')
+      expect(content).toContain('parse_date_id')
+      expect(content).toContain('serial')
+      expect(content).toContain('Pola tanggal')
+      expect(content).toContain('nama tabel')
+      expect(content).toContain('DEPLOY')
+      expect(content).toContain('/guide#review-ulang-tanggal')
+    }
+    const review = getPageHelp('/configurations/config-id/review').notes?.join(' ')
+    expect(review).toContain('TYPE_OR_NULL_ERROR')
+    expect(review).toContain('Preview perubahan schema')
+    expect(review).toContain('SCHEMA_MIGRATION_STALE')
+    expect(review).toContain('Worker mendukung nullable baru')
+    expect(review).toContain('Dry-run lulus tidak menjamin')
+  })
   it('explains combined metadata approval and validated direct sync consistently', () => {
     const review = getPageHelp('/configurations/config-id/review').steps.join(' ')
     expect(review).toContain('approval gabungan')

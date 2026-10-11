@@ -29,9 +29,9 @@ Konfigurasi APPROVED/ACTIVE/REJECTED tidak dapat diedit langsung, termasuk versi
 2. Gunakan `source_column` persis dari header profil terbaru. Profil drift membuat konfigurasi
    lama stale. Tinjau ulang mapping, binding master/taxonomy, tipe, nullability, key, DQ, dan
    semantic pada draft terbaru sebelum validasi terhadap snapshot.
-3. Target fisik NON_MASTER existing memakai `CREATE_ONLY_OR_IDENTICAL`. Tambah/rename kolom,
-   perubahan tipe atau nullability ditolak `SCHEMA_CHANGE_UNSAFE`; perlu migrasi manual yang
-   direview. Approval/deploy atau FULL_REFRESH tidak otomatis ALTER struktur target.
+3. Target NON_MASTER memakai preview schema pada **Validasi & persetujuan**. Periksa operasi,
+   record lama, contoh tanggal dan blocker, lalu centang konfirmasi schema sebelum submit.
+   Worker menjalankan perubahan aman saat deploy setelah approval fingerprint schema/data.
 4. Range, header/awal data, dan enabled tab dengan konfigurasi aktif terkunci
    (`CONFIGURATION_CONFLICT`). Jangan mencoba melewati penguncian; perubahan perlu
    penanganan lifecycle/migrasi yang direview.
@@ -46,13 +46,46 @@ Konfigurasi APPROVED/ACTIVE/REJECTED tidak dapat diedit langsung, termasuk versi
 ## Tanggal kejadian dan agregat periode
 
 - Transaksi/kejadian memakai tanggal kejadian nyata. ISO atau tanggal eksplisit dengan format
-  `date_parse` terpilih dapat diterima setelah validasi snapshot; tidak wajib sel native date Sheets.
+  `parse_date_id` dan pola strptime sesuai sumber dapat diterima setelah validasi snapshot; tidak wajib sel native date Sheets.
 - Agregat mingguan/bulanan tetap ber-grain periode. Sediakan batas awal/akhir, tahun eksplisit,
   dan kalender minggu yang disepakati. `w1`, `w2`, atau `januari` saja bukan tanggal lengkap.
   Jangan mengarang tanggal transaksi dari label; tanggal acuan periode harus dijelaskan sebagai acuan.
 - Editor tidak menyediakan expression bebas atau analisis overlap periode untuk agregat.
   Siapkan nilai eksplisit di sumber dan gunakan transformasi/filter yang didukung. Validasi overlap
   effective dating master adalah fitur tersendiri, bukan dukungan query overlap agregat.
+
+## Review ulang kolom start_date/end_date
+
+1. Tambahkan tanggal lengkap di Sheet dan profiling ulang sumber/tab yang sama.
+   Clone konfigurasi immutable jika header lama masih ada; jika tidak, buat draft
+   dari profil terbaru. Draft manual tidak menyalin seluruh target/aturan versi lama.
+2. Periksa target tabel dan grain. Untuk revisi dataset yang sama, pertahankan nama
+   target lama kecuali perpindahan tabel memang direncanakan dan direview.
+3. Map kedua kolom ke `date`. Angka serial Sheets memerlukan `parse_date_id` pada
+   **Cleansing**: `46023` menjadi `2026-01-01`, `46053` menjadi `2026-01-31`.
+   Pola tanggal boleh kosong untuk serial; text tanggal memakai pola strptime
+   sesuai sumber. Mengganti tipe saja tidak mengubah angka menjadi tanggal.
+4. Simpan draft, Dry-run ulang, baca kolom dan baris asli `TYPE_OR_NULL_ERROR`.
+   Jangan nullable/hapus record untuk menutupi format salah. Lengkapi checklist,
+   submit dan minta reviewer berbeda menyetujui snapshot/revisi yang sama.
+5. Periksa Preview perubahan schema dan konfirmasi. Nullable baru didukung (record lama null);
+   tipe boleh berubah pada tabel kosong. Pada tabel berisi data, bigint serial menjadi date
+   didukung dengan parse_date_id dan seluruh serial valid. View mengikuti ID tab; perpindahan
+   target/proyeksi ikut direview. Worker menjaga ACL/data dan memperbarui hash tanpa CASCADE.
+6. DDL/view/konversi/hash transaksional; gagal berarti dibatalkan. Rename/drop fisik, key,
+   kolom wajib baru pada tabel berisi data/dependency tidak aman tetap diblokir.
+   SCHEMA_MIGRATION_STALE meminta preview/review baru; SCHEMA_REVIEW_REQUIRED meminta
+   clone/review versi lama tanpa bukti schema; SCHEMA_MIGRATION_BLOCKED meminta penyelesaian blocker.
+   Cocokkan configuration_id job dengan versi APPROVED. Deploy sukses belum memuat data:
+   lanjutkan sync sesuai gate. Job FAILED lama tetap riwayat. Master tetap alur storage terpisah.
+
+API `submit-review` menerima `reviewed_schema_fingerprint` (64 karakter hex) dari
+`validation.deployment_plan.migration.fingerprint`. Wajib bila operasi bukan sekadar
+CREATE_TABLE. Bukti tersimpan pada `review_state.schema_migration`; preview ulang pada approval
+dan deploy menolak schema/data berubah sejak review. Dry-run/approval tidak mengubah target.
+
+Bantuan tersedia pada `/guide#review-ulang-tanggal`, helper Workspace/review,
+serta ikon bantuan langkah Cleansing, Pemuatan, dan Validasi.
 
 ## Kontrak API review
 

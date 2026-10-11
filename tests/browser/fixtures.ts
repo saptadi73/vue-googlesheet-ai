@@ -692,6 +692,7 @@ export async function setup(page: Page) {
     unexpected,
     requests,
     record,
+    validation,
     sheet,
     source,
     product,

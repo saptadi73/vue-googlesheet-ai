@@ -1,6 +1,101 @@
 import { expect, test } from '@playwright/test'
 import { configId, login, setup, sheetId, sourceId } from './fixtures'
 
+test('schema changes require explicit preview confirmation before submission', async ({ page }) => {
+  const state = await setup(page)
+  const migration = {
+    fingerprint: 'b'.repeat(64), allowed: true, requires_migration: true, rows_existing: 40,
+    operations: [{ action: 'SERIAL_TO_DATE', column: 'start_date', from: 'bigint', type: 'date',
+      conversion: 'GOOGLE_SHEETS_SERIAL_1899_12_30', examples: [{ before: 46023, after: '2026-01-01' }] }],
+    blockers: [], policy: 'REVIEWED_NON_DESTRUCTIVE_EVOLUTION',
+  }
+  state.validation.deployment_plan = { migration }
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: /^7\./ }).click()
+  const preview = page.getByRole('region', { name: 'Preview perubahan schema' })
+  await expect(preview).toContainText('40 record lama')
+  await expect(preview).toContainText('46023 → 2026-01-01')
+  const checklist = page.locator('fieldset').filter({ hasText: 'Pernyataan verifikasi' })
+  for (const checkbox of await checklist.getByRole('checkbox').all()) await checkbox.check()
+  await expect(page.getByRole('button', { name: /Ajukan review revisi/ })).toBeDisabled()
+  await preview.getByRole('checkbox').check()
+  await page.getByRole('button', { name: 'Dry-run ulang', exact: true }).click()
+  await expect(preview.getByRole('checkbox')).not.toBeChecked()
+  for (const checkbox of await checklist.getByRole('checkbox').all()) await checkbox.check()
+  await preview.getByRole('checkbox').check()
+  await page.getByRole('button', { name: /Ajukan review revisi/ }).click()
+  await expect.poll(() => state.requests.some(r => r.path.endsWith('/submit-review'))).toBe(true)
+  expect(state.requests.find(r => r.path.endsWith('/submit-review'))?.body.reviewed_schema_fingerprint).toBe(migration.fingerprint)
+  expect(state.errors).toEqual([])
+})
+
+test('unsafe schema blockers prevent confirming and submitting the review', async ({ page }) => {
+  const state = await setup(page)
+  state.validation.deployment_plan = { migration: {
+    fingerprint: 'c'.repeat(64), allowed: false, requires_migration: true, rows_existing: 40,
+    operations: [{ action: 'RECREATE_VIEW', column: 'v_example' }],
+    blockers: ['Kolom baru end_date wajib tetapi 40 record lama belum memiliki nilai.'],
+    policy: 'REVIEWED_NON_DESTRUCTIVE_EVOLUTION',
+  } }
+  state.validation.valid = false
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: /^7\./ }).click()
+  const preview = page.getByRole('region', { name: 'Preview perubahan schema' })
+  await expect(preview).toContainText('40 record lama belum memiliki nilai')
+  await expect(preview.getByRole('checkbox')).toBeDisabled()
+  await expect(page.getByRole('button', { name: /Ajukan review revisi/ })).toBeDisabled()
+  expect(state.requests.filter(r => r.path.endsWith('/submit-review'))).toHaveLength(0)
+  expect(state.errors).toEqual([])
+})
+
+test('approver sees submitted schema evidence and cannot approve a changed plan', async ({ page }) => {
+  const state = await setup(page)
+  state.record.status = 'NEEDS_REVIEW'
+  state.record.review_state = { submitted_revision: 1, schema_migration: {
+    fingerprint: 'b'.repeat(64), operations: [{ action: 'ALTER_TYPE', column: 'start_date' }],
+  } }
+  state.validation.deployment_plan = { migration: {
+    fingerprint: 'c'.repeat(64), allowed: true, requires_migration: true, rows_existing: 40,
+    operations: [{ action: 'SERIAL_TO_DATE', column: 'start_date', from: 'bigint', type: 'date' }],
+    blockers: [], policy: 'REVIEWED_NON_DESTRUCTIVE_EVOLUTION',
+  } }
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page, 'approver')
+  await page.getByRole('button', { name: /^7\./ }).click()
+  const preview = page.getByRole('region', { name: 'Preview perubahan schema' })
+  await expect(preview.getByRole('alert')).toContainText('Editor perlu')
+  await preview.getByText('Bukti rencana schema yang diajukan', { exact: true }).click()
+  await expect(preview.locator('pre')).toContainText('b'.repeat(64))
+  await expect(page.getByRole('button', { name: 'Setujui konfigurasi', exact: true })).toBeDisabled()
+  expect(state.requests.filter(r => r.path.endsWith('/approve'))).toHaveLength(0)
+  expect(state.errors).toEqual([])
+})
+
+test('date review guidance covers serial parsing, view migration and correct deployment version', async ({ page }) => {
+  const state = await setup(page)
+  await page.goto('/guide#review-ulang-tanggal')
+  const guide = page.locator('#review-ulang-tanggal')
+  await expect(guide).toContainText('parse_date_id')
+  await expect(guide).toContainText('SCHEMA_MIGRATION_STALE')
+  await expect(guide).toContainText('configuration_id')
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  for (const [step, content] of [
+    ['Petunjuk langkah 3: Cleansing', ['parse_date_id', '46023', 'Pola tanggal']],
+    ['Petunjuk langkah 5: Pemuatan', ['ID tab', 'Preview perubahan schema']],
+    ['Petunjuk langkah 7: Validasi dan persetujuan', ['configuration_id', 'SCHEMA_MIGRATION_STALE']],
+  ] as const) {
+    await page.getByRole('button', { name: step, exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    for (const text of content) await expect(dialog).toContainText(text)
+    await dialog.getByRole('button', { name: 'Mengerti', exact: true }).click()
+  }
+  expect(state.requests.filter(request => request.method === 'PATCH' || request.path.endsWith('/deploy') || request.path.endsWith('/approve'))).toHaveLength(0)
+  expect(state.errors).toEqual([])
+})
+
 for (const scenario of [
   { strategy: 'APPEND', keyed: true },
   { strategy: 'APPEND', keyed: false },

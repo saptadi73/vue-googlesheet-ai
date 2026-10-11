@@ -96,7 +96,7 @@ const stepGuides = [
   {
     title: '3. Cleansing',
     purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
-    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Isi parameter transformasi bila diminta dan periksa dampaknya pada contoh data.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis.', 'Tanggal kejadian nyata boleh berupa ISO atau tanggal eksplisit dengan format date_parse terpilih; tidak wajib sel native date Sheets. Periksa parsing pada snapshot. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
+    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
     example: 'Kolom kode: trim untuk membuang spasi tepi; pertahankan nol di depan dengan tipe text.',
   },
   {
@@ -108,7 +108,7 @@ const stepGuides = [
   {
     title: '5. Pemuatan',
     purpose: 'Memilih tabel tujuan dan cara data baru digabungkan dengan data yang sudah ada.',
-    instructions: ['Periksa schema dan tentukan nama dasar tabel sesuai format yang diizinkan.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Target fisik NON_MASTER existing memakai CREATE_ONLY_OR_IDENTICAL. Tambah/rename kolom, tipe atau nullability berbeda ditolak SCHEMA_CHANGE_UNSAFE dan perlu migrasi manual yang direview; deploy atau FULL_REFRESH tidak melakukan migrasi schema.'],
+    instructions: ['Periksa schema dan nama dasar tabel. Untuk revisi dataset yang sama, pertahankan target lama kecuali perpindahan tabel memang direncanakan dan direview.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Tinjau Preview perubahan schema pada langkah 7. Nullable baru didukung (record lama null), tipe pada tabel kosong, dan bigint serial menjadi date dengan parse_date_id pada tabel berisi data. Rename/drop fisik, key, dan dependency tidak aman diblokir.', 'Nama view mengikuti ID tab. Perpindahan target/proyeksi ikut direview; worker menjaga data dan ACL dalam transaksi tanpa CASCADE saat deploy setelah approval.'],
     example: 'Spreadsheet transaksi bertambah setiap hari: APPEND. Snapshot katalog produk lengkap: FULL_REFRESH atau UPSERT dengan product_code.',
   },
   {
@@ -120,11 +120,16 @@ const stepGuides = [
   {
     title: '7. Validasi dan persetujuan',
     purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
-    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu jalankan validasi lagi.', 'Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak dengan catatan.', 'Setelah approval konfigurasi, deploy tetap tahap terpisah; bila gate rilis aktif, persetujuan IT dan unit terkait juga diperlukan.'],
+    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: operasi, record lama, contoh tanggal dan blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan membatalkan DDL/konversi.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
     example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
 const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
+const schemaReviewed = ref(false)
+const schemaMigration = computed(() => details.value?.validation.deployment_plan?.migration)
+const schemaReviewStale = computed(() => record.value?.status === 'NEEDS_REVIEW' &&
+  schemaMigration.value?.requires_migration &&
+  record.value.review_state?.schema_migration?.fingerprint !== schemaMigration.value.fingerprint)
 const suggestedIdentity = computed(() => details.value ? suggestDatasetIdentity(
   details.value.profile?.spreadsheet_title || details.value.source.name,
   details.value.sheet.sheet_name,
@@ -200,12 +205,15 @@ const ready = computed(
     details.value?.validation.ready_for_review === true &&
     !!details.value.validation.snapshot_hash &&
     checkedColumns.value.length === draft.value?.columns.length &&
-    checkedSections.value.length === sections.length,
+    checkedSections.value.length === sections.length &&
+    (!schemaMigration.value?.operations.some(op => op.action !== 'CREATE_TABLE') || schemaReviewed.value),
 )
 const submitBlockers = computed(() => {
   if (!details.value || !draft.value) return ['Konfigurasi belum selesai dimuat.']
   const blockers: string[] = []
   if (dirty.value) blockers.push('Simpan perubahan draft terlebih dahulu.')
+  if (schemaMigration.value?.operations.some(op => op.action !== 'CREATE_TABLE') && !schemaReviewed.value)
+    blockers.push('Periksa dan konfirmasi rencana perubahan schema.')
   if (details.value.validation.ready_for_review !== true)
     blockers.push('Dry-run belum lulus atau masih ada pertanyaan/temuan yang wajib diselesaikan.')
   if (!details.value.validation.snapshot_hash)
@@ -299,6 +307,7 @@ async function load() {
   preview.value = null
   checkedColumns.value = []
   checkedSections.value = []
+  schemaReviewed.value = false
   fieldIssues.value = []
 }
 function payload() {
@@ -353,6 +362,7 @@ async function submit() {
     snapshot_hash: details.value?.validation.snapshot_hash,
     reviewed_columns: checkedColumns.value,
     reviewed_sections: checkedSections.value,
+    reviewed_schema_fingerprint: schemaReviewed.value ? schemaMigration.value?.fingerprint : undefined,
   })
   await load()
   notice.value =
@@ -360,6 +370,8 @@ async function submit() {
 }
 async function decision(action: 'approve' | 'reject') {
   if (dirty.value) throw new Error('Simpan atau muat ulang perubahan terlebih dahulu.')
+  if (action === 'approve' && schemaReviewStale.value)
+    throw new Error('Rencana schema berubah atau belum direview. Editor perlu mengajukan review ulang.')
   if (action === 'approve' && (accessBlockers.value.length || !accessReview.value))
     throw new Error('Approval gabungan belum dapat dilakukan. Selesaikan blocker dan baca helper.')
   await call('POST', `${base.value}/${action}`, {
@@ -1411,6 +1423,32 @@ onBeforeRouteUpdate(confirmLeave)
         </template>
       </fieldset>
       <section v-if="step === 6" class="panel">
+        <section v-if="schemaMigration" aria-label="Preview perubahan schema">
+          <h2>Preview perubahan schema database</h2>
+          <p>{{ schemaMigration.rows_existing }} record lama · {{ schemaMigration.allowed ? 'Rencana dapat dijalankan setelah review.' : 'Rencana ditahan; selesaikan blocker.' }}</p>
+          <p class="muted">Worker memeriksa ulang rencana yang disetujui, mengubah tabel/view dalam transaksi, menjaga grant dan menghitung ulang hash record bila bentuk data berubah. Tidak menghapus kolom atau memakai DROP CASCADE.</p>
+          <ul>
+            <li v-for="(op, i) in schemaMigration.operations" :key="i">
+              {{ op.action }} · {{ op.column }}
+              <template v-if="op.from"> · {{ op.from }} → {{ op.type }}</template>
+              <template v-else-if="op.type"> · {{ op.type }}</template>
+              <template v-if="op.nullable !== undefined"> · {{ op.nullable ? 'boleh kosong' : 'wajib' }}</template>
+              <strong v-if="op.conversion"> · Angka serial Google Sheets → tanggal (asal 1899-12-30). Pastikan arti kolom memang tanggal serial.</strong>
+              <span v-for="example in op.examples || []" :key="example.before"> · {{ example.before }} → {{ example.after }}</span>
+            </li>
+          </ul>
+          <p v-for="(blocker, i) in schemaMigration.blockers" :key="i" class="error" role="alert">{{ blocker }}</p>
+          <label v-if="canEdit && schemaMigration.operations.some(op => op.action !== 'CREATE_TABLE')" class="check">
+            <input v-model="schemaReviewed" type="checkbox" :disabled="busy || dirty || !schemaMigration.allowed" />
+            Saya sudah memeriksa perubahan schema dan arti konversi tanggal serial.
+          </label>
+          <p v-if="record?.review_state?.schema_migration" class="muted">Rencana perubahan schema tersimpan dalam bukti pengajuan review revisi ini.</p>
+          <p v-if="schemaReviewStale" class="error" role="alert">Rencana schema berubah atau belum direview. Editor perlu memeriksa preview terkini dan mengajukan review ulang sebelum approval.</p>
+          <details v-if="record?.review_state?.schema_migration">
+            <summary>Bukti rencana schema yang diajukan</summary>
+            <pre>{{ JSON.stringify(record.review_state.schema_migration, null, 2) }}</pre>
+          </details>
+        </section>
         <h2>Hasil dry-run</h2>
         <p :class="details.validation.valid ? 'success' : 'error'">
           {{
@@ -1513,6 +1551,7 @@ onBeforeRouteUpdate(confirmLeave)
                 busy ||
                 dirty ||
                 !submitted ||
+                schemaReviewStale ||
                 !details.validation.ready_for_review ||
                 record.created_by === user?.id
               "

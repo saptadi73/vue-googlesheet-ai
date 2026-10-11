@@ -287,6 +287,7 @@ export interface Config {
   created_by: string
   configuration_json: ETL
   review_state: {
+    schema_migration?: SchemaMigration
     submitted_revision?: number
     submitted_by?: string
     classification_revision?: number
@@ -404,6 +405,15 @@ export interface Profile {
     }[]
   }
 }
+export interface SchemaMigration {
+  fingerprint: string
+  allowed: boolean
+  requires_migration: boolean
+  rows_existing: number
+  operations: { action: string; column: string; from?: string; type?: string; nullable?: boolean; conversion?: string; examples?: { before: number; after: string }[] }[]
+  blockers: string[]
+  policy: string
+}
 export interface Validation {
   valid: boolean
   ready_for_review: boolean
@@ -419,7 +429,10 @@ export interface Validation {
   warnings?: unknown[]
   issues?: unknown[]
   errors?: { message: string }[]
-  deployment_plan?: unknown
+  deployment_plan?: {
+    migration?: SchemaMigration
+    [key: string]: unknown
+  }
 }
 export interface Review {
   configuration: Config
