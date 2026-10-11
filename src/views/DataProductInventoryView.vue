@@ -190,9 +190,9 @@ onMounted(load)
       <div class="catalog-guidance notice">
         Benahi nilai/header di Google Sheet lalu Profiling ulang sumber yang sama. Clone konfigurasi
         immutable ke draft untuk mapping/transformasi; jika header lama hilang dan clone gagal, buat
-        draft baru. Target fisik NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL: tambah/rename
-        kolom, perubahan tipe atau nullability memerlukan migrasi manual yang direview
-        (SCHEMA_CHANGE_UNSAFE), bukan sekadar approval/deploy. Lengkapi deskripsi, dimensi, metrik,
+        draft baru. Perubahan target NON_MASTER diperiksa pada Preview perubahan schema di Validasi &amp; persetujuan.
+        Konfirmasi schema dan approval mengikat revisi mapping serta fingerprint schema/data.
+        Worker menjalankan perubahan yang didukung dalam transaksi saat Deploy; blocker harus diselesaikan sebelum approval. Lengkapi deskripsi, dimensi, metrik,
         dan sinonim lewat Revisi ETL. Nama/deskripsi produk serta unit/sinonim metrik juga dapat diedit
         admin/steward di katalog Dashboard. Governance mengelola relationship dan policy AI. Relationship join
         perlu approval setelah kunci dan kardinality diverifikasi; expression bebas dan analisis

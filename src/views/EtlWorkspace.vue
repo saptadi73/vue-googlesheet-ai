@@ -2,6 +2,8 @@
 import { computed, nextTick, ref, watch, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
+import PagedDataTable from '@/components/ui/PagedDataTable.vue'
+import { FileSpreadsheet, PanelsTopLeft, FilePenLine } from '@lucide/vue'
 import {
   call,
   user,
@@ -329,8 +331,34 @@ async function selectSource(preserveSelection = false) {
 }
 const deployedTables = computed(() => sheets.value
   .filter((sheet) => sheet.is_present && sheet.active_configuration_id && sheet.dataset_kind !== 'MASTER')
-  .map((sheet) => ({ sheet, config: deployedConfigs.value[sheet.id], tracking: tabTracking(sheet) }))
+  .map((sheet) => ({ id: sheet.id, sheet, config: deployedConfigs.value[sheet.id], tracking: tabTracking(sheet) }))
   .filter((item) => item.config))
+const outputSearch = ref('')
+const outputOffset = ref(0)
+const outputLimit = 10
+const outputColumns = [
+  { key: 'product', label: 'Data product' },
+  { key: 'semantic', label: 'Semantic / versi ETL' },
+  { key: 'source', label: 'Sumber / tab' },
+  { key: 'loading', label: 'Pemuatan / terakhir dimuat' },
+  { key: 'actions', label: 'Tindakan' },
+]
+const filteredOutputs = computed(() => {
+  const term = outputSearch.value.trim().toLocaleLowerCase()
+  return deployedTables.value.filter(({ sheet, config, tracking }) => !term || [
+    config?.configuration_json.dataset_business_name, config?.configuration_json.semantic.code,
+    physicalTableName(sheet), sheet.sheet_name, selectedSource.value?.name,
+    tracking?.database_status,
+  ].some(value => value?.toLocaleLowerCase().includes(term)))
+})
+const pagedOutputs = computed(() => filteredOutputs.value.slice(outputOffset.value, outputOffset.value + outputLimit))
+watch([outputSearch, sourceId, () => filteredOutputs.value.length], () => { outputOffset.value = 0 })
+function outputItem(row: Record<string, unknown>) {
+  return row as unknown as (typeof deployedTables.value)[number]
+}
+function outputDate(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleString('id-ID') : 'Belum tersedia'
+}
 function sourceSheetUrl(sheet: Sheet) {
   const spreadsheetId = selectedSource.value?.spreadsheet_id
   if (!spreadsheetId) return ''
@@ -1135,36 +1163,51 @@ onBeforeUnmount(() => {
     </section>
     <section v-if="selectedSource" class="panel">
       <h2>Tabel hasil ETL aktif pada sumber ini</h2>
-      <p class="muted">Daftar ini menampilkan output NON_MASTER yang sudah dideploy. Setiap baris menautkan kembali ke spreadsheet dan tab sumbernya. Untuk mengubah struktur atau semantic, buat revisi konfigurasi lalu jalankan review dan approval sebelum deploy.</p>
-      <p class="muted">Deploy menyiapkan struktur, bukan memuat data. Sync manual data langsung memuat tab yang lolos validasi terhadap konfigurasi aktif; tab dengan blocker berhenti untuk ditinjau. Status dan baris dimuat berasal dari riwayat proses terakhir, bukan hitungan isi tabel saat ini.</p>
+      <p class="muted">Output NON_MASTER yang sudah dideploy. Gunakan ikon tindakan untuk membuka Google Sheet, pengaturan sumber, atau revisi konfigurasi ETL.</p>
+      <p class="muted">Deploy menyiapkan struktur. Sync manual memuat tab yang lolos validasi; buka detail untuk menyelesaikan blocker. Status dan jumlah baris berasal dari riwayat proses terakhir.</p>
       <p v-if="sourceTrackingError" class="error" role="alert">{{ sourceTrackingError }}</p>
       <div class="toolbar">
         <button :disabled="busy" @click="run(() => selectSource(true))">Muat ulang tracking sumber</button>
         <button v-if="canEdit" class="primary" :disabled="busy" @click="syncPanel?.openConfirmation()">Sync manual data</button>
       </div>
-      <p v-if="canEdit" class="muted">Sync membaca seluruh tab yang siap dan langsung memuat data yang lolos. Tidak meminta approval ulang konfigurasi aktif. Tombol tetap meminta konfirmasi sebelum perubahan database.</p>
+      <p v-if="canEdit" class="muted">Sync berlaku untuk seluruh tab yang siap pada sumber ini dan meminta konfirmasi sebelum memuat data.</p>
       <p v-if="!deployedTables.length" class="muted">Belum ada tabel hasil ETL aktif untuk sumber ini. Tab MASTER dikelola melalui binding dan batch import master.</p>
-      <div v-else class="tab-tracking-scroll">
-        <table class="tab-tracking-table">
-          <thead><tr><th>Data product</th><th>Kode semantic</th><th>Tabel database</th><th>Sumber Google Sheet</th><th>Tab</th><th>Status database</th><th>Baris dimuat</th><th>Tindakan</th></tr></thead>
-          <tbody>
-            <tr v-for="item in deployedTables" :key="item.sheet.id">
-              <td>{{ item.config?.configuration_json.dataset_business_name || item.tracking?.data_product_code || '—' }}</td>
-              <td>{{ item.config?.configuration_json.semantic.code || item.tracking?.data_product_code || '—' }}</td>
-              <td><code>{{ physicalTableName(item.sheet) }}</code></td>
-              <td><a v-if="sourceSheetUrl(item.sheet)" class="button" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">Buka Google Sheet</a><span v-else>—</span></td>
-              <td><a v-if="sourceSheetUrl(item.sheet)" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">{{ item.sheet.sheet_name }}</a><span v-else>{{ item.sheet.sheet_name }}</span></td>
-              <td><span v-if="item.tracking" :class="['stage-pill', trackingStatusTone(item.tracking.database_status)]">{{ item.tracking.database_status === 'NOT_STARTED' ? 'Belum dimuat' : statusLabel(item.tracking.database_status) }}</span><span v-else>Tracking belum tersedia</span></td>
-              <td>{{ item.tracking?.rows_loaded ?? '—' }}</td>
-              <td><div class="output-actions">
-                <ProcessAttentionButton v-if="tabProcessAttention(item.sheet)" :attention="tabProcessAttention(item.sheet)!" :label="item.sheet.sheet_name" />
-                <button :disabled="busy || !item.sheet.is_present" @click="openSourceSheet(item.sheet)">Buka sumber</button>
-                <RouterLink v-if="item.config" class="button" :to="`/configurations/${item.config.id}/review`">Buka konfigurasi / buat revisi</RouterLink>
-              </div></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <PagedDataTable v-else class="output-table" :rows="pagedOutputs" :columns="outputColumns"
+        :total="filteredOutputs.length" :offset="outputOffset" :limit="outputLimit" :search="outputSearch"
+        :loading="busy" empty-text="Tidak ada tabel hasil ETL yang cocok."
+        @update:search="outputSearch = $event" @page="outputOffset = $event">
+        <template #cell-product="{ row }">
+          <strong>{{ outputItem(row).config?.configuration_json.dataset_business_name || outputItem(row).tracking?.data_product_code }}</strong>
+          <small class="output-subline">{{ outputItem(row).config?.configuration_json.semantic.code || outputItem(row).tracking?.data_product_code }}</small>
+          <details class="output-table-name"><summary>Tabel database</summary><code>{{ physicalTableName(outputItem(row).sheet) }}</code></details>
+        </template>
+        <template #cell-semantic="{ row }">
+          <span>{{ outputItem(row).config?.configuration_json.semantic.dimensions.length || 0 }} dimensi &middot; {{ outputItem(row).config?.configuration_json.semantic.metrics.length || 0 }} metrik</span>
+          <small class="output-subline">{{ outputItem(row).config?.configuration_json.semantic.dimensions.slice(0, 4).join(', ') || 'Belum ada dimensi' }}</small>
+          <small class="output-subline">ETL v{{ outputItem(row).config?.version_no }} &middot; {{ outputItem(row).config?.status }}</small>
+        </template>
+        <template #cell-source="{ row }">
+          <strong>{{ outputItem(row).sheet.sheet_name }}</strong>
+          <small class="output-subline">{{ selectedSource?.name }}</small>
+        </template>
+        <template #cell-loading="{ row }">
+          <span v-if="outputItem(row).tracking" :class="['stage-pill', trackingStatusTone(outputItem(row).tracking?.database_status)]">{{ outputItem(row).tracking?.database_status === 'NOT_STARTED' ? 'Belum dimuat' : statusLabel(outputItem(row).tracking!.database_status) }}</span>
+          <span v-else class="muted">Tracking belum tersedia</span>
+          <small v-if="outputItem(row).tracking" class="output-subline"><strong>{{ outputItem(row).tracking?.rows_loaded }}</strong> baris dimuat</small>
+          <small class="output-subline">Profil terakhir: {{ outputDate(outputItem(row).tracking?.profiled_at) }}</small>
+          <small class="output-subline">Data dimuat: {{ outputItem(row).tracking?.loaded_at ? outputDate(outputItem(row).tracking?.loaded_at) : outputItem(row).tracking?.database_status === 'NOT_STARTED' ? 'Belum dimuat' : 'Waktu belum tersedia' }}</small>
+        </template>
+        <template #cell-actions="{ row }">
+          <div class="output-actions">
+            <div class="output-shortcuts">
+              <a v-if="sourceSheetUrl(outputItem(row).sheet)" class="button output-icon" :href="sourceSheetUrl(outputItem(row).sheet)" target="_blank" rel="noopener noreferrer" aria-label="Buka Google Sheet" title="Buka Google Sheet"><FileSpreadsheet :size="18" aria-hidden="true" /></a>
+              <button class="output-icon" :disabled="busy || !outputItem(row).sheet.is_present" aria-label="Buka sumber" title="Buka sumber" @click="openSourceSheet(outputItem(row).sheet)"><PanelsTopLeft :size="18" aria-hidden="true" /></button>
+              <RouterLink v-if="outputItem(row).config" class="button output-icon" :to="`/configurations/${outputItem(row).config!.id}/review`" aria-label="Buka konfigurasi / buat revisi" title="Buka konfigurasi / buat revisi"><FilePenLine :size="18" aria-hidden="true" /></RouterLink>
+            </div>
+            <ProcessAttentionButton v-if="tabProcessAttention(outputItem(row).sheet)" :attention="tabProcessAttention(outputItem(row).sheet)!" :label="outputItem(row).sheet.sheet_name" />
+          </div>
+        </template>
+      </PagedDataTable>
     </section>
   </EtlShell>
 </template>
@@ -1175,8 +1218,22 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
-  min-width: 180px;
+  min-width: 0;
 }
+.output-table :deep(table) { table-layout: fixed; width: 100%; min-width: 740px; }
+.output-table :deep(th:nth-child(1)), .output-table :deep(td:nth-child(1)) { width: 23%; }
+.output-table :deep(th:nth-child(2)), .output-table :deep(td:nth-child(2)) { width: 19%; }
+.output-table :deep(th:nth-child(3)), .output-table :deep(td:nth-child(3)) { width: 20%; }
+.output-table :deep(th:nth-child(4)), .output-table :deep(td:nth-child(4)) { width: 24%; }
+.output-table :deep(th:nth-child(5)), .output-table :deep(td:nth-child(5)) { width: 14%; }
+.output-table :deep(td) { vertical-align: top; overflow-wrap: anywhere; }
+.output-table :deep(.stage-pill) { white-space: normal; }
+.output-subline { display: block; margin-top: 5px; color: #62796c; font-size: 12px; }
+.output-table-name { margin-top: 8px; font-size: 12px; }
+.output-table-name summary { color: #62796c; cursor: pointer; }
+.output-table-name code { display: block; margin-top: 6px; overflow-wrap: anywhere; white-space: normal; }
+.output-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; }
+.output-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 8px; }
 .metadata-review-actions {
   display: flex;
   align-items: flex-end;

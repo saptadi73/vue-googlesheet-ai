@@ -124,6 +124,7 @@ const entries: PageHelpEntry[] = [
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
       'Approver sumber membaca metadata dan memilih policy SOURCE APPROVED pada review konfigurasi. Approval gabungan menyetujui metadata PENDING dan akses sekaligus; tidak perlu approval metadata terpisah setelah berhasil.',
+      'Tabel hasil ETL memakai pencarian dan pagination seperti katalog. Data product/kode, semantic/versi, sumber/tab dan status/baris/waktu pemuatan digabung; buka Tabel database untuk melihat nama fisik lengkap. Ikon tindakan membuka Sheet, sumber dan revisi konfigurasi; Lihat detail menjelaskan blocker.',
       'Setelah ACTIVE dan akses/rilis siap, Sync manual data memuat NON_MASTER valid langsung. Lihat detail berikon mata menampilkan alasan berhenti, baris asli Sheet dan kolom; Buka Google Sheet/Buka sumber memudahkan perbaikan.',
     ],
     notes: [

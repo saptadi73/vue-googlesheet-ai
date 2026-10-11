@@ -241,3 +241,5 @@ Worker mendukung kolom nullable baru dan perubahan tipe pada tabel kosong. View 
 `DATABASE_RETRY_REQUIRED`: database sibuk/timeout/konflik; tunggu lalu retry. `DATABASE_PERMISSION_DENIED`: admin memeriksa role DDL, ownership dan izin SET ke role aplikasi. Catat ID job; jangan mengubah SQL atau menghapus data untuk melewati blocker. Migrasi platform saat rollout berbeda dari perubahan schema dataset melalui aplikasi.
 
 Verifikasi 11 Oktober 2026: 497 pengujian backend tanpa integrasi (di luar workbook), 20 alur integrasi schema dan 12 tes PostgreSQL lulus. Round-trip workbook juga lulus. Frontend: 117 unit dan 15 browser test dengan API mock lulus; type-check/build statis berhasil. Export/check kontrak memeriksa 234 operasi. Tes rollback mencakup kegagalan aktivasi dan status job, dengan role runtime/DDL terpisah.
+
+Tabel hasil ETL di Workspace mengikuti katalog: pencarian/pagination, lima kolom ringkas (produk, semantic/versi, sumber/tab, pemuatan, tindakan). Nama tabel fisik lengkap tersedia melalui Tabel database. Ikon tindakan mempertahankan akses Sheet/sumber/revisi dan Lihat detail untuk blocker; tombol Sync manual data tetap di atas tabel.
