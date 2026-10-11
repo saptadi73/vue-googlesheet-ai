@@ -24,6 +24,7 @@ const input = ref<HTMLTextAreaElement | null>(null)
 let sequence = 0
 
 const starterQuestions = [
+  'Apa arti grain, taxonomy dan business key? Jelaskan dengan contoh untuk pengguna non teknis.',
   'Bagaimana format Google Sheet ideal untuk data analitik dan action plan?',
   'Kolom waktu, periode dan waktu pengambilan apa yang wajib untuk data periodik?',
   'Apa penyebab SOURCE_READ_FAILED dan bagaimana menjalankan discovery ulang?',

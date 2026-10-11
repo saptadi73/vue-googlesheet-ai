@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { getPageHelp } from '@/lib/pageHelp'
 import ErrorResponseTable from '@/components/ErrorResponseTable.vue'
 import GoogleSheetFormatGuide from '@/components/GoogleSheetFormatGuide.vue'
+import TechnicalGlossary from '@/components/TechnicalGlossary.vue'
 
 const route = useRoute()
 const open = ref(false)
@@ -115,6 +116,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <li v-for="note in content.notes" :key="note">{{ note }}</li>
             </ul>
           </section>
+          <details>
+            <summary>Istilah teknis dalam bahasa sederhana</summary>
+            <TechnicalGlossary />
+          </details>
           <details>
             <summary>Format Google Sheet ideal</summary>
             <GoogleSheetFormatGuide />
