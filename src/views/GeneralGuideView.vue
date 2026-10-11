@@ -31,6 +31,7 @@ const stages = [
       'Isi nama sumber dan URL/ID spreadsheet.',
       'Pilih unit pemilik, domain, yurisdiksi, purpose, data owner, data steward, dan sensitivitas.',
       'Gunakan halaman Sumber & tracking untuk mencari sumber dan melihat status tiap tahap. Pilih Buka sumber, lalu lanjutkan Hubungkan & profiling di Workspace ETL.',
+      'Jika sumber sudah terdaftar, gunakan sumber yang sama. Untuk sumber unlink, admin memilih Pulihkan dengan dua konfirmasi, bukan mendaftarkan ulang.',
     ],
     done: 'Sumber terdaftar, daftar tab muncul, dan profil header/tipe data tersedia.',
   },
@@ -95,6 +96,7 @@ const stages = [
       'Atur business key, strategi load, aturan kualitas, periode efektif, dan parameter incremental bila diperlukan.',
       'Lengkapi nama produk data, dimensi, metrik, sinonim, unit, serta visualisasi default.',
       'Jalankan validasi dan simpan seluruh perubahan.',
+      'source_column harus persis header profil terbaru. Konfigurasi approved/active/rejected immutable: clone ke draft baru; bila header lama hilang dan clone gagal, buat draft baru dari profil terbaru.',
     ],
     done: 'Konfigurasi valid tanpa blocker dan siap disubmit untuk review.',
   },
@@ -126,7 +128,7 @@ const stages = [
       'Buat batch untuk sumber, tab, dan konfigurasi active.',
       'Tunggu staging serta pemeriksaan kualitas selesai.',
       'Selesaikan pertanyaan taxonomy, referensi master, duplicate key, atau koreksi sumber.',
-      'Revalidate bila dependency berubah, lalu buat preview perubahan.',
+      'Periksa blocker stale. Jika profil/konfigurasi/binding berubah, buat batch baru dengan dependency terbaru; revalidate tidak mengganti dependency batch lama. Buat preview terbaru sebelum approval.',
       'Approver menyetujui preview; editor menjalankan apply.',
     ],
     done: 'Batch berstatus SUCCEEDED dan jumlah record hasil sesuai preview yang disetujui.',
@@ -226,6 +228,29 @@ const stages = [
           </p>
         </div>
       </article>
+    </section>
+
+    <section class="panel guide-troubleshooting">
+      <h2>Mengubah kolom sumber atau konfigurasi existing</h2>
+      <ol>
+        <li>Edit nilai, tambah kolom, atau rename header langsung di Google Sheet. Adapter aplikasi hanya membaca, tidak menulis balik ke Sheet.</li>
+        <li>Buka sumber dan tab yang sama di Workspace, lalu pilih Profiling ulang. Jangan mendaftarkan ulang sumber; Muat ulang data tersimpan hanya menyegarkan tampilan.</li>
+        <li>Gunakan header persis dari profil terbaru sebagai source_column. Profil drift membuat konfigurasi lama stale. Clone konfigurasi approved/active/rejected menjadi draft; bila clone gagal karena header lama hilang, buat draft manual/AI baru.</li>
+        <li>Untuk target fisik NON_MASTER existing, CREATE_ONLY_OR_IDENTICAL tidak mengubah struktur. Penambahan/rename kolom, perubahan tipe atau nullability menghasilkan SCHEMA_CHANGE_UNSAFE: siapkan migrasi manual yang direview sebelum deployment ulang. Approval konfigurasi bukan izin ALTER otomatis.</li>
+        <li>Range, header/awal data, dan enabled pada tab dengan konfigurasi aktif terkunci (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; minta penanganan lifecycle/migrasi yang direview.</li>
+        <li>Untuk master, field nullable baru perlu approval definisi, redeploy storage, serta review binding; record lama bernilai null. Field wajib baru, key, tipe, rename/drop, atau perubahan nullability memerlukan migrasi yang direview, bukan hapus/buat ulang tabel.</li>
+        <li>Sync review memprofilkan sumber lalu membuat batch, bukan memperbaiki mapping stale. Periksa profil, draft, validasi snapshot, approval, dan kesiapan target sebelum batch baru diproses.</li>
+      </ol>
+    </section>
+
+    <section class="panel guide-troubleshooting">
+      <h2>Tanggal transaksi dan label periode w1/w2/januari</h2>
+      <ul>
+        <li>Untuk transaksi atau kejadian, simpan tanggal kejadian nyata. Nilai ISO seperti 2026-01-06 atau tanggal eksplisit yang cocok dengan format date_parse terpilih dapat dipakai; tidak wajib berupa sel native date Google Sheets. Periksa hasil parsing pada validasi snapshot.</li>
+        <li>Untuk agregat mingguan/bulanan, pertahankan grain periode. Sediakan tahun eksplisit dan batas awal/akhir periode sesuai kalender minggu yang disepakati. Label w1/w2 atau januari saja tidak menentukan tahun atau tanggal.</li>
+        <li>Jangan mengarang tanggal transaksi dengan memilih tanggal 1 atau Senin dari label. Jika bisnis memilih tanggal acuan periode, dokumentasikan sebagai tanggal acuan, bukan tanggal setiap transaksi.</li>
+        <li>Batas periode membantu pemodelan, tetapi editor/query saat ini tidak menyediakan analisis overlap periode atau expression perhitungan bebas. Siapkan nilai eksplisit di sumber dan gunakan mapping/transformasi serta filter tanggal yang memang didukung.</li>
+      </ul>
     </section>
 
     <section class="panel guide-troubleshooting">

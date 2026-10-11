@@ -1,5 +1,10 @@
 # BE-03 — Registry master dan binding sumber
 
+> Catatan registry/binding fase BE-03. Pernyataan pemuatan/runtime belum tersedia
+> mencatat fase awal; import master dengan storage dan batch preview/approval/apply
+> sudah tersedia. Untuk workflow saat ini, lihat [cakupan frontend](IMPLEMENTASI_FRONTEND.md)
+> dan [frontend storage](FRONTEND_BE04.md).
+
 Status: API dan penyimpanan metadata registry/binding tersedia. BE-03 sendiri tidak membuat tabel record master di `trusted`, tidak melakukan UPSERT master, dan tidak mengaktifkan FK transaksi. Storage kanonis kini tersedia melalui [BE-04](STORAGE_MASTER_BE04.md); review/apply data tetap mengikuti BE-05–BE-11.
 
 ## Alur

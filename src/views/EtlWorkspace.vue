@@ -941,6 +941,13 @@ onBeforeUnmount(() => {
     />
     <section v-if="selectedSheet" class="panel">
       <h2>Profil &amp; pengaturan tab</h2>
+      <p class="muted">
+        Edit nilai atau header langsung di Google Sheet; adapter hanya membaca. Setelah tambah/rename
+        header, jalankan Profiling ulang pada sumber dan tab yang sama, bukan mendaftarkan ulang.
+        Muat ulang data tersimpan hanya menyegarkan tampilan. Profil drift membuat konfigurasi lama
+        stale; source_column draft harus persis header terbaru. Clone approved/active/rejected ke
+        draft, atau buat draft baru jika clone gagal karena header lama hilang.
+      </p>
       <RouterLink
         v-if="selectedSheet.enabled && selectedSheet.last_fingerprint"
         class="button"
@@ -994,8 +1001,9 @@ onBeforeUnmount(() => {
           </fieldset>
         </form>
         <p class="muted">
-          Pengaturan tidak dapat diubah jika sudah ada konfigurasi aktif. Setelah perubahan,
-          jalankan profiling ulang.
+          Range, baris header/awal data, dan enabled tidak dapat diubah jika sudah ada konfigurasi
+          aktif (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; minta penanganan
+          lifecycle/migrasi yang direview. Setelah perubahan yang diizinkan, jalankan profiling ulang.
         </p>
       </details>
       <details v-if="canEdit && currentProfile">

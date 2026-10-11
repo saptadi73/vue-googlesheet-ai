@@ -1,5 +1,10 @@
 # BE-01 — Kebijakan data dan kontrak dasar
 
+> Catatan fase awal BE-01, bukan panduan status fitur saat ini. Registry/binding,
+> import review/pertanyaan, preview/approval/apply, dan referensi sudah diimplementasikan
+> pada fase berikutnya; gunakan [cakupan frontend](IMPLEMENTASI_FRONTEND.md) dan
+> [API Reference](API_REFERENCE.md) untuk operasi saat ini.
+
 Status: kontrak dasar dan pengujian BE-01 tersedia. BE-01 sendiri tidak menambahkan endpoint atau mengubah sync. **Pembaruan BE-02:** klasifikasi tab dan gate eksekusi kini terhubung melalui API; lihat [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). Penyimpanan policy master, registry master, dan worker review per import tetap tahap berikutnya.
 
 ## Keputusan bisnis yang dikonfirmasi

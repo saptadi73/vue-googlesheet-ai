@@ -26,6 +26,11 @@ Storage siap tidak berarti record telah diimpor. Import data dilakukan melalui b
 preview, approval, lalu apply. Tidak ada tombol insert, edit, merge, deactivate atau delete
 record langsung dari halaman storage karena BE04 belum menyediakan API publik untuk operasi itu.
 
+Untuk field nullable baru: revisi dan approve definisi, baca plan lalu redeploy storage,
+kemudian review/approve binding terhadap versi terbaru sebelum batch. Record lama bernilai
+null pada field baru. Field wajib baru, key, tipe, rename/drop, atau perubahan nullability
+memerlukan migrasi yang direview (`MASTER_SCHEMA_MIGRATION_REQUIRED`); jangan drop/recreate.
+
 Verifikasi mencakup build production/type-check, 16 unit test dan tiga tes browser
 BE04 di samping 12 tes workflow sebelumnya. Tes browser memakai mock API untuk
 deployment dengan revisi terkini, konflik, role, masking, leading zero dan pagination.

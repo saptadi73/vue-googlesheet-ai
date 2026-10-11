@@ -66,8 +66,11 @@ Halaman **Katalog data** di sidebar menampilkan Data Product aktif lintas sumber
 dan pagination. Setiap baris menghubungkan nama/deskripsi, tabel fisik, semantic view, versi ETL,
 dimensi/metrik, serta Google Sheet dan tab asal. Gunakan rekomendasi kelengkapan sebagai checklist
 untuk menemukan deskripsi, nama bisnis kolom, dimensi, definisi metrik, atau sinonim yang perlu
-dilengkapi. Perbaiki nilai/header di Google Sheet; ubah mapping, tipe, transformasi, atau struktur
-melalui revisi ETL; kelola deskripsi dan semantic melalui Governance. Buat relasi antardataset hanya
+dilengkapi. Perbaiki nilai/header di Google Sheet lalu Profiling ulang pada sumber yang sama;
+ubah mapping, tipe, transformasi, dimensi, atau definisi metrik melalui draft ETL.
+Admin/steward dapat mengubah nama/deskripsi produk serta unit/sinonim metrik melalui
+**Edit metadata bisnis produk** di katalog Dashboard. Governance mengelola relationship dan
+policy AI, bukan editor dimensi/metrik. Buat relasi antardataset hanya
 setelah kunci dan kardinalitas diverifikasi. Saran katalog tidak mengubah data secara otomatis.
 
 Admin juga dapat memilih ikon **Hapus permanen** untuk membersihkan registrasi setup gagal.
@@ -78,3 +81,32 @@ melewati dua konfirmasi. Data yang dibersihkan tidak bisa dipulihkan; audit peng
 tetap dicatat. Jika pemeriksaan menyebut blocker, jangan mencari cara memaksa hapus: selesaikan
 relasinya atau gunakan unlink hanya untuk duplikat yang tepat.
 
+## Perubahan sumber, konfigurasi, dan periode
+
+Bantuan Workspace, review ETL, katalog, tahap tracking, dan panduan umum menjelaskan:
+
+- Adapter hanya membaca Google Sheet. Edit nilai atau tambah/rename header di Sheet, kemudian
+  **Profiling ulang** sumber/tab yang sama; jangan registrasi ulang. Muat ulang tampilan hanya
+  membaca data tersimpan. Sumber unlink dipulihkan melalui **Pulihkan**, bukan pendaftaran baru.
+- `source_column` harus persis header profil terbaru. Profil drift membuat konfigurasi lama
+  stale. APPROVED/ACTIVE/REJECTED immutable: clone ke draft baru; jika clone gagal karena header
+  lama hilang/rename, buat draft manual/AI baru dari profil terbaru.
+- Target fisik NON_MASTER existing memakai `CREATE_ONLY_OR_IDENTICAL`. Tambah/rename kolom,
+  perubahan tipe atau nullability ditolak `SCHEMA_CHANGE_UNSAFE`; perlu migrasi manual yang
+  direview. Approval/deploy atau FULL_REFRESH tidak otomatis memigrasikan schema.
+- PATCH range, header/awal data, dan enabled tab dengan konfigurasi aktif ditolak
+  `CONFIGURATION_CONFLICT`; jangan mencoba melewati penguncian.
+- Sync review memprofilkan sumber lalu membuat batch, bukan memperbaiki mapping stale.
+  Batch import biasa memakai snapshot tersimpan. Dependency baru memerlukan batch baru;
+  revalidate tidak mengganti dependency batch lama. Koreksi staging tidak menulis balik Sheet.
+- Master mendukung field nullable baru melalui approval definisi, redeploy storage, dan review
+  binding; record lama bernilai null. Field wajib baru, key, tipe, rename/drop, serta perubahan
+  nullability memerlukan migrasi yang direview, bukan hapus/buat ulang tabel.
+
+Transaksi memakai tanggal kejadian nyata. ISO atau tanggal eksplisit dengan format `date_parse`
+terpilih dapat diterima setelah validasi snapshot; tidak wajib sel native date Sheets.
+Agregat mingguan/bulanan tetap memiliki grain periode: sediakan batas awal/akhir, tahun eksplisit,
+dan kalender minggu yang disepakati. `w1`, `w2`, atau `januari` saja tidak menentukan tanggal;
+jangan mengarang tanggal transaksi atau mengklaim analisis overlap periode/expression bebas
+sudah tersedia. Pertanyaan awal Tanya AI menyertakan dua topik perubahan kolom dan label periode;
+jawaban AI tetap berasal dari knowledge base backend, bukan konten statis frontend.

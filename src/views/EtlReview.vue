@@ -88,13 +88,13 @@ const stepGuides = [
   {
     title: '2. Kolom dan sensitivitas',
     purpose: 'Memetakan setiap header sumber menjadi field database dan menentukan tipe serta perlindungan datanya.',
-    instructions: ['Periksa Nama bisnis, Kolom database, dan Tipe untuk setiap header.', 'Tandai nullable hanya jika nilai boleh kosong; business key harus stabil, unik, dan tidak nullable untuk UPSERT.', 'Tandai primary key hanya bila kolom sumber memang berisi identitas record yang stabil. Atur sensitivitas sesuai isi nyata kolom.', 'Gunakan bagian taxonomy atau referensi master pada kolom bila nilai harus mengacu pada daftar terkendali atau record master.'],
+    instructions: ['Periksa Nama bisnis, Kolom database, dan Tipe untuk setiap header. source_column harus persis header profil; edit/tambah/rename di Google Sheet lalu Profiling ulang pada sumber yang sama.', 'Tandai nullable hanya jika nilai boleh kosong; business key harus stabil, unik, dan tidak nullable untuk UPSERT.', 'Tandai primary key hanya bila kolom sumber memang berisi identitas record yang stabil. Atur sensitivitas sesuai isi nyata kolom.', 'Gunakan bagian taxonomy atau referensi master pada kolom bila nilai harus mengacu pada daftar terkendali atau record master.', 'Approved/active/rejected immutable: clone ke draft; jika header lama hilang dan clone gagal, buat draft baru dari profil terbaru. Struktur target existing tidak berubah otomatis.'],
     example: 'Kode Produk → product_code (text, wajib); Nilai Penjualan → sales_amount (numeric).',
   },
   {
     title: '3. Cleansing',
     purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
-    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Isi parameter transformasi bila diminta dan periksa dampaknya pada contoh data.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis.'],
+    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Isi parameter transformasi bila diminta dan periksa dampaknya pada contoh data.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis.', 'Tanggal kejadian nyata boleh berupa ISO atau tanggal eksplisit dengan format date_parse terpilih; tidak wajib sel native date Sheets. Periksa parsing pada snapshot. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
     example: 'Kolom kode: trim untuk membuang spasi tepi; pertahankan nol di depan dengan tipe text.',
   },
   {
@@ -106,20 +106,20 @@ const stepGuides = [
   {
     title: '5. Pemuatan',
     purpose: 'Memilih tabel tujuan dan cara data baru digabungkan dengan data yang sudah ada.',
-    instructions: ['Periksa schema dan tentukan nama dasar tabel sesuai format yang diizinkan.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.'],
+    instructions: ['Periksa schema dan tentukan nama dasar tabel sesuai format yang diizinkan.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Target fisik NON_MASTER existing memakai CREATE_ONLY_OR_IDENTICAL. Tambah/rename kolom, tipe atau nullability berbeda ditolak SCHEMA_CHANGE_UNSAFE dan perlu migrasi manual yang direview; deploy atau FULL_REFRESH tidak melakukan migrasi schema.'],
     example: 'Spreadsheet transaksi bertambah setiap hari: APPEND. Snapshot katalog produk lengkap: FULL_REFRESH atau UPSERT dengan product_code.',
   },
   {
     title: '6. Analitik dan akses',
     purpose: 'Menentukan field yang dapat dipakai untuk pencarian dan chart, serta role yang boleh mengakses produk data.',
-    instructions: ['Pilih dimensi untuk pengelompokan, misalnya tanggal, cabang, atau kategori.', 'Buat metrik dengan kolom, agregasi, definisi bisnis, unit, dan sinonim yang jelas.', 'Pilih role yang memang perlu akses. Kolom MEDIUM/HIGH tidak tersedia untuk produk analitik.'],
+    instructions: ['Pilih dimensi untuk pengelompokan, misalnya tanggal, cabang, atau kategori.', 'Buat metrik dengan kolom, agregasi, definisi bisnis, unit, dan sinonim yang jelas.', 'Pilih role yang memang perlu akses. Kolom MEDIUM/HIGH tidak tersedia untuk produk analitik.', 'Agregat minggu/bulan perlu tahun eksplisit serta batas periode dengan kalender minggu yang disepakati. Jangan menyebut tanggal acuan sebagai tanggal transaksi; analisis overlap periode dan expression metrik bebas belum didukung.'],
     example: 'Dimensi: bulan dan cabang · Metrik: total_penjualan = SUM(sales_amount), unit IDR.',
   },
   {
     title: '7. Validasi dan persetujuan',
     purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
     instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu jalankan validasi lagi.', 'Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak dengan catatan.', 'Setelah approval konfigurasi, deploy tetap tahap terpisah; bila gate rilis aktif, persetujuan IT dan unit terkait juga diperlukan.'],
-    example: 'Jika sumber berubah setelah profiling, ulangi profiling dan validasi agar review memakai snapshot terbaru.',
+    example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
 const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
@@ -683,7 +683,8 @@ onBeforeRouteUpdate(confirmLeave)
         class="notice"
       >
         Bukti klasifikasi tidak sesuai revisi terbaru. Untuk draft, periksa ulang lalu ajukan
-        review. Untuk versi approved/superseded, clone ke draft sebelum review ulang.
+        review. Untuk versi approved/superseded, clone ke draft sebelum review ulang. Jika header
+        lama sudah hilang dan clone gagal, buat draft baru dari profil terbaru di Workspace.
       </p>
       <nav class="steps" aria-label="Tahapan review">
         <div v-for="(label, i) in sectionLabels" :key="label" class="step-control">
@@ -1476,7 +1477,7 @@ onBeforeRouteUpdate(confirmLeave)
           {{
             decisionModal === 'approve'
               ? 'Persetujuan mengacu pada revisi dan snapshot yang sudah diperiksa. Deployment tetap perlu dijalankan terpisah.'
-              : 'Konfigurasi yang ditolak dapat di-clone untuk perbaikan.'
+              : 'Konfigurasi rejected tidak dapat diedit. Clone ke draft; jika header lama hilang dan clone gagal, buat draft baru dari profil terbaru.'
           }}
         </p>
         <label>Catatan keputusan<textarea v-model="comment" maxlength="2000" rows="4" /></label>

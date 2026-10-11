@@ -17,7 +17,7 @@ export function sourceBlockers(sheets: Sheet[]): string[] {
     if (sheet.classification_status !== 'CONFIRMED' || !sheet.dataset_kind)
       return [`${sheet.sheet_name}: klasifikasi belum dikonfirmasi.`]
     if (sheet.dataset_kind === 'MASTER')
-      return [`${sheet.sheet_name}: runtime master belum tersedia (MASTER_RUNTIME_PENDING).`]
+      return [`${sheet.sheet_name}: jalur run sumber tidak memuat MASTER; gunakan binding/storage siap dan batch preview/approval/apply (MASTER_RUNTIME_PENDING).`]
     return []
   })
 }

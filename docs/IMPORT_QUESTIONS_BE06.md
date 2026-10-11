@@ -1,5 +1,10 @@
 # Pertanyaan dan keputusan batch import — BE-06
 
+> Catatan fase pertanyaan BE-06. Pernyataan apply/FK/resolver belum tersedia di fase awal
+> bukan status fitur sekarang; gunakan [cakupan frontend](IMPLEMENTASI_FRONTEND.md) dan
+> [tindak lanjut preview/approval](FRONTEND_REVIEW_FOLLOWUP.md). Koreksi jawaban tetap
+> terbatas pada staging batch dan tidak menulis balik Google Sheet.
+
 BE-06 menambahkan pertanyaan terstruktur dan staging per batch pada alur BE-05. Nilai dari Google Sheet tetap tersimpan pada snapshot dan **tidak pernah ditulis balik** oleh jawaban pengguna. Jawaban berupa koreksi hanya berlaku pada staging batch tersebut; import/apply ke target belum tersedia sampai BE-07.
 
 ## Saat pertanyaan dibuat

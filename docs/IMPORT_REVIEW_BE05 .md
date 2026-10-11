@@ -1,5 +1,12 @@
 # Batch review import — BE-05
 
+> Kontrak fase BE-05 untuk staging/checkpoint. Pernyataan apply/AI/pertanyaan belum tersedia
+> mencatat kondisi fase itu, bukan workflow saat ini. Pertanyaan, preview, approval, dan
+> apply sudah tersedia; lihat [frontend batch](FRONTEND_BE05.md),
+> [pertanyaan](FRONTEND_BE06.md), dan [tindak lanjut review](FRONTEND_REVIEW_FOLLOWUP.md).
+> Batch biasa tetap memakai snapshot tersimpan; sync review memprofilkan dahulu lalu
+> membuat batch. Revalidate tidak mengganti dependency snapshot/config/binding batch lama.
+
 BE-05 menyediakan batch persisten, snapshot tetap, checkpoint worker, idempotency, temuan deterministik, cancel, revalidate, dan kontrak resume. Batch tidak menulis ke trusted/master dan tidak memanggil AI. Pertanyaan/jawaban terstruktur mengikuti BE-06, preview/apply BE-07, dan review AI BE-10.
 
 ## Prasyarat dan pembuatan batch

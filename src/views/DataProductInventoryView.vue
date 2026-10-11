@@ -153,7 +153,15 @@ onMounted(load)
         </template>
       </PagedDataTable>
       <div class="catalog-guidance notice">
-        Benahi nilai dan header yang keliru di Google Sheet. Ubah tipe, mapping, transformasi, dan aturan kualitas melalui revisi ETL. Ubah deskripsi, dimensi, metrik, dan sinonim di semantic catalog. Penambahan relasi antardataset dilakukan setelah kolom kunci dan kardinalitasnya dipastikan.
+        Benahi nilai/header di Google Sheet lalu Profiling ulang sumber yang sama. Clone konfigurasi
+        immutable ke draft untuk mapping/transformasi; jika header lama hilang dan clone gagal, buat
+        draft baru. Target fisik NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL: tambah/rename
+        kolom, perubahan tipe atau nullability memerlukan migrasi manual yang direview
+        (SCHEMA_CHANGE_UNSAFE), bukan sekadar approval/deploy. Lengkapi deskripsi, dimensi, metrik,
+        dan sinonim lewat Revisi ETL. Nama/deskripsi produk serta unit/sinonim metrik juga dapat diedit
+        admin/steward di katalog Dashboard. Governance mengelola relationship dan policy AI. Relationship join
+        perlu approval setelah kunci dan kardinality diverifikasi; expression bebas dan analisis
+        overlap periode belum tersedia.
       </div>
     </section>
   </EtlShell>

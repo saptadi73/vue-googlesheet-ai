@@ -67,8 +67,9 @@ melalui `scripts/prepare_test_db.py`, terpisah dari database aplikasi `googleai`
    SQL bebas. Role aplikasi harus dibatasi sebelum deployment produksi; RLS menyeluruh belum dipasang.
 8. DDL dan registry dapat menggunakan koneksi berbeda. Jika DDL commit tetapi aktivasi registry gagal,
    object fisik yang belum aktif mungkin tertinggal. Retry memeriksa kompatibilitas object; tidak ada aktivasi otomatis.
-9. SQL fallback bebas sengaja tidak diekspos. NL2SQL menggunakan structured plan satu data product, tanpa join.
-   Pertanyaan berulang dapat dijadikan template setelah validasi dan activation.
+9. SQL fallback bebas sengaja tidak diekspos. NL2SQL menggunakan structured plan dan dapat memilih
+   relationship APPROVED yang accessible dari konteks katalog; root eksplisit tetap dikunci.
+   FK master bukan izin join semantic. Pertanyaan berulang dapat dijadikan template setelah validasi dan activation.
 10. Saved query menyimpan query plan dan parameter konkret. Contoh intent berlaku untuk plan yang sama;
     tanggal relatif seperti "bulan ini" sebaiknya memakai endpoint dashboard dengan parameter tanggal,
     bukan template bertanggal tetap. Klarifikasi meminta user mengirim ulang pertanyaan lengkap.
@@ -84,17 +85,21 @@ melalui `scripts/prepare_test_db.py`, terpisah dari database aplikasi `googleai`
 
 ## Cakupan lanjutan dari baseline
 
-Yang belum diimplementasikan: split satu tab menjadi beberapa grain/tabel; taxonomy/reference mapper;
-FK/join lintas data product; migrasi otomatis schema evolution; incremental watermark; append event
-yang mempertahankan baris identik; DEFAULT_VALUE DQ; workflow melanjutkan batch REQUIRE_REVIEW
-(saat ini menghentikan job); semantic similarity/embedding; template dengan parameter dinamis;
-query cache statistics dashboard; semantic embedding/re-index lifecycle; Prometheus; notification;
+Taxonomy/reference mapping, FK/master dependency, join semantic approved, incremental watermark,
+default DQ, pertanyaan/resume batch, dan statistik/notifikasi operasional tersedia; lihat
+[cakupan frontend](IMPLEMENTASI_FRONTEND.md) dan [API Reference](API_REFERENCE.md).
+
+Yang belum tersedia pada alur saat ini: split satu tab menjadi beberapa grain/tabel;
+migrasi otomatis schema evolution; append KEEP_ALL tanpa identitas event yang membedakan
+baris identik; expression bebas/analisis overlap periode agregat; semantic embedding/re-index lifecycle;
+Prometheus; template dengan parameter dinamis;
 autentikasi OIDC; distributed login
 rate limiting; RLS seluruh tabel; immutable audit storage di tingkat database; pengujian beban, backup/restore,
 disaster recovery dan penetration test produksi.
 
-`APPEND` mengabaikan duplikat berdasarkan business key jika tersedia, atau hash seluruh baris. Worker saat
-ini memuat baris satu per satu; gunakan batch/COPY dan object storage sebelum menaikkan skala data besar.
+`APPEND` tanpa key memakai SKIP_IDENTICAL secara default atau REJECT_IDENTICAL yang eksplisit;
+dua kejadian identik memerlukan ID event stabil agar keduanya tersimpan. Lihat
+[policy load](LOAD_POLICIES_BE12.md). Ukuran data besar tetap memerlukan evaluasi kapasitas.
 
 OpenAI/Google asli memerlukan kredensial Anda. Kontrak adapter diuji dengan mock; tidak ada klaim bahwa
 model, biaya akun, akses Service Account, atau kuota eksternal sudah diuji live.
@@ -107,7 +112,12 @@ model, biaya akun, akses Service Account, atau kuota eksternal sudah diuji live.
 - [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 
-## Rencana master data dan validasi import
+## Rencana master data dan validasi import (catatan historis)
+
+Bagian fase BE-01–BE-07 di bawah mencatat kondisi dan hasil pengujian saat fase tersebut
+diimplementasikan, bukan daftar fitur yang belum tersedia sekarang. Untuk workflow operasional
+saat ini, gunakan [cakupan frontend](IMPLEMENTASI_FRONTEND.md), [API Reference](API_REFERENCE.md),
+dan [panduan review ETL](PANDUAN_REVIEW_ETL.md).
 
 Kebutuhan klasifikasi master/non-master, master kanonis lintas Sheet, foreign key referensi, review AI per import, dan pertanyaan pengguna didokumentasikan di [Master data dan validasi import](MASTER_DATA_DAN_VALIDASI_IMPORT.md). Pengerjaan mengikuti [TODO Backend](TODO_BACKEND.md).
 

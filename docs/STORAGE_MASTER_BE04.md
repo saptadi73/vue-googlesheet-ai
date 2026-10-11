@@ -1,5 +1,11 @@
 # Storage master kanonis — BE-04
 
+> Dokumen storage fase BE-04. Batasan primitive internal dan “review/apply belum tersedia”
+> di bagian fase awal bukan status import saat ini: gunakan [frontend storage](FRONTEND_BE04.md),
+> [batch import](FRONTEND_BE05.md), dan [tindak lanjut review](FRONTEND_REVIEW_FOLLOWUP.md).
+> Aturan perubahan schema berikut tetap berlaku: field nullable baru perlu approval definisi,
+> redeploy storage, serta review binding; field wajib/key/type/rename/drop memerlukan migrasi.
+
 BE-04 menyediakan tabel record bertipe dan pencarian terotorisasi. Registry/binding BE-03 tetap digunakan. Import Google Sheet belum mengisi tabel ini: review batch dan apply masih BE-05–BE-07, kemudian integrasi/validasi lengkap BE-08–BE-11. `execution_ready` tetap `false` dan sync MASTER tetap mendapat `MASTER_RUNTIME_PENDING`.
 
 ## Identitas dan schema fisik

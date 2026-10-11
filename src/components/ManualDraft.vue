@@ -75,7 +75,7 @@ async function create() {
           <label>Kode analitik<input v-model="form.code" required pattern="[A-Za-z][A-Za-z0-9_]*" maxlength="63" /></label>
           <label>Template pemuatan<select v-model="form.template"><option value="APPEND">Append — tambah baris baru</option><option value="FULL_REFRESH">Full refresh — ganti isi tabel</option><option value="UPSERT">Upsert — perbarui berdasarkan business key</option></select></label>
         </div>
-        <p class="muted">APPEND cocok untuk log/transaksi. FULL_REFRESH cocok untuk snapshot. UPSERT cocok untuk master dan wajib memiliki key unik.</p>
+        <p class="muted">APPEND cocok untuk log/transaksi dengan identitas yang sesuai. FULL_REFRESH cocok untuk snapshot lengkap. UPSERT wajib memiliki key unik dan tidak nullable. Tab MASTER memakai binding master dan batch import, bukan draft ETL NON_MASTER ini.</p>
         <div class="manual-columns">
           <h3>Pemetaan kolom</h3>
           <p class="muted">Pilih tipe tujuan, tandai business key untuk UPSERT, dan tandai data sensitif agar akses dapat dibatasi.</p>

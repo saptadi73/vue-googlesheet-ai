@@ -11,15 +11,48 @@ Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runt
    ```
 
 2. Jalankan backend, Redis, dan worker sesuai [panduan implementasi](IMPLEMENTASI.md). Profiling, rekomendasi AI, deployment, dan sync berjalan sebagai job. Status QUEUED terus-menerus berarti worker perlu diperiksa. Validasi draft, export, dan import-preview dijalankan melalui API.
-3. Di `C:\projek\vue-googlesheet-ai`, gunakan `npm run dev`. Pastikan `VITE_API_ORIGIN`, `VITE_API_BASE_PATH`, dan CORS backend sesuai. Buka aplikasi; seluruh route privat akan diarahkan ke `/login`.
-4. Login dengan tenant dan akun aplikasi. Router membuka landing sesuai role atau mengembalikan pengguna ke tujuan internal yang diizinkan. Token berada di memori; reload penuh memerlukan login ulang. Sesi kedaluwarsa atau refresh gagal kembali ke `/login`.
+3. Di direktori frontend (`D:\projek\vue-googlesheet-ai` pada lingkungan ini), gunakan `npm.cmd run dev`. Pastikan `VITE_API_ORIGIN`, `VITE_API_BASE_PATH`, dan CORS backend sesuai. Buka aplikasi; seluruh route privat akan diarahkan ke `/login`.
+4. Login dengan tenant dan akun aplikasi. Router membuka landing sesuai role atau tujuan internal yang diizinkan. Access token berada di memori; refresh token di `sessionStorage` memulihkan sesi saat reload tab yang sama. Logout, sesi dicabut, atau refresh gagal kembali ke `/login`.
 5. Pilih sumber/tab, atau hubungkan Google Sheet baru yang sudah dibagikan ke service account. Jalankan rekomendasi AI setelah profiling selesai. Buka draft yang dihasilkan.
 6. Periksa identitas, mapping kolom, cleansing berurutan, kualitas data, strategi pemuatan, dimensi, metrik, dan role akses. Simpan perubahan, periksa dry-run, isi checklist seluruh bagian/kolom, lalu **Ajukan review**.
 7. Gunakan akun `TECHNICAL_APPROVER` atau admin berbeda untuk membuka konfigurasi yang sama, memeriksa hasil, dan menyetujui. Admin dapat membuat user melalui `/register` dan mengatur role/status melalui `/admin/users`.
 8. Jika aturan siap tayang aktif pada sumber, akun IT dan approver bernama tiap unit membuka `/release-approvals`. IT melengkapi checklist skema/mapping, kualitas data, dan keamanan/akses. Semua kelompok menyetujui revisi konfigurasi serta snapshot review yang sama; statusnya tampil pada review konfigurasi.
 9. Setelah status siap tayang, **Deploy konfigurasi**, tunggu job SUCCEEDED, lalu jalankan sinkronisasi dengan akun editor. Approval dan deployment tidak langsung memuat data. Penolakan memerlukan versi konfigurasi baru atau revisi aturan yang diaudit. Sumber tanpa aturan rilis tetap memakai review konfigurasi biasa; rollback versi lama juga diperiksa terhadap aturan rilis saat ini. Review batch import tetap terpisah.
 
-Konfigurasi APPROVED/ACTIVE lama yang tidak memiliki bukti review tetap tidak dapat diedit. Bila perlu deployment ulang, clone menjadi draft, validasi, submit, dan approve. Runtime sync konfigurasi yang sudah ACTIVE tidak memerlukan checklist ulang untuk setiap sync. Rollback konfigurasi memeriksa snapshot yang disetujui; perubahan data dapat mengharuskan draft baru. Rollback bukan pemulihan data historis.
+Konfigurasi APPROVED/ACTIVE/REJECTED tidak dapat diedit langsung, termasuk versi lama tanpa bukti review. Bila perlu perbaikan, clone menjadi draft, validasi, submit, dan approve. Jika clone gagal karena header sumber lama sudah dihapus/rename, buat draft manual/AI baru dari profil terbaru. Runtime sync konfigurasi yang sudah ACTIVE tidak memerlukan checklist ulang untuk setiap sync. Rollback konfigurasi memeriksa snapshot yang disetujui; perubahan data dapat mengharuskan draft baru. Rollback bukan pemulihan data historis.
+
+## Mengubah kolom Sheet dan schema existing
+
+1. Edit nilai atau tambah/rename header langsung di Google Sheet; adapter hanya membaca.
+   Buka sumber/tab yang sama dan pilih **Profiling ulang**. Jangan mendaftarkan ulang.
+   Muat ulang data tersimpan/review hanya menyegarkan tampilan, bukan membaca ulang Sheet.
+2. Gunakan `source_column` persis dari header profil terbaru. Profil drift membuat konfigurasi
+   lama stale. Tinjau ulang mapping, binding master/taxonomy, tipe, nullability, key, DQ, dan
+   semantic pada draft terbaru sebelum validasi terhadap snapshot.
+3. Target fisik NON_MASTER existing memakai `CREATE_ONLY_OR_IDENTICAL`. Tambah/rename kolom,
+   perubahan tipe atau nullability ditolak `SCHEMA_CHANGE_UNSAFE`; perlu migrasi manual yang
+   direview. Approval/deploy atau FULL_REFRESH tidak otomatis ALTER struktur target.
+4. Range, header/awal data, dan enabled tab dengan konfigurasi aktif terkunci
+   (`CONFIGURATION_CONFLICT`). Jangan mencoba melewati penguncian; perubahan perlu
+   penanganan lifecycle/migrasi yang direview.
+5. Sync review memprofilkan sumber lalu membuat batch; mapping stale tidak otomatis diperbaiki.
+   Batch import biasa memakai snapshot tersimpan. Jika dependency profil/config/binding berubah,
+   buat batch baru; revalidate tidak mengganti dependency batch lama. Koreksi staging pada
+   pertanyaan batch tidak menulis balik ke Sheet.
+6. Master mendukung field nullable baru melalui approval definisi, redeploy storage, dan review
+   binding; record lama bernilai null. Field wajib baru, key, tipe, rename/drop, atau perubahan
+   nullability memerlukan migrasi yang direview. Jangan menghapus dan membuat ulang tabel.
+
+## Tanggal kejadian dan agregat periode
+
+- Transaksi/kejadian memakai tanggal kejadian nyata. ISO atau tanggal eksplisit dengan format
+  `date_parse` terpilih dapat diterima setelah validasi snapshot; tidak wajib sel native date Sheets.
+- Agregat mingguan/bulanan tetap ber-grain periode. Sediakan batas awal/akhir, tahun eksplisit,
+  dan kalender minggu yang disepakati. `w1`, `w2`, atau `januari` saja bukan tanggal lengkap.
+  Jangan mengarang tanggal transaksi dari label; tanggal acuan periode harus dijelaskan sebagai acuan.
+- Editor tidak menyediakan expression bebas atau analisis overlap periode untuk agregat.
+  Siapkan nilai eksplisit di sumber dan gunakan transformasi/filter yang didukung. Validasi overlap
+  effective dating master adalah fitur tersendiri, bukan dukungan query overlap agregat.
 
 ## Kontrak API review
 

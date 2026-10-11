@@ -283,7 +283,8 @@ export function getApiErrorMessage(error: unknown): string {
       IMPORT_SNAPSHOT_INVALID:
         'Snapshot tidak tersedia atau hash berubah. Profiling ulang lalu buat batch baru.',
       IMPORT_CONFIGURATION_REQUIRED: 'Tab NON_MASTER memerlukan konfigurasi approved atau active.',
-      IMPORT_CONFIGURATION_INVALID: 'Konfigurasi tidak sesuai tab atau fingerprint snapshot.',
+      IMPORT_CONFIGURATION_INVALID:
+        'Konfigurasi tidak sesuai tab atau fingerprint snapshot. Profiling ulang sumber yang sama dan gunakan draft dengan header terbaru; konfigurasi lama tidak otomatis diperbarui.',
       IMPORT_MAPPING_INVALID:
         'Mapping ETL tidak sesuai snapshot. Periksa konfigurasi dan profil terbaru.',
       IMPORT_BINDING_REQUIRED: 'Tab MASTER memerlukan binding approved yang sesuai.',
@@ -358,7 +359,7 @@ export function getApiErrorMessage(error: unknown): string {
         'Reviewer perlu menyiapkan storage melalui halaman Storage & Record.',
       MASTER_STORAGE_STALE: 'Muat ulang rencana lalu deploy storage untuk versi approved terbaru.',
       MASTER_SCHEMA_MIGRATION_REQUIRED:
-        'Perubahan schema memerlukan migrasi khusus dari backend. Jangan hapus atau buat ulang tabel.',
+        'Field wajib baru, key, tipe, rename/drop atau perubahan nullability memerlukan migrasi yang direview. Field nullable baru memakai approval definisi, redeploy storage dan review binding; record lama null. Jangan hapus atau buat ulang tabel.',
       MASTER_BINDING_REQUIRED: 'Buka binding master pada tab yang sudah dikonfirmasi MASTER.',
       MASTER_DUPLICATE_REVIEW_REQUIRED:
         'Preview kandidat dan tinjau semuanya, atau gunakan master yang sudah ada.',
@@ -413,12 +414,16 @@ export function getApiErrorMessage(error: unknown): string {
         'Muat ulang AI task policy; hanya draft dengan revision terbaru yang dapat diputuskan.',
       AI_MODEL_NOT_ALLOWLISTED:
         'Pilih model yang terdaftar pada allowlist server. API key tetap dikelola melalui environment.',
-      CONFIGURATION_CONFLICT: 'Muat ulang revisi terbaru sebelum menyimpan kembali.',
+      CONFIGURATION_CONFLICT:
+        'Muat ulang revisi/status terbaru. Approved/active/rejected tidak dapat diedit: clone ke draft, atau buat draft baru bila header lama hilang. Range/header/enabled tab dengan konfigurasi aktif terkunci; jangan mencoba melewati penguncian.',
+      SCHEMA_CHANGE_UNSAFE:
+        'Target fisik NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL. Tambah/rename kolom, tipe atau nullability berbeda memerlukan migrasi manual yang direview; approval/deploy tidak otomatis ALTER tabel.',
       WORKBOOK_STALE: 'Unduh workbook dari draft terbaru.',
       WORKBOOK_PREVIEW_STALE: 'Lakukan preview ulang sebelum menerapkan Excel.',
       WORKBOOK_TOKEN_INVALID: 'Lakukan preview ulang dengan akun dan draft yang sama.',
       REVIEW_REQUIRED: 'Ajukan review untuk revisi terbaru.',
-      REVIEW_STALE: 'Validasi ulang snapshot; clone jika konfigurasi sudah disetujui.',
+      REVIEW_STALE:
+        'Profiling ulang sumber yang sama dan validasi snapshot terbaru. Clone konfigurasi immutable ke draft; bila header lama hilang dan clone gagal, buat draft baru dari profil terbaru.',
       REVIEW_INCOMPLETE: 'Lengkapi seluruh checklist bagian dan kolom.',
       SEPARATE_APPROVER_REQUIRED: 'Gunakan akun approver yang berbeda.',
       TEMPLATE_STALE: 'Minta pengelola memvalidasi dan mengaktifkan ulang template.',

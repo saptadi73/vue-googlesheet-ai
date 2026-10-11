@@ -27,6 +27,8 @@ const starterQuestions = [
   'Bagaimana alur dari Google Sheet sampai dashboard?',
   'Mengapa data saya belum muncul di dashboard?',
   'Kapan saya perlu membuat master data?',
+  'Bagaimana menambah atau mengganti nama kolom pada Google Sheet yang sudah terdaftar?',
+  'Bagaimana memodelkan periode w1/w2 atau januari tanpa mengarang tanggal transaksi?',
 ]
 
 async function show() {

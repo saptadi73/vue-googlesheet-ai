@@ -27,6 +27,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Tautan tahap yang tidak sesuai role akan diarahkan ke halaman yang diizinkan untuk akun Anda.',
+      'Untuk sumber yang sudah terdaftar, ikuti bagian perubahan kolom dan periode; jangan mengulang pendaftaran.',
     ],
   },
   {
@@ -50,8 +51,13 @@ const entries: PageHelpEntry[] = [
       'Jika sistem meminta klarifikasi, lengkapi periode, produk, lokasi, atau ukuran yang dimaksud.',
       'Tinjau tabel dan pilih bentuk chart yang paling sesuai.',
       'Gunakan Susun query dari katalog bila Anda ingin memilih dimensi, metrik, filter, dan join secara manual.',
+      'Admin/steward dapat memakai Edit metadata bisnis produk pada katalog untuk nama/deskripsi produk serta unit/sinonim metrik. Mapping, dimensi, dan definisi agregasi metrik diubah melalui draft ETL; relationship melalui Governance.',
     ],
-    notes: ['Hasil hanya memakai produk data dan field yang diizinkan untuk akun Anda.'],
+    notes: [
+      'Hasil hanya memakai produk data dan field yang diizinkan untuk akun Anda.',
+      'Filter tanggal memerlukan tanggal eksplisit yang valid. Label w1/w2 atau januari tanpa tahun dan kalender minggu tidak cukup untuk menentukan periode; jangan mengarang tanggal.',
+      'Agregat periode tidak otomatis menjadi transaksi harian. Analisis overlap periode dan expression perhitungan bebas belum didukung oleh editor ini.',
+    ],
     examples: [
       { label: 'Pertanyaan penjualan', value: 'Tampilkan total penjualan per cabang bulan ini.' },
       {
@@ -73,6 +79,10 @@ const entries: PageHelpEntry[] = [
     examples: [
       { label: 'Pertanyaan lengkap', value: 'Tampilkan total penjualan per cabang bulan ini.' },
     ],
+    notes: [
+      'Label w1/w2 atau januari saja bukan tanggal transaksi. Lengkapi tahun dan batas periode sesuai kalender minggu yang disepakati; jangan menebak tanggal dari label.',
+      'Join hanya memakai relationship approved yang diizinkan; SQL dan expression bebas tidak tersedia.',
+    ],
   },
   {
     matches: exact('/sources'),
@@ -90,6 +100,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Sumber yang gagal profiling atau konfigurasi tetap terdaftar. Perbaiki tahap yang gagal; jangan daftarkan ulang spreadsheet.',
+      'Jika header baru atau berubah nama, edit Google Sheet lalu jalankan Profiling ulang pada sumber dan tab yang sama. Muat ulang tampilan bukan pembacaan ulang Sheet.',
       'Unlink menyimpan riwayat dan menghapus entri dari daftar aktif. Unlink memerlukan alasan dan dua konfirmasi; pemulihan juga meminta dua konfirmasi.',
       'Status tracking menjelaskan progres, bukan hak akses. Binding master approved belum berarti record sudah dimuat; periksa batch import dan apply.',
     ],
@@ -105,7 +116,7 @@ const entries: PageHelpEntry[] = [
       'Tekan Hubungkan & profiling sekali; baca status di dekat tombol dan buka monitor job bila discovery masih berjalan atau gagal.',
       'Saat membuka sumber, gunakan tabel Tahap proses setiap tab untuk membandingkan discovery, profiling, klasifikasi, konfigurasi, dan database. Pilih tab hanya untuk melanjutkan langkahnya; tab berstatus Dikecualikan tidak ikut sinkronisasi.',
       'Tidak semua tab perlu diproses. Biarkan tab yang bukan bagian dari dataset tetap Dikecualikan; aktifkan hanya tab yang memang disetujui untuk dikelola.',
-      'Di bagian bawah Workspace, tabel hasil ETL menampilkan output NON_MASTER yang sudah aktif beserta tautan spreadsheet/tab sumber. Untuk perubahan struktur kolom, mapping, deskripsi atau semantic, buka konfigurasi dan buat revisi; ajukan review dan deploy setelah disetujui.',
+      'Di bagian bawah Workspace, tabel hasil ETL menampilkan output NON_MASTER yang sudah aktif beserta tautan spreadsheet/tab sumber. Perbaiki nilai/header di Google Sheet lalu Profiling ulang pada sumber yang sama; buka konfigurasi untuk membuat draft mapping terbaru dan jalani review. Perubahan struktur target existing memerlukan migrasi manual yang direview, bukan sekadar deploy.',
       'Jika tab dihapus dari spreadsheet, Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Tekan Temukan tab untuk memeriksa Google Sheet; tab yang hilang akan dinonaktifkan dan dikeluarkan dari pilihan. Riwayat tetap tersimpan. Setelah tab dipulihkan dan discovery dijalankan, aktifkan kembali tab secara manual bila ingin memprosesnya.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
@@ -117,6 +128,10 @@ const entries: PageHelpEntry[] = [
       'Jika sumber lama tidak muncul pada pilihan, buka menu Sumber & tracking, cari sumber, lalu pilih Buka sumber. Pilihan Workspace hanya memuat sebagian daftar.',
       'Jika sumber sudah terdaftar tetapi discovery/profiling gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job dan perbaiki tahap yang gagal.',
       'Untuk duplikat, admin memilih sumber utama, mengisi alasan, lalu menjalankan Unlink dengan dua konfirmasi. Riwayat tetap tersimpan dan admin dapat memulihkan entri dengan dua konfirmasi. Unlink ditolak bila masih ada konfigurasi, data turunan, dependensi, atau job aktif.',
+      'Adapter Google Sheets hanya membaca. Header baru/rename harus diprofilkan ulang; source_column harus persis header profil terbaru. Profil drift membuat konfigurasi lama stale.',
+      'Konfigurasi approved, active, atau rejected immutable: Clone untuk perbaikan menjadi draft baru. Jika clone gagal karena header lama sudah dihapus/rename, buat draft manual/AI baru dari profil terbaru.',
+      'Range, baris header/awal data, dan enabled tab dengan konfigurasi aktif terkunci (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; perubahan memerlukan penanganan lifecycle/migrasi yang direview.',
+      'Sync review membaca dan memprofilkan sumber sebelum membuat batch; bukan cara memperbaiki mapping lama. Pastikan profil dan draft sudah sesuai.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
@@ -142,12 +157,13 @@ const entries: PageHelpEntry[] = [
       'Cari berdasarkan nama atau kode data product, nama sumber, tab, nama tabel, kolom, dimensi, atau metrik.',
       'Buka spreadsheet/tab dari kolom sumber untuk memeriksa data asal.',
       'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, metrik, deskripsi metrik, sinonim, dan relasi antardataset bila dibutuhkan.',
-      'Ubah data/header yang keliru di sumber. Untuk mapping, transformasi, tipe, atau struktur output, buat revisi ETL dan jalani review serta approval. Untuk deskripsi dan metadata semantic, buka Governance.',
+      'Ubah data/header di Google Sheet dan Profiling ulang sumber yang sama. Untuk mapping, dimensi, dan definisi metrik, clone konfigurasi immutable atau buat draft baru bila header lama hilang, lalu review. Nama/deskripsi produk serta unit/sinonim metrik dapat diedit admin/steward di katalog Dashboard; Governance mengelola relationship dan policy AI.',
     ],
     notes: [
       'Saran metadata bersifat pemeriksaan kelengkapan, bukan AI yang mengubah konfigurasi secara otomatis.',
       'Relasi join bersifat opsional; buat hanya jika ada kebutuhan analitik lintas dataset dan kolom kunci serta kardinalitasnya sudah dipastikan.',
       'Katalog hanya menampilkan Data Product aktif yang memang dapat ditemukan oleh akun Anda.',
+      'Target fisik NON_MASTER existing memakai CREATE_ONLY_OR_IDENTICAL: tambah/rename kolom, tipe, atau nullability berbeda ditolak SCHEMA_CHANGE_UNSAFE dan memerlukan migrasi manual yang direview. Approval ETL tidak otomatis ALTER tabel.',
     ],
   },
   {
@@ -165,6 +181,10 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Gunakan ikon bantuan di samping setiap tahap wizard untuk melihat tujuan, urutan kerja, dan contoh khusus tahap tersebut.',
       'Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.',
+      'source_column harus persis header profil. Tambah/rename header di Google Sheet lalu Profiling ulang sumber yang sama; Muat ulang review tidak menggantikan profiling.',
+      'Approved, active, dan rejected tidak dapat diedit; clone ke draft baru. Jika header lama sudah hilang dan clone gagal, buat draft baru dari profil terbaru.',
+      'Target NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL. Penambahan/rename kolom, perubahan tipe atau nullability memerlukan migrasi manual yang direview (SCHEMA_CHANGE_UNSAFE); review/deploy saja tidak cukup.',
+      'Transaksi memakai tanggal kejadian nyata yang parseable (ISO atau format date_parse terpilih), bukan wajib sel native date Sheets. Validasi terhadap snapshot. Agregat w1/w2/januari perlu batas periode, tahun eksplisit, dan kalender minggu yang disepakati; jangan mengarang tanggal atau mengasumsikan overlap/expression bebas didukung.',
     ],
   },
   {
@@ -206,6 +226,10 @@ const entries: PageHelpEntry[] = [
       'Cari record menggunakan nilai bisnis atau filter periode.',
       'Gunakan Batch import untuk menambah atau memperbarui record; halaman ini tidak melewati proses approval.',
     ],
+    notes: [
+      'Field nullable baru dapat ditambahkan melalui approval definisi lalu redeploy storage; record lama bernilai null. Tinjau dan approve ulang binding sebelum import.',
+      'Field wajib baru, business key, tipe, rename/drop, atau perubahan nullability memerlukan migrasi yang direview (MASTER_SCHEMA_MIGRATION_REQUIRED); jangan hapus/buat ulang tabel.',
+    ],
   },
   {
     matches: pattern(/^\/masters\/[^/]+$/),
@@ -216,6 +240,10 @@ const entries: PageHelpEntry[] = [
       'Preview kandidat serupa setiap kali definisi berubah.',
       'Simpan draft, submit review, lalu lakukan approve atau reject dengan catatan.',
       'Setelah approved, lanjutkan ke Storage dan binding sumber.',
+    ],
+    notes: [
+      'Untuk field nullable baru: revisi dan approve definisi, redeploy storage, lalu review binding. Record lama tetap null sampai pemuatan yang disetujui.',
+      'Field wajib baru, key, tipe, rename/drop, dan perubahan nullability bukan evolusi otomatis; perlu migrasi yang direview.',
     ],
   },
   {
@@ -245,6 +273,7 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Skor hanya membandingkan nama setelah normalisasi ejaan umum dan padanan Indonesia/Inggris. Sistem tidak membaca nilai data untuk membuktikan hubungan; cocokkan contoh nilai sumber dengan record master.',
       'Satu binding mencari berdasarkan satu field master. Jika business key master gabungan, siapkan satu kode rujukan unik yang tersedia di sumber; field yang tidak unik dapat menghasilkan kecocokan ambigu.',
+      'Untuk NON_MASTER, gunakan batch tab NON_MASTER dengan konfigurasi approved/active dan mapping referensi target UUID yang sesuai; binding kolom tidak mengubahnya menjadi tab MASTER. Memuat record rujukan baru ke master adalah batch terpisah pada tab MASTER.',
     ],
     examples: [
       { label: 'Kolom sumber', value: 'Kode Produk · SKU-001' },
@@ -318,11 +347,14 @@ const entries: PageHelpEntry[] = [
     steps: [
       'Periksa status batch, dependency, dan daftar temuan.',
       'Jawab pertanyaan wajib atau resolve referensi menggunakan master approved.',
-      'Resume atau revalidate bila dependency berubah.',
+      'Gunakan resume/revalidate sesuai status dan blocker. Jika profil, konfigurasi, binding, atau versi master berubah, gunakan batch baru dengan dependency terbaru; revalidate tidak mengganti dependency batch lama.',
       'Buat preview dan periksa seluruh perubahan.',
       'Reviewer melakukan approval; editor menjalankan apply menggunakan preview yang sama.',
     ],
-    notes: ['Jangan approve bila target, staging, atau dependency sudah berubah.'],
+    notes: [
+      'Jangan approve bila target, staging, atau dependency sudah berubah.',
+      'SOURCE_CORRECTION pada review memperbaiki staging batch, bukan Google Sheet. Untuk perbaikan permanen, edit sumber lalu Profiling ulang dan buat batch baru.',
+    ],
   },
   {
     matches: exact('/jobs'),

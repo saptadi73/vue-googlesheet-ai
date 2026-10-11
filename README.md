@@ -33,6 +33,11 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | Route                                                  | Fitur                                                                                                                    |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `/login`                                               | Login tenant, username, dan password dengan redirect internal ke halaman tujuan                                          |
+| `/guide`                                               | Panduan umum publik, termasuk perubahan kolom existing dan pemodelan periode                                             |
+| `/sources`                                             | Tracking sumber, riwayat, unlink/pulihkan, dan preview penghapusan setup gagal oleh admin                                  |
+| `/data-catalog`                                        | Inventaris output ETL aktif, asal Sheet, kelengkapan metadata, dan tautan revisi                                           |
+| `/governance`                                          | Relationship join approved dan kebijakan/assignment AI                                                                   |
+| `/release-approvals`                                   | Keputusan IT dan setiap unit terkait sebelum deploy/rollback                                                              |
 | `/masters`                                             | Registry master, kandidat duplikat, draft, submission dan approval                                                       |
 | `/masters/:id/storage`                                 | Preview/deploy storage dan pencarian record kanonis dengan masking PII                                                   |
 | `/taxonomies`                                          | Registry taxonomy, term hierarkis, dan approval versi                                                                    |
@@ -55,7 +60,7 @@ Google/OpenAI atau mengubah data backend. Tutup proses lain yang memakai port 51
 | `/access-requests`                                     | Permintaan akses atribut/bundle sementara, histori, approval admin, cancel, dan revoke                                   |
 | `/account`                                             | Ubah password dan login ulang                                                                                            |
 
-`/login` adalah satu-satunya halaman publik. Semua route aplikasi mengalihkan pengguna tanpa
+`/login` dan `/guide` adalah halaman publik. Route aplikasi lainnya mengalihkan pengguna tanpa
 sesi ke login sebelum komponen halaman dimuat dan mempertahankan tujuan internal yang aman.
 Setelah login, tujuan yang tidak sesuai role dialihkan ke landing resmi: admin ke `/admin`,
 owner/steward ke `/workspace`, approver ke `/import-reviews`, dan analyst/viewer ke
@@ -166,3 +171,17 @@ Tombol **Bantuan** tersedia pada setiap halaman, termasuk login. Dialog mengikut
 Dialog menyediakan tautan **Panduan lengkap**. Menu **Panduan penggunaan** (/guide) menjelaskan workflow 10 tahap dari administrasi, pendaftaran Google Sheet, klasifikasi, master/taxonomy, konfigurasi dan import, sampai data tampil di dashboard serta chart.
 
 Konten route berada di `src/lib/pageHelp.ts` dan dirender global oleh `src/components/PageHelp.vue`. Ketika menambah route baru, tambahkan petunjuk spesifik dan contoh path pada `tests/unit/pageHelp.test.ts`; fallback tetap tersedia sampai petunjuk tersebut ditulis.
+
+### Panduan saat ini dan catatan fase
+
+Gunakan `/guide`, bantuan halaman, [AI user help](docs/AI_USER_HELP.md),
+[cakupan frontend](docs/IMPLEMENTASI_FRONTEND.md), dan [review ETL](docs/PANDUAN_REVIEW_ETL.md)
+untuk workflow saat ini. Panduan ini membedakan edit nilai/header di Google Sheet, profiling
+ulang sumber yang sama, draft konfigurasi immutable, serta migrasi manual target existing.
+Label `w1`/`w2`/`januari` memerlukan tahun dan batas periode; jangan mengarang tanggal transaksi.
+Tanggal eksplisit parseable tidak wajib sel native date Sheets.
+
+Dokumen fase awal BE-01–BE-06 dan bagian historis IMPLEMENTASI mencatat batasan serta hasil
+tes saat fase tersebut selesai; wording “belum tersedia” di sana bukan status produk saat ini.
+Panduan BE-12–BE-16 yang bertahap harus dibaca sampai bagian lanjutan, bukan hanya tahap awal.
+Snapshot API/payload adalah referensi kontrak, bukan bukti rollout atau integrasi provider nyata.

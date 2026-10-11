@@ -480,6 +480,19 @@ Semua field PATCH opsional. Header 1–100, awal data 2–1000 dan harus setelah
 
 PATCH tab yang sudah punya konfigurasi aktif ditolak `409 CONFIGURATION_CONFLICT`, termasuk perubahan `enabled`. PATCH tab mereset fingerprint; jalankan `/profile` kembali sebelum membuat konfigurasi.
 
+Adapter Google Sheets read-only: edit nilai atau tambah/rename header di Sheet, lalu profile
+sumber/tab yang sama, bukan registrasi ulang. Muat ulang tampilan hanya membaca data tersimpan.
+`source_column` harus persis header profil terbaru; profil drift membuat konfigurasi lama stale.
+APPROVED/ACTIVE/REJECTED immutable: clone ke draft baru, atau buat draft manual/AI baru bila
+clone gagal karena header lama hilang. Sync review memprofilkan sumber lalu membuat batch,
+bukan memperbaiki mapping stale. Batch biasa memakai snapshot tersimpan.
+
+Tanggal transaksi harus tanggal kejadian nyata yang parseable: ISO atau format `date_parse`
+terpilih, diverifikasi terhadap snapshot, tanpa syarat wajib sel native date Sheets.
+Label agregat `w1`/`w2`/`januari` memerlukan tahun eksplisit, batas periode dan kalender minggu
+yang disepakati; jangan mengarang tanggal transaksi. Query overlap agregat/expression bebas
+belum tersedia. Lihat [panduan review ETL](PANDUAN_REVIEW_ETL.md).
+
 Hasil job DISCOVER/PROFILE pada `Job.result`:
 
 ```json
@@ -585,8 +598,8 @@ Metadata master dan binding kini tersedia; kontrak lengkap, payload, respons, ve
 | POST | `/master-definitions/{master_id}/approve` | R | MasterRevisionRequest | 200 | MasterDefinition APPROVED, versi approved baru |
 | POST | `/master-definitions/{master_id}/reject` | R | MasterRevisionRequest | 200 | MasterDefinition REJECTED |
 | POST | `/master-definitions/{master_id}/deactivate` | R | MasterRevisionRequest | 200 | MasterDefinition INACTIVE |
-| GET | `/source-sheets/{sheet_id}/master-binding` | S | UUID tab | 200 | binding/null, validation, metadata_ready, execution_ready=false, blocking_reason |
-| PUT | `/source-sheets/{sheet_id}/master-binding` | E | MasterBindingUpdate | 200 | binding, validation, execution_ready=false |
+| GET | `/source-sheets/{sheet_id}/master-binding` | S | UUID tab | 200 | binding, validation, metadata_ready, execution_ready, blocking_reason |
+| PUT | `/source-sheets/{sheet_id}/master-binding` | E | MasterBindingUpdate | 200 | binding, validation dan ringkasan kesiapan |
 | POST | `/source-sheets/{sheet_id}/master-binding/approve` | R | MasterRevisionRequest | 200 | MasterSourceBinding APPROVED |
 | POST | `/source-sheets/{sheet_id}/master-binding/reject` | R | MasterRevisionRequest | 200 | MasterSourceBinding REJECTED |
 | GET | `/source-sheets/{sheet_id}/column-bindings` | S | UUID tab | 200 | daftar binding kolom ke master |
@@ -598,11 +611,21 @@ Metadata master dan binding kini tersedia; kontrak lengkap, payload, respons, ve
 | GET | `/master-definitions/reference-orphans` | S | Tidak ada | 200 | items per binding, orphan_count, orphan_values, type validation, execution_ready |
 | POST | `/master-definitions/deploy-foreign-keys` | R | Tidak ada | 200 | created constraints, execution_ready=true |
 
-Klasifikasi MASTER sekarang ditahan oleh MASTER_RUNTIME_PENDING; GET master-binding yang belum mempunyai binding menggunakan MASTER_BINDING_REQUIRED. Binding metadata ready tidak memberi izin load. GET klasifikasi MASTER menambah ringkasan master_binding; field klasifikasi lainnya tetap seperti BE-02.
+GET master-binding yang belum mempunyai binding menggunakan MASTER_BINDING_REQUIRED.
+Binding metadata ready/approved tidak membuktikan record sudah dimuat. Tab MASTER memakai
+binding approved, storage siap, dan batch preview/approval/apply; `MASTER_RUNTIME_PENDING`
+dapat tetap menjadi blocker pada jalur legacy run sumber, bukan bukti import master belum tersedia.
+Tab NON_MASTER dengan column binding tetap memakai konfigurasi approved/active dan batch
+NON_MASTER, bukan batch pemuatan tab MASTER.
 
 ## 4. Konfigurasi ETL dan approval
 
-**Status BE-02:** klasifikasi per tab sudah aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`. Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`. Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tetap tidak menerima dataset_kind. Registry/binding master tersedia pada BE-03; MASTER tetap tertahan sebelum review/apply import tersedia. Kontrak respons, error, serta dampak rollout dijelaskan di [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md). BE-04 menambah storage/pencarian record, BE-05 batch review, dan BE-06 pertanyaan/keputusan sehingga jumlah operasi aktif menjadi 117.
+Klasifikasi per tab aktif melalui GET/PUT `/source-sheets/{sheet_id}/classification`.
+Body PUT adalah `{"revision_no":1,"dataset_kind":"NON_MASTER"}` atau `MASTER`.
+Payload policy lengkap BE-01 belum menjadi body API; SourceCreate/ETLConfiguration tidak
+menerima dataset_kind. Registry/binding, storage master, pertanyaan/keputusan, dan batch
+preview/approval/apply sudah tersedia. Gunakan [cakupan frontend](IMPLEMENTASI_FRONTEND.md)
+untuk workflow saat ini; [Klasifikasi tab BE-02](KLASIFIKASI_TAB_BE02.md) mencatat fase awal.
 
 | Method | Path | Hak | Body / query | HTTP sukses | Data respons |
 |---|---|---|---|---|---|
@@ -802,7 +825,7 @@ Urutan UI:
 5. Approve menghasilkan APPROVED dan runtime artifact. Ini belum ACTIVE.
 6. Deploy/activate menerima APPROVED, mengantrekan job. Tunggu SUCCEEDED, lalu reload konfigurasi, tab aktif, dan katalog produk.
 
-Aktivasi mengganti konfigurasi aktif sebelumnya menjadi SUPERSEDED. REJECTED/APPROVED/ACTIVE tidak bisa diedit langsung; clone menjadi draft baru. Perubahan fisik kolom/type/business key yang tidak identik memerlukan migrasi terpisah, bukan sekadar approval UI. Kode semantic product tidak boleh dipakai tab lain.
+Aktivasi mengganti konfigurasi aktif sebelumnya menjadi SUPERSEDED. REJECTED/APPROVED/ACTIVE tidak bisa diedit langsung; clone menjadi draft baru. Bila clone gagal karena header lama dihapus/rename, buat draft baru dari profil terbaru. Target fisik NON_MASTER existing memakai CREATE_ONLY_OR_IDENTICAL: tambah/rename kolom, tipe, nullability atau business key yang tidak identik memerlukan migrasi manual yang direview (SCHEMA_CHANGE_UNSAFE), bukan sekadar approval UI. Kode semantic product tidak boleh dipakai tab lain.
 
 Rollback hanya menerima konfigurasi SUPERSEDED dan mengantrekan deployment versi itu setelah pemeriksaan. **Rollback ini mengganti konfigurasi aktif, bukan memulihkan isi data historis atau database backup.**
 
@@ -1434,7 +1457,7 @@ Error Google seperti GOOGLE_NOT_CONFIGURED (503), SOURCE_ACCESS_DENIED (403), SO
 2. `dataset_kind` hanya diterima oleh SheetClassificationUpdate. Payload lain tetap menolak field tambahan yang tidak ada di schema; master_definition_id diterima pada MasterBindingUpdate, bukan pada payload klasifikasi.
 3. AI ETL konfigurasi membuat draft dari metadata/profile. Review AI per batch mendukung coverage, chunk cache, masking field sensitif, findings, blocker, dan pertanyaan; UI tidak boleh mengklaim semua baris diperiksa bila provider nonaktif, coverage hanya sampling, atau ada pengecualian.
 4. Structured query dapat memakai path relationship APPROVED yang eksplisit. NL2SQL AI menerima graph relationship APPROVED yang accessible dan hanya boleh memilih kode dari konteks tersebut; root eksplisit dikunci dan hasil tetap melalui compiler/guard yang sama. SQL bebas dan join arbitrer tidak tersedia; FK master sendiri bukan izin join semantic.
-5. Belum ada list seluruh NL2SQL request, edit/delete saved template, delete source/user, reset password user lain, atau endpoint daftar distinct dimensi.
+5. Belum ada list seluruh NL2SQL request, edit/delete saved template, delete user, reset password user lain, atau endpoint daftar distinct dimensi. Admin dapat menghapus permanen registrasi sumber setup gagal melalui preview dan dua konfirmasi hanya jika seluruh blocker operasional/dependency tidak ada. Untuk duplikat yang tepat gunakan unlink; sumber unlink dapat dipulihkan, bukan diregistrasi ulang.
 6. Approval source data/configuration bukan jaminan semua integrasi eksternal sudah siap. Tetap tampilkan status job dan error nyata.
 7. `submit-review` wajib menerima bukti review revision/snapshot dan memvalidasi draft. Approval ditolak tanpa submission terbaru; PATCH membatalkan bukti review. Deployment/rollback ditolak bila isi Google Sheet berbeda dari snapshot yang disetujui.
 8. List tanpa pagination publik dapat terpotong pada batas internal. Jangan menampilkan total global berdasarkan panjang array saja.

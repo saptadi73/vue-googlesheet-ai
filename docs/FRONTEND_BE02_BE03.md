@@ -13,7 +13,8 @@ backend mencatat tahapan implementasi backend; halaman ini menjelaskan cakupan V
   Deploy/rollback memerlukan evidence review yang cocok dengan kind dan revision
   klasifikasi. Perubahan klasifikasi mereset checklist; review stale perlu diulang.
 - Run sumber, retry ETL dan reprocess memeriksa seluruh tab enabled sebelum POST.
-  Tab belum dikonfirmasi dan MASTER yang runtime-nya belum tersedia memblokir run.
+  Tab belum dikonfirmasi dan MASTER yang memakai jalur legacy run sumber memblokir run;
+  tab MASTER dimuat melalui batch preview/approval/apply dengan binding dan storage siap.
   Backend tetap melakukan pemeriksaan akhir.
 
 ## Registry master
@@ -44,8 +45,10 @@ harus berbeda dari editor; approval membutuhkan validasi dan evidence terkini.
 Versi approved baru harus dipilih eksplisit untuk review ulang binding lama.
 
 `metadata_ready` ditampilkan terpisah dari `execution_ready`. Binding approved belum
-mengaktifkan load master: `MASTER_RUNTIME_PENDING` tetap memblokir eksekusi sampai
-backend menyediakan runtime tahap berikutnya.
+berarti record sudah dimuat. Gunakan Storage dan batch import untuk preview, approval, serta
+apply master; `MASTER_RUNTIME_PENDING` pada legacy run sumber bukan petunjuk bahwa alur
+batch belum tersedia. Lihat [frontend BE05](FRONTEND_BE05.md) dan
+[tindak lanjut review](FRONTEND_REVIEW_FOLLOWUP.md).
 
 ## Binding kolom referensi
 

@@ -1,4 +1,4 @@
-# Implementasi frontend — ditinjau ulang 30 September 2026
+# Implementasi frontend — panduan cakupan saat ini
 
 Implementasi mengacu pada `API_REFERENCE.md`, `PANDUAN_REVIEW_ETL.md`, dan kontrak backend lokal.
 Snapshot `docs/api/SCHEMAS.md`, `PAYLOADS.json`, dan `openapi.json` sudah disertakan.
@@ -17,8 +17,8 @@ melalui halaman batch, master, serta binding terkait.
 Daftar sumber utama tersedia pada **Sumber & tracking** (`/sources`). Tabel reusable mendukung
 pencarian dan pagination agar daftar panjang tidak terpotong pada pilihan Workspace. Setiap baris
 menunjukkan status discovery, profiling, konfigurasi/binding master, pemuatan, serta Data Owner/
-Data Steward dan menyediakan navigasi **Buka sumber**. Sumber unlink disembunyikan secara default;
-admin dapat menyertakannya untuk pemulihan. Unlink memerlukan alasan dan dua konfirmasi, pemulihan
+Data Steward dan menyediakan navigasi **Buka sumber**. Sumber unlink dapat ditampilkan melalui pilihan daftar;
+admin dapat memulihkannya. Unlink memerlukan alasan dan dua konfirmasi, pemulihan
 juga memerlukan dua konfirmasi, dan backend tetap memeriksa relasi aktif.
 
 Bantuan kontekstual `/sources`, panduan umum, dan Tanya AI mengarahkan pengguna ke daftar ini saat
@@ -43,6 +43,20 @@ siklus dependency. Konfirmasi eksplisit di UI diperlukan sebelum request deploy.
 Workspace menyediakan batch sync review per sumber dan preview migrasi MASTER yang
 read-only. Editor konfigurasi memuat katalog parameter BE12 dan hanya mengirim
 parameter yang ditandai backend sebagai supported.
+
+Perubahan nilai/header dilakukan di Google Sheet karena adapter read-only. Tambah/rename
+header memerlukan **Profiling ulang** pada sumber/tab yang sama; `source_column` harus
+persis header profil terbaru. Profil drift membuat konfigurasi lama stale. APPROVED,
+ACTIVE, dan REJECTED immutable: clone ke draft baru, atau buat draft manual/AI baru jika
+clone gagal karena header lama hilang. Sync review memprofilkan sumber lalu membuat
+batch, bukan memperbaiki mapping lama. Revalidate tidak mengganti dependency batch lama.
+
+Target fisik NON_MASTER existing hanya `CREATE_ONLY_OR_IDENTICAL`; tambah/rename kolom,
+tipe atau nullability berbeda memerlukan migrasi manual yang direview (`SCHEMA_CHANGE_UNSAFE`).
+Master mendukung field nullable baru melalui approval definisi, redeploy storage dan
+review binding, dengan record lama null. Field wajib baru/key/tipe/rename/drop/perubahan
+nullability memerlukan migrasi. Rincian periode w1/w2/januari dan parsing tanggal eksplisit:
+[panduan review ETL](PANDUAN_REVIEW_ETL.md#mengubah-kolom-sheet-dan-schema-existing).
 
 Halaman `/taxonomies` mengelola registry taxonomy BE13: editor dapat membuat draft
 dan menambahkan term bertingkat, sedangkan reviewer dapat menyetujui taxonomy dan
@@ -85,7 +99,7 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
 
 ## Perilaku penting
 
-- **Sesi:** `/login` adalah route publik tunggal. Guard router mengalihkan direct URL anonim sebelum
+- **Sesi:** `/login` dan `/guide` adalah route publik. Guard router mengalihkan direct URL privat anonim sebelum
   komponen privat dimuat dan hanya menerima redirect internal. Login JSON dilanjutkan `/auth/me`;
   access token disimpan dalam memori, sedangkan refresh token disimpan di `sessionStorage` agar
   reload tab memulihkan sesi tetapi tab baru tidak mewarisinya. Saat mulai, refresh dilakukan sebelum
@@ -102,9 +116,10 @@ Governance juga menampilkan snapshot riwayat policy yang diambil dari endpoint t
   PURPOSE, owner/steward dan sensitivitas; sumber legacy dapat dikoreksi dengan
   `access_revision`. Admin berbeda mereview metadata lalu memilih policy SOURCE approved
   untuk aktivasi. Perubahan tab mengharuskan profiling ulang. Konfigurasi aktif mengunci tab.
-- **Draft manual:** mapping dibuat dari header profil dengan tipe awal text. PII terindikasi dimulai HIGH;
-  pengguna memeriksa mapping/tipe/sensitivitas/key di wizard. APPEND/FULL_REFRESH tersedia sebagai
-  strategi awal; UPSERT dipilih di wizard setelah key ditentukan. Pembuatan draft tidak memuat data.
+- **Draft manual:** mapping dibuat dari header profil dengan kandidat tipe dan key hasil profiling. PII terindikasi dimulai HIGH;
+  pengguna memeriksa mapping/tipe/sensitivitas/key di wizard. Template APPEND/FULL_REFRESH/UPSERT
+  tersedia saat pembuatan; UPSERT memerlukan business key unik dan tidak nullable.
+  Pembuatan draft tidak memuat data.
 - **Review:** PATCH konfigurasi utuh memakai revision; pertanyaan yang diselesaikan mengirim teks jawaban
   dengan key pertanyaan asli. Checklist direset saat draft berubah. Submission mengirim snapshot hash,
   seluruh bagian dan nama kolom target. Approver memakai revision terbaru, berbeda dari editor terakhir.
