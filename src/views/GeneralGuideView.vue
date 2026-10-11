@@ -11,12 +11,12 @@ const stages = [
     action: 'Buka Administrasi',
     purpose: 'Menentukan siapa yang boleh mendaftarkan, mereview, mengoperasikan, dan membaca data.',
     steps: [
-      'Buat akun pengguna dan tetapkan role sesuai tugasnya.',
+      'Buat akun sekaligus ajukan rekomendasi unit, domain, yurisdiksi dan paket izin dari form Registrasi. Masa akses 366 hari sejak pengajuan.',
       'Buat atribut departemen, domain bisnis, yurisdiksi, purpose, dan clearance.',
-      'Berikan assignment serta permission bundle dengan masa berlaku yang sesuai.',
+      'Admin lain memilih seluruh permintaan akun tersebut dan menyetujuinya sekaligus di Permintaan akses.',
       'Siapkan policy akses resource; gunakan Preview keputusan sebelum approval.',
       'Untuk katalog, pilih policy SOURCE ALLOW dengan DISCOVER/READ/QUERY dan atribut unit/domain/yurisdiksi sumber. Semua atribut wajib harus menjadi assignment aktif pembaca.',
-      'Admin A membuat/submit policy, admin B approve. Reviewer berbeda dari editor menyetujui metadata sumber; admin bukan editor lalu Aktifkan policy sumber di Workspace sampai POLICY_APPROVED. ETL ACTIVE saja tidak membuka katalog.',
+      'Policy organisasi dibuat sekali dan disetujui admin lain; gunakan kembali untuk akun/sumber dengan scope yang sama. Approver konfigurasi dapat sekaligus menyetujui metadata serta mengaktifkan policy APPROVED melalui approval gabungan. ETL ACTIVE saja tidak berarti data sudah dimuat.',
       'Untuk sumber yang memerlukan gate rilis, tunjuk pemeriksa IT dan approver setiap unit terkait.',
     ],
     done: 'Admin, source owner/data steward, approver, dan pengguna analitik dapat login dengan akses yang tepat.',
@@ -112,10 +112,10 @@ const stages = [
     steps: [
       'Editor submit konfigurasi setelah preview dan checklist lengkap.',
       'Approver yang berbeda memeriksa diff, DQ, sensitivitas, target, dan semantic metadata.',
-      'Approver memilih approve atau reject dengan catatan yang jelas.',
+      'Approver membaca ringkasan metadata dan memilih policy SOURCE APPROVED, lalu menyetujui konfigurasi dan akses dalam satu transaksi. Jika ada blocker, tidak ada approval sebagian; baca helper approval gabungan.',
       'Jika aturan siap tayang aktif, IT dan setiap unit terkait menyetujui revisi yang sama di Persetujuan tayang.',
       'Setelah semua persetujuan lengkap, editor menjalankan deploy dan mengaktifkan konfigurasi.',
-      'Untuk sumber ber-policy, selesaikan review metadata dan aktifkan policy SOURCE approved.',
+      'Tidak perlu kembali ke approval metadata satu per satu setelah approval gabungan berhasil. Jika metadata diubah lagi, akses dicabut dan perlu approval gabungan baru atau jalur review metadata admin yang tetap tersedia.',
     ],
     done: 'Konfigurasi ACTIVE, target/semantic view tersedia, dan produk data lolos kebijakan akses.',
   },
@@ -127,7 +127,7 @@ const stages = [
     action: 'Buka Batch import',
     purpose: 'Memindahkan snapshot ke target melalui staging, temuan, pertanyaan, preview, dan approval.',
     steps: [
-      'Buat batch untuk sumber, tab, dan konfigurasi active.',
+      'Gunakan Sync manual per sumber di Sumber & tracking atau Workspace. Konfirmasi pembacaan/biaya AI, pantau job dan hasil per tab; tidak perlu menunggu jadwal mingguan.',
       'Tunggu staging serta pemeriksaan kualitas selesai.',
       'Selesaikan pertanyaan taxonomy, referensi master, duplicate key, atau koreksi sumber.',
       'Periksa blocker stale. Jika profil/konfigurasi/binding berubah, buat batch baru dengan dependency terbaru; revalidate tidak mengganti dependency batch lama. Buat preview terbaru sebelum approval.',
@@ -173,6 +173,50 @@ const stages = [
   <EtlShell>
     <p class="eyebrow">PANDUAN UMUM</p>
     <h1>Dari Google Sheet sampai dashboard</h1>
+    <section id="akses-akun" class="panel">
+      <h2>Akses akun baru: satu pengajuan, satu tinjauan bersama</h2>
+      <ol>
+        <li>Admin mengisi akun dan role di Registrasi, memilih unit, domain, yurisdiksi serta paket izin yang benar-benar diperlukan. Isi alasan bisnis; masa akses rekomendasi 366 hari sejak pengajuan, bukan sejak disetujui.</li>
+        <li>Akun serta semua permintaan akses disimpan bersama. Jika target tidak valid, semuanya dibatalkan; tidak ada akun setengah jadi. Permintaan PENDING belum memberi assignment atau izin.</li>
+        <li>Admin lain membuka Permintaan akses, memilih seluruh rekomendasi untuk akun tersebut, memeriksa scope, periode, alasan, lalu Setujui permintaan terpilih. Jangan memilih akses user lain yang tidak ikut diperiksa. Jika satu permintaan stale, kedaluwarsa, atau tumpang tindih, seluruh persetujuan dibatalkan. Muat ulang dan perbaiki penyebabnya.</li>
+        <li>Policy APPROVED organisasi digunakan kembali jika atribut akun memenuhi seluruh syarat. Tidak perlu membuat policy baru setiap membuat akun. Sumber tetap harus terikat policy yang berlaku dan metadata sudah disetujui. DENY tetap mengalahkan ALLOW; EXPORT/ADMIN tidak diberikan otomatis.</li>
+      </ol>
+      <p>Jika dropdown kosong, admin perlu membuat atribut/paket izin terlebih dahulu. Role menentukan tugas di aplikasi, bukan akses otomatis ke seluruh data. Akses berakhir setelah periodenya habis dan perlu pengajuan/tinjauan baru.</p>
+      <RouterLink class="button" to="/access-requests">Buka permintaan akses</RouterLink>
+    </section>
+    <section id="approval-gabungan" class="panel">
+      <h2>Helper lengkap: mengapa approval gabungan belum bisa disetujui?</h2>
+      <p>Approval gabungan mencakup konfigurasi ETL, review metadata sumber, serta aktivasi akses menggunakan policy SOURCE ALLOW yang sudah APPROVED. Approver harus berwenang untuk konfigurasi sumber tersebut, bukan editor metadata dan bukan pembuat/perubahan terakhir konfigurasi. Ini satu transaksi: gagal satu syarat berarti tidak ada approval sebagian.</p>
+      <dl>
+        <dt>Metadata belum lengkap atau penanggung jawab tidak aktif</dt>
+        <dd>Buka sumber di Workspace. Editor mengisi unit, domain, yurisdiksi, purpose, owner, steward, sensitivitas. Editor harus mempunyai assignment scope yang aktif; owner/steward juga harus aktif pada tenant yang sama. Reviewer membaca ringkasan, bukan menekan Simpan metadata karena tindakan itu menjadikannya editor terakhir. Admin dapat membenahi assignment lewat pengelolaan akun.</dd>
+        <dt>Anda pembuat konfigurasi atau editor metadata</dt>
+        <dd>Gunakan akun TECHNICAL_APPROVER atau PLATFORM_ADMIN lain yang memang berwenang. Jika approver sumber sudah ditunjuk, ia harus ada di daftar approver konfigurasi. Jangan mengubah role atau impersonate akun untuk melewati maker–checker.</dd>
+        <dt>Metadata ditolak</dt>
+        <dd>Editor memperbaiki metadata melalui Workspace sampai kembali PENDING, lalu approver memuat ulang ringkasan. Status REJECTED tidak otomatis menjadi APPROVED hanya karena konfigurasi disetujui.</dd>
+        <dt>Policy APPROVED belum tersedia atau tidak cocok</dt>
+        <dd>Admin menyiapkan SOURCE ALLOW, mengikat kode sumber, memasukkan ketiga atribut unit/domain/yurisdiksi sumber dan tindakan DISCOVER serta QUERY (READ disarankan untuk penggunaan katalog). Admin lain menyetujui policy. Pastikan masa berlaku belum berakhir dan policy tidak dicabut. Kontrol baris/kolom pada policy SOURCE belum didukung untuk aktivasi; pilih policy yang memang sesuai, bukan melonggarkan scope agar lolos. Jika ada beberapa policy cocok, approver memilih secara eksplisit. DENY dan pembatasan pembaca tetap diperiksa saat membaca data.</dd>
+        <dt>Revisi metadata, konfigurasi, snapshot, atau klasifikasi berubah</dt>
+        <dd>Muat ulang ringkasan approval dan konfigurasi. Jalankan validasi/profiling sesuai kebutuhan, selesaikan pertanyaan DQ, cek seluruh mapping/section, ajukan ulang review. Persetujuan memakai revision dan snapshot yang benar-benar diperiksa; tidak boleh memakai data lama dari browser.</dd>
+        <dt>Gate siap tayang belum lengkap</dt>
+        <dd>Persetujuan IT dan setiap unit yang diwajibkan tetap berlaku. Buka Persetujuan tayang dan selesaikan keputusan terhadap revisi yang sama. Approval gabungan tidak menghapus gate release atau approval batch pemuatan.</dd>
+      </dl>
+      <p>Jika ringkasan gagal dimuat, baca pesan error, periksa kewenangan approver lalu Muat ulang ringkasan approval. Jika tombol masih nonaktif, selesaikan seluruh blocker yang ditampilkan. Setelah berhasil, deploy mengaktifkan konfigurasi; Sync manual, review batch, preview, approval dan Apply diperlukan untuk benar-benar memuat data.</p>
+      <div class="toolbar"><RouterLink class="button" to="/workspace">Buka Workspace</RouterLink><RouterLink class="button" to="/release-approvals">Persetujuan tayang</RouterLink></div>
+    </section>
+    <section id="sync-manual" class="panel">
+      <h2>Sync manual dan status katalog</h2>
+      <p>Data yang terlihat di Sheet belum tentu sudah dimuat. Pilih sumber di Sumber & tracking atau Workspace, tekan Sync manual dan Jalankan sync sekarang. Pembacaan terbaru berlangsung di worker; layar menampilkan antrean, proses, hasil per tab, jumlah baris valid, cakupan AI dan temuan, serta shortcut ke batch.</p>
+      <ul>
+        <li>BLOCKED: prasyarat tab belum siap, misalnya konfigurasi/binding belum disetujui atau tab hilang. Pesan per tab menjelaskan apa yang perlu diperbaiki; tab lain yang siap tetap dibuatkan batch.</li>
+        <li>NEEDS_INPUT: pemeriksaan berjalan tetapi ada pertanyaan/temuan. Buka hasil review, selesaikan koreksi, lalu buat preview terbaru dan minta approval.</li>
+        <li>READY_FOR_APPROVAL/APPROVED belum berarti record masuk database. Apply oleh operator masih diperlukan. SUCCEEDED adalah hasil pemuatan selesai.</li>
+        <li>FAILED: perbaiki penyebab teknis terlebih dahulu; Revalidate batch gagal tanpa membuat batch duplikat. Resume hanya sesudah blocker NEEDS_INPUT selesai.</li>
+        <li>Proses yang masih berjalan menolak enqueue sync baru. Muat ulang hasil tidak mengulang pembacaan Sheet atau membuat batch. Batas pemantauan 10 menit bukan pembatalan job; lanjutkan di monitor job.</li>
+      </ul>
+      <p>Katalog mempertahankan versi aktif terakhir yang masih dapat diakses. Sedang diperbarui menandai job, revisi konfigurasi, drift struktur, perubahan snapshot atau batch yang belum selesai. Timestamp konfigurasi aktif diambil dari audit deployment; Data dimuat dari ETL sukses. Perubahan Google Sheet hanya diketahui setelah profiling/sync, bukan live push. Saat metadata akses berubah, policy dicabut atau hak pembaca berakhir, data boleh hilang dari katalog sampai izin kembali valid; status katalog tidak boleh melewati kontrol akses.</p>
+      <RouterLink class="button" to="/sources">Buka sumber &amp; tracking</RouterLink>
+    </section>
     <p class="guide-intro">
       Ikuti tahapan berikut secara berurutan untuk membawa spreadsheet menjadi data yang tervalidasi,
       dapat diakses sesuai kewenangan, dan siap ditampilkan sebagai tabel atau chart.

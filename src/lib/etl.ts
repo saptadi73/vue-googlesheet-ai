@@ -417,6 +417,16 @@ export interface Review {
   } | null
   capabilities: { unsupported: string[]; max_workbook_bytes: number }
 }
+export interface ConfigurationAccessReview {
+  source_id: string
+  access_revision: number
+  review_status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewer_is_editor: boolean
+  attributes: Record<string, { code: string; label: string; is_active: boolean } | null>
+  people: Record<string, { username: string; is_active: boolean } | null>
+  sensitivity: string | null
+  policies: { id: string; code: string; label: string; actions: string[] }[]
+}
 export interface Preview {
   can_apply: boolean
   revision_no: number

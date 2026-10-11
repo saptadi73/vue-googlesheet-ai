@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
-import { call } from '@/lib/etl'
+import { call, editRoles, reviewRoles, user } from '@/lib/etl'
 import type { ProductInventory } from '@/lib/catalog'
 import { getApiErrorMessage } from '@/lib/api'
 import type { JoinRelationship } from '@/lib/governance'
@@ -22,6 +22,8 @@ const columns = [
   { key: 'semantic', label: 'Semantic tersedia' },
   { key: 'recommendations', label: 'Peluang peningkatan' },
   { key: 'configuration_version', label: 'Versi ETL' },
+  { key: 'update_status', label: 'Status pembaruan' },
+  { key: 'last_active_at', label: 'Terakhir aktif / dimuat' },
   { key: 'actions', label: 'Tindakan' },
 ]
 
@@ -81,6 +83,10 @@ function openSheet(item: ProductInventory) {
 function workspacePath(row: Record<string, unknown>) {
   return { path: '/workspace', query: { source_id: String(row.source_id || '') } }
 }
+const canOpenWorkspace = computed(() => user.value && [...editRoles, ...reviewRoles].includes(user.value.role))
+function dateLabel(value: unknown) {
+  return typeof value === 'string' && value ? new Date(value).toLocaleString('id-ID') : 'Belum tercatat'
+}
 
 onMounted(load)
 </script>
@@ -99,7 +105,7 @@ onMounted(load)
       <div class="catalog-heading">
         <div>
           <h2>Daftar tabel hasil ETL</h2>
-          <p class="muted">Tautan sumber membuka spreadsheet tepat pada tab asal. Kolom saran adalah pemeriksaan kelengkapan metadata, bukan perubahan otomatis.</p>
+          <p class="muted">Buka Google Sheet tepat pada tab asal atau lanjutkan perbaikan di Workspace. Status pembaruan berasal dari proses/profil tersimpan, bukan pemantauan langsung Google Sheet. Selama revisi diproses, versi aktif terakhir tetap ditampilkan jika masih dapat diakses.</p>
         </div>
         <button type="button" :disabled="busy" @click="load">Muat ulang</button>
       </div>
@@ -144,11 +150,22 @@ onMounted(load)
           <span>v{{ row.configuration_version }}</span>
           <small class="catalog-subline">Semantic v{{ row.version }} · refresh {{ row.freshness_version }}</small>
         </template>
+        <template #cell-update_status="{ row }">
+          <strong>{{ row.update_status === 'UPDATING' ? 'Sedang diperbarui' : 'Aktif' }}</strong>
+          <small class="catalog-subline">{{ row.update_reason }}</small>
+          <small class="catalog-subline">Profil terakhir: {{ dateLabel(row.last_profiled_at) }}</small>
+        </template>
+        <template #cell-last_active_at="{ row }">
+          <span>{{ dateLabel(row.last_active_at) }}</span>
+          <small class="catalog-subline">Konfigurasi aktif: {{ dateLabel(row.last_activated_at) }}</small>
+          <small class="catalog-subline">Data dimuat: {{ row.last_loaded_at ? dateLabel(row.last_loaded_at) : 'Belum dimuat' }}</small>
+        </template>
         <template #cell-actions="{ row }">
           <div class="catalog-actions">
-            <RouterLink :to="`/configurations/${row.configuration_id}/review`">Revisi ETL</RouterLink>
-            <RouterLink to="/governance">Atur semantic</RouterLink>
-            <RouterLink :to="workspacePath(row)">Buka sumber</RouterLink>
+            <a class="button" :href="openSheet(row as unknown as ProductInventory)" target="_blank" rel="noopener noreferrer">Buka Google Sheet</a>
+            <RouterLink v-if="canOpenWorkspace" class="button" :to="workspacePath(row)">Buka sumber di Workspace</RouterLink>
+            <RouterLink v-if="canOpenWorkspace" :to="`/configurations/${row.configuration_id}/review`">Revisi ETL</RouterLink>
+            <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/governance">Atur semantic</RouterLink>
           </div>
         </template>
       </PagedDataTable>

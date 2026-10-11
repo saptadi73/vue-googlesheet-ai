@@ -314,6 +314,7 @@ export async function setup(page: Page) {
     }
     if (path === '/etl-jobs') return ok([source, upstreamSource])
     if (path === '/sources') return ok([source])
+    if (path === '/sources/tracking') return ok([{ ...source, sheets: [] }])
     if (path === '/sources/approver-options')
       return ok([{ id: 'admin-id', username: 'admin', role: 'PLATFORM_ADMIN' }])
     if (path === `/sources/${sourceId}/approvers` && method === 'GET')
@@ -502,6 +503,7 @@ export async function setup(page: Page) {
         classification: classification(),
         capabilities: { unsupported: [], max_workbook_bytes: 2_000_000 },
       })
+    if (path === `/configurations/${configId}` && method === 'GET') return ok(record)
     if (path === `/configurations/${configId}` && method === 'PATCH') {
       if (conflict) return fail(409, 'CONFIGURATION_CONFLICT', 'Revisi telah berubah')
       if (body.revision_no !== record.revision_no)
@@ -524,11 +526,30 @@ export async function setup(page: Page) {
       }
       return ok(record)
     }
+    if (path === `/configurations/${configId}/access-review` && method === 'GET')
+      return ok({
+        source_id: sourceId, access_revision: source.access_revision,
+        review_status: source.access_review_status,
+        reviewer_is_editor: source.access_metadata_editor_id === `${username}-id`,
+        attributes: Object.fromEntries(['owner_unit_id', 'business_domain_id', 'jurisdiction_id', 'purpose_id'].map((key) =>
+          [key, source.access_metadata?.[key] ? { code: key, label: key, is_active: true } : null])),
+        people: Object.fromEntries(['data_owner_user_id', 'data_steward_user_id'].map((key) =>
+          [key, source.access_metadata?.[key] ? { username: 'editor', is_active: true } : null])),
+        sensitivity: source.access_metadata?.sensitivity || null,
+        policies: [{ id: jobId, code: 'READ_SALES', label: 'Baca penjualan', actions: ['DISCOVER', 'READ', 'QUERY'] }],
+      })
     if (path.endsWith('/approve')) {
       if (username !== 'approver' || body.revision_no !== record.revision_no)
         return fail(403, 'FORBIDDEN', 'Wrong approver/revision')
+      if (body.source_access && body.source_access.revision_no !== source.access_revision)
+        return fail(409, 'SOURCE_ACCESS_REVISION_CONFLICT', 'Metadata akses berubah')
       record.status = 'APPROVED'
       record.revision_no++
+      if (body.source_access) {
+        source.access_review_status = 'APPROVED'
+        source.access_status = 'POLICY_APPROVED'
+        source.access_revision += 2
+      }
       return ok(record)
     }
     if (path.endsWith('/workbook-preview'))
@@ -631,6 +652,15 @@ export async function setup(page: Page) {
       ])
     if (path === '/users' && method === 'POST')
       return ok({ id: 'new-user', ...body, password: undefined })
+    if (path === '/access/request-options' && method === 'GET')
+      return ok({
+        attributes: [
+          { id: sourceId, kind: 'DEPARTMENT', code: 'SALES', label: 'Sales', is_active: true },
+          { id: sheetId, kind: 'BUSINESS_DOMAIN', code: 'COMMERCE', label: 'Commerce', is_active: true },
+          { id: jobId, kind: 'JURISDICTION', code: 'JATIM', label: 'Jawa Timur', is_active: true },
+        ],
+        permission_bundles: [], requestable_users: [], max_duration_days: 366,
+      })
     if (path === '/access/registration-options' && method === 'GET')
       return ok({
         scopes: registrationScopesEmpty ? [] : [

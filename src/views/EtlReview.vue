@@ -59,6 +59,7 @@ import {
   type MetricFilter,
   type TransformParameter,
   type Validation,
+  type ConfigurationAccessReview,
 } from '@/lib/etl'
 const route = useRoute(),
   router = useRouter()
@@ -218,9 +219,34 @@ const unusedHeaders = computed(
 const selectedHeader = ref('')
 const rollbackAcknowledged = ref(false)
 const decisionModal = ref<'approve' | 'reject' | null>(null)
-function openDecision(action: 'approve' | 'reject') {
+const accessReview = ref<ConfigurationAccessReview | null>(null)
+const accessPolicyId = ref('')
+const accessBlockers = computed(() => {
+  const context = accessReview.value
+  if (!context) return ['Metadata akses belum dimuat. Muat ulang ringkasan approval.']
+  const blockers: string[] = []
+  if (context.reviewer_is_editor) blockers.push('Anda editor terakhir metadata. Gunakan approver lain yang berwenang.')
+  if (context.review_status === 'REJECTED') blockers.push('Metadata ditolak. Editor perlu memperbaiki metadata di Workspace terlebih dahulu.')
+  if (Object.values(context.attributes).some((item) => !item?.is_active) ||
+      Object.values(context.people).some((item) => !item?.is_active) || !context.sensitivity)
+    blockers.push('Metadata wajib belum lengkap atau atribut/penanggung jawab tidak aktif. Perbaiki melalui Workspace.')
+  if (!context.policies.length) blockers.push('Belum ada policy SOURCE ALLOW APPROVED yang berlaku dan cocok. Admin perlu melengkapi binding sumber serta unit, domain, yurisdiksi pada policy.')
+  if (context.policies.length && !accessPolicyId.value) blockers.push('Pilih policy yang akan digunakan untuk mengaktifkan akses.')
+  return blockers
+})
+async function loadAccessReview() {
+  const current = generation
+  accessReview.value = null
+  accessPolicyId.value = ''
+  const result = await call<ConfigurationAccessReview>('GET', `${base.value}/access-review`)
+  if (current !== generation || decisionModal.value !== 'approve') return
+  accessReview.value = result
+  if (result.policies.length === 1) accessPolicyId.value = result.policies[0]!.id
+}
+async function openDecision(action: 'approve' | 'reject') {
   comment.value = ''
   decisionModal.value = action
+  if (action === 'approve') await run(loadAccessReview)
 }
 async function run(action: () => Promise<void>) {
   busy.value = true
@@ -312,14 +338,19 @@ async function submit() {
 }
 async function decision(action: 'approve' | 'reject') {
   if (dirty.value) throw new Error('Simpan atau muat ulang perubahan terlebih dahulu.')
+  if (action === 'approve' && (accessBlockers.value.length || !accessReview.value))
+    throw new Error('Approval gabungan belum dapat dilakukan. Selesaikan blocker dan baca helper.')
   await call('POST', `${base.value}/${action}`, {
     revision_no: record.value?.revision_no,
     comment: comment.value,
+    ...(action === 'approve' && accessReview.value ? {
+      source_access: { revision_no: accessReview.value.access_revision, policy_id: accessPolicyId.value },
+    } : {}),
   })
   await load()
   notice.value =
     action === 'approve'
-      ? 'Konfigurasi disetujui. Lengkapi persetujuan siap tayang sebelum deployment.'
+      ? 'Konfigurasi dan metadata disetujui; akses sumber aktif melalui policy terpilih. Deploy lalu Sync manual tetap diperlukan untuk memuat data. Gate siap tayang tetap berlaku.'
       : 'Konfigurasi ditolak. Clone untuk membuat perbaikan.'
   decisionModal.value = null
 }
@@ -1470,22 +1501,42 @@ onBeforeRouteUpdate(confirmLeave)
       </section>
       <Modal
         :open="decisionModal !== null"
-        :title="decisionModal === 'approve' ? 'Setujui konfigurasi' : 'Tolak konfigurasi'"
+        :title="decisionModal === 'approve' ? 'Approval konfigurasi dan akses sumber' : 'Tolak konfigurasi'"
         @close="decisionModal = null"
       >
         <p class="muted">
           {{
             decisionModal === 'approve'
-              ? 'Persetujuan mengacu pada revisi dan snapshot yang sudah diperiksa. Deployment tetap perlu dijalankan terpisah.'
+              ? 'Satu persetujuan untuk konfigurasi, metadata akses, dan aktivasi policy sumber. Seluruh syarat diperiksa dalam satu transaksi; jika ada blocker, tidak ada approval sebagian. Deploy dan pemuatan data tetap terpisah.'
               : 'Konfigurasi rejected tidak dapat diedit. Clone ke draft; jika header lama hilang dan clone gagal, buat draft baru dari profil terbaru.'
           }}
         </p>
+        <template v-if="decisionModal === 'approve'">
+          <button type="button" :disabled="busy" @click="run(loadAccessReview)">Muat ulang ringkasan approval</button>
+          <dl v-if="accessReview">
+            <template v-for="(item, field) in accessReview.attributes" :key="field"><dt>{{ field }}</dt><dd>{{ item ? `${item.code} · ${item.label}` : 'Belum diisi' }}</dd></template>
+            <template v-for="(item, field) in accessReview.people" :key="field"><dt>{{ field }}</dt><dd>{{ item?.username || 'Belum diisi' }}</dd></template>
+            <dt>Sensitivitas</dt><dd>{{ accessReview.sensitivity || 'Belum diisi' }}</dd>
+          </dl>
+          <label>Policy akses pada approval<select v-model="accessPolicyId" :disabled="busy">
+            <option value="">Pilih policy APPROVED</option>
+            <option v-for="policy in accessReview?.policies || []" :key="policy.id" :value="policy.id">{{ policy.code }} · {{ policy.label }}</option>
+          </select></label>
+          <div v-if="accessBlockers.length" class="notice" role="status">
+            <strong>Belum dapat disetujui:</strong><ul><li v-for="blocker in accessBlockers" :key="blocker">{{ blocker }}</li></ul>
+          </div>
+          <div class="toolbar">
+            <RouterLink class="button" to="/guide#approval-gabungan" target="_blank">Helper lengkap: mengapa approval belum bisa disetujui</RouterLink>
+            <RouterLink v-if="details" class="button" :to="{ path: '/workspace', query: { source_id: details.source.id } }" target="_blank">Buka metadata sumber di Workspace</RouterLink>
+          </div>
+        </template>
+        <p v-if="error" class="error" role="alert">{{ error }}</p>
         <label>Catatan keputusan<textarea v-model="comment" maxlength="2000" rows="4" /></label>
         <template #footer>
           <button :disabled="busy" @click="decisionModal = null">Batal</button>
           <button
             :class="{ primary: decisionModal === 'approve' }"
-            :disabled="busy"
+            :disabled="busy || (decisionModal === 'approve' && accessBlockers.length > 0)"
             @click="run(() => decision(decisionModal as 'approve' | 'reject'))"
           >
             <Spinner v-if="busy" :size="14" /><CircleCheck

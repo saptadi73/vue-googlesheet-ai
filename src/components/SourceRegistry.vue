@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { CircleCheck, CircleHelp, CircleMinus, CircleX, FileText, Trash2 } from '@lucide/vue'
 import { api, type ApiEnvelope } from '@/lib/api'
-import { call, type Source } from '@/lib/etl'
+import { call, editRoles, user, type Source } from '@/lib/etl'
+import SourceSync from '@/components/SourceSync.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
 
 const props = defineProps<{ canManage?: boolean }>()
@@ -33,6 +34,13 @@ const includeUnlinked = ref(true)
 const loading = ref(false)
 const error = ref('')
 const notice = ref('')
+const syncTarget = ref<TrackedSource | null>(null)
+const syncPanel = ref<HTMLElement | null>(null)
+watch(syncTarget, async () => {
+  await nextTick()
+  syncPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
+watch(() => user.value?.id, () => { syncTarget.value = null })
 const unlinkTarget = ref<Source | null>(null)
 const canonicalId = ref('')
 const reason = ref('')
@@ -357,6 +365,7 @@ function restoreRow(row: Record<string, unknown>) {
       <template #cell-link_status="{ row }"><span class="source-value"><span class="status-symbol" :class="`status-symbol--${row.unlinked_at ? 'failure' : 'success'}`" :title="row.unlinked_at ? 'Unlinked' : 'Terhubung'"><CircleX v-if="row.unlinked_at" :size="17"/><CircleCheck v-else :size="17"/></span><button v-if="row.unlinked_at && row.unlinked_to_source_id" class="icon-button" type="button" aria-label="Lihat sumber tujuan link" title="Lihat ID sumber tujuan" @click="detailModal = { title: 'ID sumber tujuan', value: String(row.unlinked_to_source_id), kind: 'text' }"><FileText :size="16"/></button></span></template>
       <template #cell-actions="{ row }">
         <button type="button" :disabled="Boolean(row.unlinked_at)" @click="openSourceRow(row)">Buka</button>
+        <button v-if="user && editRoles.includes(user.role)" type="button" :disabled="Boolean(row.unlinked_at)" @click="syncTarget = rows.find((source) => source.id === row.id) || null">Sync manual</button>
         <button class="icon-button" type="button" :aria-label="`Buka audit trail ${row.name}`" title="Audit trail" @click="showHistory(row)"><FileText :size="17"/><span class="sr-only">Riwayat</span></button>
         <button v-if="row.unlinked_at && canManage" type="button" :disabled="loading" @click="restoreRow(row)">Pulihkan</button>
         <button v-else-if="!row.unlinked_at && canManage" type="button" :disabled="loading" @click="startUnlinkRow(row)">Unlink</button>
@@ -364,6 +373,9 @@ function restoreRow(row: Record<string, unknown>) {
         <span v-else class="muted">—</span>
       </template>
     </PagedDataTable>
+    <div v-if="syncTarget" ref="syncPanel">
+      <SourceSync :key="syncTarget.id" :source-id="syncTarget.id" :source-name="syncTarget.name" @completed="load" />
+    </div>
     <form v-if="unlinkTarget" class="source-registry__unlink" @submit.prevent="unlink">
       <h3>Unlink {{ unlinkTarget.name }}</h3>
       <p class="muted">Sumber dipertahankan untuk audit. Jika masih digunakan oleh konfigurasi, job, atau data turunan, backend akan menolak unlink.</p>

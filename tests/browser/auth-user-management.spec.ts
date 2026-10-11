@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { setup } from './fixtures'
+import { setup, sourceId, sheetId, jobId } from './fixtures'
 
 test('admin uses dedicated login, registration, and role management pages', async ({ page }) => {
   test.setTimeout(60_000)
@@ -44,6 +44,10 @@ test('admin uses dedicated login, registration, and role management pages', asyn
   await page.getByLabel('Nama lengkap').fill('Analis Finance')
   await page.getByLabel('Password awal').fill('InitialPassword2026!')
   await page.getByLabel('Role awal').selectOption('ANALYST')
+  await page.getByLabel('Unit akun baru').selectOption(sourceId)
+  await page.getByLabel('Domain akun baru').selectOption(sheetId)
+  await page.getByLabel('Yurisdiksi akun baru').selectOption(jobId)
+  await page.getByLabel('Alasan rekomendasi akses').fill('Membaca laporan unit finance sesuai penugasan.')
   await page.getByRole('button', { name: 'Daftarkan pengguna' }).click()
   await expect(page.getByRole('status')).toContainText('berhasil didaftarkan')
 
@@ -69,6 +73,10 @@ test('admin uses dedicated login, registration, and role management pages', asyn
     username: 'analyst.finance@kanjabung.com',
     role: 'DATA_STEWARD',
     is_active: true,
+    initial_access: {
+      attribute_ids: [sourceId, sheetId, jobId], bundle_ids: [],
+      business_reason: 'Membaca laporan unit finance sesuai penugasan.',
+    },
   })
   expect(mock.errors).toEqual([])
 })

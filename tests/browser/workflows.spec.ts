@@ -144,11 +144,27 @@ test('separate admin reviews source metadata without granting data access', asyn
   }
   mock.source.access_metadata_editor_id = 'editor-id'
   mock.source.access_revision = 2
-  await page.goto('/workspace')
+  await page.goto(`/workspace?source_id=${sourceId}`)
   await login(page, 'admin')
-  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
   await page.getByRole('button', { name: 'Tinjau metadata' }).click()
   await expect(page.locator('dd').filter({ hasText: 'REPORTING · Reporting' })).toBeVisible()
+  const approve = page.getByRole('button', { name: 'Setujui metadata' })
+  const reason = page.getByLabel('Alasan penolakan')
+  const reject = page.getByRole('button', { name: 'Tolak metadata' })
+  const desktopBoxes = await Promise.all([approve, reason, reject].map((item) => item.boundingBox()))
+  for (const box of desktopBoxes) expect(box).not.toBeNull()
+  expect(Math.abs(desktopBoxes[0]!.y - desktopBoxes[1]!.y)).toBeLessThanOrEqual(2)
+  expect(Math.abs(desktopBoxes[2]!.y - desktopBoxes[1]!.y)).toBeLessThanOrEqual(2)
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileBoxes = await Promise.all([approve, reason, reject].map((item) => item.boundingBox()))
+  for (const box of mobileBoxes) {
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  }
+  expect(mobileBoxes[1]!.y).toBeGreaterThan(mobileBoxes[0]!.y + mobileBoxes[0]!.height)
+  expect(mobileBoxes[2]!.y).toBeGreaterThan(mobileBoxes[1]!.y + mobileBoxes[1]!.height)
+  await page.setViewportSize({ width: 1280, height: 720 })
   await page.getByRole('button', { name: 'Setujui metadata' }).click()
   expect(
     mock.requests.find(
@@ -189,9 +205,8 @@ test('reviewer rejects invalid source scope without granting access', async ({ p
   }
   mock.source.access_metadata_editor_id = 'editor-id'
   mock.setReviewScopeInvalid()
-  await page.goto('/workspace')
+  await page.goto(`/workspace?source_id=${sourceId}`)
   await login(page, 'admin')
-  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
   await page.getByRole('button', { name: 'Tinjau metadata' }).click()
   await expect(page.getByRole('button', { name: 'Setujui metadata' })).toBeDisabled()
   await page.getByLabel('Alasan penolakan').selectOption('SCOPE_MISMATCH')
@@ -307,21 +322,31 @@ test('ETL review saves full draft, resets checklist and approves with a separate
     reviewed_columns: ['branch_name', 'net_amount'],
     reviewed_sections: ['identity', 'columns', 'cleansing', 'quality', 'load', 'semantic'],
   })
+  mock.source.access_metadata = {
+    owner_unit_id: sourceId, business_domain_id: sheetId, jurisdiction_id: jobId,
+    purpose_id: '44444444-4444-4444-8444-444444444444',
+    data_owner_user_id: 'editor-id', data_steward_user_id: 'steward-id', sensitivity: 'LOW',
+  }
+  mock.source.access_metadata_editor_id = 'editor-id'
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
   await expect(page).toHaveURL(/\/login\?redirect=/)
   await login(page, 'approver')
-  await page.getByRole('link', { name: 'Workspace ETL', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
+  Object.assign(mock.sheet, { is_present: true })
+  await page.goto(`/workspace?source_id=${sourceId}`)
   await expect(
     page.getByRole('status').filter({ hasText: 'Status akses: Perlu policy akses' }),
   ).toBeVisible()
-  await page.getByRole('combobox', { name: 'Tab Google Sheet', exact: true }).selectOption(sheetId)
+  await page.getByRole('combobox', { name: 'Tab Google Sheet', exact: true }).click()
+  await page.getByRole('option', { name: 'Sales', exact: true }).click()
   await page.getByRole('link', { name: 'Buka review', exact: true }).click()
   await page.getByRole('button', { name: '7. Validasi & persetujuan' }).click()
   await page.getByRole('button', { name: 'Setujui konfigurasi' }).click()
   await page.getByRole('button', { name: 'Konfirmasi setuju' }).click()
   await expect(page.getByRole('button', { name: 'Deploy konfigurasi' })).toBeVisible()
   expect(mock.requests.find((r) => r.path.endsWith('/approve'))?.body.revision_no).toBe(3)
+  expect(mock.requests.find((r) => r.path.endsWith('/approve'))?.body.source_access).toEqual({
+    revision_no: 1, policy_id: jobId,
+  })
   expect(mock.errors).toEqual([])
   expect(mock.unexpected).toEqual([])
 })

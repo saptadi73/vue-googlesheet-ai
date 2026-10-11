@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
+import Modal from '@/components/ui/Modal.vue'
 import { call, user, type AccessRequest, type AccessRequestOptions } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 
@@ -15,6 +16,12 @@ const mine = ref<AccessRequest[]>([])
 const pending = ref<AccessRequest[]>([])
 const notes = ref<Record<string, string>>({})
 const isAdmin = computed(() => user.value?.role === 'PLATFORM_ADMIN')
+const selectedIds = ref<string[]>([])
+const batchConfirmation = ref(false)
+const batchNote = ref('')
+const selected = computed(() => pending.value.filter((item) =>
+  selectedIds.value.includes(item.id) && item.requester_id !== user.value?.id,
+))
 
 function localDate(daysFromNow: number) {
   const value = new Date()
@@ -59,6 +66,19 @@ async function load() {
     )
   }
   await Promise.all(requests)
+  selectedIds.value = selectedIds.value.filter((id) => pending.value.some((item) => item.id === id))
+}
+
+async function approveSelected() {
+  if (!selected.value.length) throw new Error('Pilih permintaan yang akan disetujui.')
+  await call<AccessRequest[]>('POST', '/access/requests/approve-batch', {
+    requests: selected.value.map((item) => ({ id: item.id, revision: item.revision })),
+    note: batchNote.value,
+  })
+  batchConfirmation.value = false
+  selectedIds.value = []
+  await load()
+  notice.value = 'Seluruh permintaan terpilih disetujui dalam satu transaksi.'
 }
 
 async function createRequest() {
@@ -111,6 +131,8 @@ watch(
   (account) => {
     mine.value = []
     pending.value = []
+    selectedIds.value = []
+    batchConfirmation.value = false
     if (account) void run(load)
   },
   { immediate: true },
@@ -223,7 +245,12 @@ watch(
 
     <section v-if="isAdmin" class="panel">
       <h2>Menunggu keputusan admin</h2>
+      <p>Pilih seluruh rekomendasi akun yang sama, periksa atribut serta periode, lalu setujui sekaligus. Jika salah satu permintaan tidak valid, tidak ada yang disetujui.</p>
+      <button class="primary" :disabled="busy || !selected.length || selected.length > 40" @click="batchNote = ''; batchConfirmation = true">
+        Setujui {{ selected.length }} permintaan terpilih
+      </button>
       <article v-for="item in pending" :key="item.id" class="card-row">
+        <label class="check"><input v-model="selectedIds" type="checkbox" :value="item.id" :disabled="busy || item.requester_id === user?.id" />Pilih {{ item.subject_user.username }} · {{ targetLabel(item) }}</label>
         <strong
           >{{ item.subject_user.full_name || item.subject_user.username }} ·
           {{ targetLabel(item) }}</strong
@@ -255,5 +282,15 @@ watch(
       </article>
       <p v-if="!busy && pending.length === 0" class="muted">Tidak ada permintaan yang menunggu.</p>
     </section>
+    <Modal :open="batchConfirmation" title="Setujui rekomendasi akses terpilih" @close="batchConfirmation = false">
+      <p>Persetujuan tetap oleh admin selain pembuat. Akses berlaku sesuai periode masing-masing; policy sumber tetap diperiksa.</p>
+      <ul><li v-for="item in selected" :key="item.id">{{ item.subject_user.username }} · {{ targetLabel(item) }} · {{ period(item) }}</li></ul>
+      <label>Catatan persetujuan bersama<textarea v-model.trim="batchNote" maxlength="500" /></label>
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <template #footer>
+        <button :disabled="busy" @click="batchConfirmation = false">Batal</button>
+        <button class="primary" :disabled="busy || !selected.length" @click="run(approveSelected)">Konfirmasi persetujuan akses</button>
+      </template>
+    </Modal>
   </EtlShell>
 </template>

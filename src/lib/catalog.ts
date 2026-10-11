@@ -30,6 +30,14 @@ export interface ProductInventory extends Product {
   configuration_version: number
   configuration_revision: number
   configuration_status: string
+  update_status: 'ACTIVE' | 'UPDATING'
+  update_reason: string
+  last_active_at: string | null
+  last_activated_at: string | null
+  last_loaded_at: string | null
+  last_profiled_at: string | null
+  latest_import_status: string | null
+  pending_configuration_status: string | null
 }
 export interface QueryPlan {
   join_relationships: string[]

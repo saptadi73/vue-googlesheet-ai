@@ -18,6 +18,7 @@ import {
   type SourceAccessMetadata,
 } from '@/lib/etl'
 import ManualDraft from '@/components/ManualDraft.vue'
+import SourceSync from '@/components/SourceSync.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { sourceBlockers } from '@/lib/classification'
@@ -26,6 +27,7 @@ const sources = ref<Source[]>([]),
   sheets = ref<Sheet[]>([]),
   configs = ref<Config[]>([])
 const sourceTabTracking = ref<SourceSheetTracking[]>([])
+const sourceTrackingError = ref('')
 const deployedConfigs = ref<Record<string, Config>>({})
 const sourceId = ref(''),
   sheetId = ref(''),
@@ -105,7 +107,6 @@ const registrationReady = computed(() => Boolean(
   registrationOptions.value.sensitivities.length,
 ))
 const profiles = ref<Profile[]>([])
-const syncReviews = ref<unknown[] | null>(null)
 const migrationPreview = ref<Record<string, unknown> | null>(null)
 const selectedSource = computed(() => sources.value.find((source) => source.id === sourceId.value))
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value))
@@ -281,32 +282,37 @@ async function selectSource() {
   sheets.value = []
   profiles.value = []
   sourceTabTracking.value = []
+  sourceTrackingError.value = ''
   deployedConfigs.value = {}
   if (sourceId.value) {
+    const selectedId = sourceId.value
+    const accountId = user.value?.id
     const results = await Promise.all([
-      call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`),
-      call<Profile[]>('GET', `/sources/${sourceId.value}/profiling-runs`),
+      call<Sheet[]>('GET', `/sources/${selectedId}/sheets`),
+      call<Profile[]>('GET', `/sources/${selectedId}/profiling-runs`),
     ])
+    if (sourceId.value !== selectedId || user.value?.id !== accountId) return
     sheets.value = results[0]
     profiles.value = results[1]
     const deployed = await Promise.all(sheets.value
       .filter((sheet) => sheet.active_configuration_id && sheet.dataset_kind !== 'MASTER')
       .map(async (sheet) => {
-        try {
-          const config = await call<Config>('GET', `/configurations/${sheet.active_configuration_id}`)
-          return [sheet.id, config] as const
-        } catch {
-          return null
-        }
+        const config = await call<Config>('GET', `/configurations/${sheet.active_configuration_id}`)
+        return [sheet.id, config] as const
       }))
-    deployedConfigs.value = Object.fromEntries(deployed.filter((item): item is NonNullable<typeof item> => item !== null))
-    const source = sources.value.find((item) => item.id === sourceId.value)
+    if (sourceId.value !== selectedId || user.value?.id !== accountId) return
+    deployedConfigs.value = Object.fromEntries(deployed)
+    const source = sources.value.find((item) => item.id === selectedId)
     if (source?.source_code) {
       try {
-        const matchingSources = await call<Source[]>(`GET`, `/sources?search=${encodeURIComponent(source.source_code)}&limit=100`)
-        sourceTabTracking.value = matchingSources.find((item) => item.id === source.id)?.sheets || []
-      } catch {
-        sourceTabTracking.value = []
+        const matchingSources = await call<Source[]>('GET', `/sources/tracking?search=${encodeURIComponent(source.source_code)}&limit=100`)
+        const tracking = matchingSources.find((item) => item.id === selectedId)?.sheets
+        if (!tracking) throw new Error('Ringkasan tracking sumber tidak tersedia.')
+        if (sourceId.value !== selectedId || user.value?.id !== accountId) return
+        sourceTabTracking.value = tracking
+      } catch (cause) {
+        if (sourceId.value !== selectedId || user.value?.id !== accountId) return
+        sourceTrackingError.value = `Tracking sumber gagal dimuat: ${getApiErrorMessage(cause)}`
       }
     }
   }
@@ -384,15 +390,6 @@ async function updateWatermark() {
   })
   sheets.value = await call<Sheet[]>('GET', `/sources/${sourceId.value}/sheets`)
   notice.value = 'Incremental watermark diperbarui dan nilainya direset.'
-}
-async function syncReview() {
-  const result = await call<{ reviews: unknown[] }>(
-    'POST',
-    `/sources/${sourceId.value}/sync-review`,
-  )
-  syncReviews.value = result.reviews
-  notice.value =
-    'Batch review dibuat untuk tab yang siap. Periksa item BLOCKED sebelum melanjutkan.'
 }
 async function loadMigrationPreview() {
   migrationPreview.value = await call<Record<string, unknown>>(
@@ -522,10 +519,12 @@ watch(
     sheets.value = []
     configs.value = []
     sourceId.value = ''
+    sourceTabTracking.value = []
+    sourceTrackingError.value = ''
+    deployedConfigs.value = {}
     sheetId.value = ''
     job.value = null
     profiles.value = []
-    syncReviews.value = null
     migrationPreview.value = null
     registrationOptions.value = null
     registrationCheck.value = null
@@ -800,14 +799,6 @@ onBeforeUnmount(() => {
         >
           Profiling ulang
         </button>
-        <button
-          v-if="canEdit"
-          class="primary"
-          :disabled="busy || !sourceId"
-          @click="run(syncReview)"
-        >
-          Buat batch sync review
-        </button>
         <button v-if="sourceId" :disabled="busy" @click="run(loadMigrationPreview)">
           Preview migrasi master
         </button>
@@ -886,7 +877,7 @@ onBeforeUnmount(() => {
           </div>
           <div><dt>Sensitivitas</dt><dd>{{ reviewContext.sensitivity || 'Tidak tersedia' }}</dd></div>
         </dl>
-        <div class="toolbar">
+        <div class="metadata-review-actions">
           <button class="primary" :disabled="busy || !canApproveReview" @click="run(() => decideReview('APPROVE'))">
             Setujui metadata
           </button>
@@ -900,6 +891,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </template>
+
       <div v-if="user?.role === 'PLATFORM_ADMIN' && selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
         <button :disabled="busy" @click="run(loadPolicyOptions)">Muat policy SOURCE</button>
         <label v-if="policyOptions">Policy sumber<select v-model="selectedPolicyId">
@@ -920,12 +912,9 @@ onBeforeUnmount(() => {
         server.
       </p>
     </section>
-    <section v-if="syncReviews || migrationPreview" class="panel">
+    <SourceSync v-if="selectedSource && canEdit" :source-id="sourceId" :source-name="selectedSource.name" @completed="run(selectSource)" />
+    <section v-if="migrationPreview" class="panel">
       <h2>Hasil batch dan migrasi</h2>
-      <details v-if="syncReviews" open>
-        <summary>Batch sync review</summary>
-        <pre>{{ JSON.stringify(syncReviews, null, 2) }}</pre>
-      </details>
       <details v-if="migrationPreview" open>
         <summary>Preview migrasi MASTER</summary>
         <pre>{{ JSON.stringify(migrationPreview, null, 2) }}</pre>
@@ -1124,6 +1113,9 @@ onBeforeUnmount(() => {
     <section v-if="selectedSource" class="panel">
       <h2>Tabel hasil ETL aktif pada sumber ini</h2>
       <p class="muted">Daftar ini menampilkan output NON_MASTER yang sudah dideploy. Setiap baris menautkan kembali ke spreadsheet dan tab sumbernya. Untuk mengubah struktur atau semantic, buat revisi konfigurasi lalu jalankan review dan approval sebelum deploy.</p>
+      <p class="muted">Deploy menyiapkan struktur, bukan memuat data. Status dan baris dimuat berasal dari riwayat proses terakhir, bukan hitungan isi tabel saat ini. Jalankan Sync manual, selesaikan review/approval, lalu Apply batch untuk pemuatan data.</p>
+      <p v-if="sourceTrackingError" class="error" role="alert">{{ sourceTrackingError }}</p>
+      <button :disabled="busy" @click="run(selectSource)">Muat ulang tracking sumber</button>
       <p v-if="!deployedTables.length" class="muted">Belum ada tabel hasil ETL aktif untuk sumber ini. Tab MASTER dikelola melalui binding dan batch import master.</p>
       <div v-else class="tab-tracking-scroll">
         <table class="tab-tracking-table">
@@ -1135,8 +1127,8 @@ onBeforeUnmount(() => {
               <td><code>{{ physicalTableName(item.sheet) }}</code></td>
               <td><a v-if="selectedSource?.spreadsheet_id" :href="`https://docs.google.com/spreadsheets/d/${selectedSource.spreadsheet_id}/edit`" target="_blank" rel="noopener noreferrer">Buka spreadsheet</a><span v-else>—</span></td>
               <td><a v-if="sourceSheetUrl(item.sheet)" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">{{ item.sheet.sheet_name }}</a><span v-else>{{ item.sheet.sheet_name }}</span></td>
-              <td><span :class="['stage-pill', trackingStatusTone(item.tracking?.database_status)]">{{ statusLabel(item.tracking?.database_status) }}</span></td>
-              <td>{{ item.tracking?.rows_loaded ?? 0 }}</td>
+              <td><span v-if="item.tracking" :class="['stage-pill', trackingStatusTone(item.tracking.database_status)]">{{ item.tracking.database_status === 'NOT_STARTED' ? 'Belum dimuat' : statusLabel(item.tracking.database_status) }}</span><span v-else>Tracking belum tersedia</span></td>
+              <td>{{ item.tracking?.rows_loaded ?? '—' }}</td>
               <td><RouterLink v-if="item.config" :to="`/configurations/${item.config.id}/review`">Buka konfigurasi / buat revisi</RouterLink></td>
             </tr>
           </tbody>
@@ -1145,3 +1137,33 @@ onBeforeUnmount(() => {
     </section>
   </EtlShell>
 </template>
+
+<style scoped>
+.metadata-review-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.metadata-review-actions > label {
+  flex: 0 1 260px;
+  min-width: 0;
+  margin: 0;
+}
+.metadata-review-actions > button,
+.metadata-review-actions select {
+  min-height: 42px;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .metadata-review-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .metadata-review-actions > label {
+    flex: none;
+    width: 100%;
+  }
+}
+</style>
