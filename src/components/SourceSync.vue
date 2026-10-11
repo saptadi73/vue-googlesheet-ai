@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { call, user, type Job } from '@/lib/etl'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { call, user, type Job, type ProcessAttention } from '@/lib/etl'
+import ProcessAttentionButton from '@/components/ProcessAttentionButton.vue'
 import { getApiErrorMessage } from '@/lib/api'
 
 const props = defineProps<{ sourceId: string; sourceName: string }>()
@@ -13,7 +14,8 @@ interface Batch {
   code?: string
   message?: string
   finding_count?: number
-  checkpoint?: { rows_valid?: number; ai_coverage?: string; blocking_codes?: string[] }
+  attention?: ProcessAttention | null
+  checkpoint?: { rows_valid?: number; rows_applied?: number; ai_coverage?: string; blocking_codes?: string[]; auto_load_error?: string }
 }
 interface SyncResult { reviews: Batch[] }
 function isSyncResult(value: unknown): value is SyncResult {
@@ -32,6 +34,7 @@ const error = ref('')
 const notice = ref('')
 const job = ref<Job | null>(null)
 const batches = ref<Batch[]>([])
+const panel = ref<HTMLElement | null>(null)
 const running = computed(() =>
   busy.value || (job.value && ['QUEUED', 'RUNNING'].includes(job.value.status)) ||
   batches.value.some((batch) => ['VALIDATING', 'AI_REVIEWING', 'APPLYING'].includes(batch.status)),
@@ -40,6 +43,13 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let epoch = 0
 let deadline = 0
 let completed = false
+
+async function openConfirmation() {
+  if (!running.value) confirming.value = true
+  await nextTick()
+  panel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+defineExpose({ openConfirmation })
 
 function stop() {
   if (timer) clearTimeout(timer)
@@ -68,7 +78,8 @@ async function monitor(current: number) {
       pending = updated.some((batch) => ['VALIDATING', 'AI_REVIEWING', 'APPLYING'].includes(batch.status))
       if (!pending && !completed) {
         completed = true
-        notice.value = 'Pemeriksaan sync selesai. Buka batch untuk menyelesaikan temuan, preview, approval, lalu Apply. Belum ada pemuatan otomatis.'
+        const loaded = updated.filter((batch) => batch.status === 'SUCCEEDED').length
+        notice.value = `Sync selesai: ${loaded} tab berhasil dimuat. Tab dengan blocker belum dimuat; buka hasil batch untuk rinciannya.`
         emit('completed')
       }
     }
@@ -119,12 +130,12 @@ onBeforeUnmount(() => { ++epoch; stop() })
 </script>
 
 <template>
-  <section class="card-row" aria-live="polite">
+  <section ref="panel" class="card-row" aria-live="polite">
     <h3>Sync manual · {{ sourceName }}</h3>
-    <p>Google Sheet sudah berisi data, tetapi deploy hanya menyiapkan struktur. Sync membaca data terbaru dan membuat batch review; approval dan Apply tetap diperlukan sebelum data masuk database.</p>
-    <button class="primary" :disabled="running" @click="confirming = true">Sync manual</button>
+    <p>Sync membaca data terbaru dan langsung memuat tab NON_MASTER yang lolos validasi terhadap konfigurasi aktif yang sudah disetujui. Perubahan konfigurasi, konflik, atau temuan keamanan/PII menghentikan pemuatan tab tersebut.</p>
+    <button class="primary" :disabled="running" @click="openConfirmation">Sync manual</button>
     <div v-if="confirming" class="notice">
-      <p>Jalankan pembacaan seluruh tab yang siap pada sumber ini? Pemeriksaan AI dapat memakai kuota/biaya. Tidak mengubah Google Sheet dan tidak otomatis menyetujui atau memuat data.</p>
+      <p>Jalankan sync seluruh tab yang siap pada sumber ini? Data yang lolos validasi akan langsung dimuat ke database berdasarkan konfigurasi aktif yang sudah disetujui. Pemeriksaan AI dapat memakai kuota/biaya. Tidak mengubah Google Sheet; tab dengan blocker tidak dimuat.</p>
       <button :disabled="busy" @click="start">Jalankan sync sekarang</button>
       <button :disabled="busy" @click="confirming = false">Batal sync</button>
     </div>
@@ -137,12 +148,15 @@ onBeforeUnmount(() => { ++epoch; stop() })
     </div>
     <ul v-if="batches.length">
       <li v-for="batch in batches" :key="batch.source_sheet_id">
-        <strong>{{ batch.sheet_name }}</strong> · {{ batch.status }}
+        <strong>{{ batch.sheet_name }}</strong> · {{ batch.status === 'NEEDS_INPUT' ? 'Menunggu tindakan' : batch.status }}
         <span v-if="batch.checkpoint?.rows_valid !== undefined"> · {{ batch.checkpoint.rows_valid }} baris valid</span>
+        <span v-if="batch.status === 'SUCCEEDED' && batch.checkpoint?.rows_applied !== undefined"> · {{ batch.checkpoint.rows_applied }} baris dimuat</span>
         <span v-if="batch.checkpoint?.ai_coverage"> · cakupan AI {{ batch.checkpoint.ai_coverage }}</span>
         <span v-if="batch.finding_count"> · {{ batch.finding_count }} temuan</span>
         <span v-if="batch.code"> · {{ batch.code }}: {{ batch.message }}</span>
         <span v-if="batch.checkpoint?.blocking_codes?.length"> · {{ batch.checkpoint.blocking_codes.join(', ') }}</span>
+        <span v-if="batch.checkpoint?.auto_load_error"> · {{ batch.checkpoint.auto_load_error }}</span>
+        <ProcessAttentionButton v-if="batch.attention || batch.status === 'BLOCKED'" :attention="batch.attention || { status: batch.status, blocking_codes: batch.code ? [batch.code] : [], message: batch.message || 'Tab belum dapat dimuat.' }" :label="batch.sheet_name" />
         <RouterLink v-if="batch.id" :to="`/import-reviews/${batch.id}`"> Buka hasil review</RouterLink>
       </li>
     </ul>

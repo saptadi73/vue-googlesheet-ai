@@ -1,6 +1,21 @@
 import { expect, test } from '@playwright/test'
 import { configId, jobId, login, setup, sheetId, sourceId } from './fixtures'
 
+test('public helper distinguishes direct sync, waiting findings and legacy approvals', async ({ page }) => {
+  const state = await setup(page)
+  await page.goto('/guide#approval-gabungan')
+  await expect(page.locator('#approval-gabungan')).toContainText('tidak perlu approval metadata terpisah')
+  await page.goto('/guide#sync-manual')
+  const guide = page.locator('#sync-manual')
+  await expect(guide).toContainText('Menunggu tindakan')
+  await expect(guide).toContainText('bukan masih berjalan')
+  await expect(guide).toContainText('Menjawab temuan saja belum memuat data')
+  await expect(guide).toContainText('Batch biasa/master tetap preview')
+  await expect(guide).toContainText('baris')
+  expect(state.requests.filter((request) => request.path.endsWith('/approve') || request.path.endsWith('/apply') || request.path.endsWith('/sync-review/start'))).toHaveLength(0)
+  expect(state.errors).toEqual([])
+})
+
 test('combined approval explains metadata blockers and links to complete helper', async ({ page }) => {
   const state = await setup(page)
   state.record.status = 'NEEDS_REVIEW'
@@ -43,12 +58,12 @@ test('manual source sync shows per-tab results and reload does not enqueue again
   await page.getByRole('button', { name: 'Jalankan sync sekarang' }).click()
   const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Sync manual · Penjualan cabang' }) })
   await expect(panel).toContainText('169 baris valid')
-  await expect(panel).toContainText('NEEDS_INPUT')
+  await expect(panel).toContainText('Menunggu tindakan')
   await expect(panel).toContainText('Holding · BLOCKED')
   await expect(panel).toContainText('Konfigurasi belum approved')
   await expect(panel.getByRole('link', { name: 'Buka hasil review' })).toHaveAttribute('href', `/import-reviews/${batchId}`)
   await panel.getByRole('button', { name: 'Muat ulang hasil sync' }).click()
-  await expect(panel.getByRole('status')).toContainText('Belum ada pemuatan otomatis')
+  await expect(panel.getByRole('status')).toContainText('0 tab berhasil dimuat')
   expect(starts).toBe(1)
   expect(state.requests.filter((request) => request.path.endsWith('/approve') || request.path.endsWith('/apply'))).toHaveLength(0)
   expect(state.unexpected).toEqual([])

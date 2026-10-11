@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, nextTick, ref, watch, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import {
@@ -13,12 +13,14 @@ import {
   type Job,
   type Profile,
   type SourceSheetTracking,
+  type ProcessAttention,
   type AccessAttribute,
   type AccessKind,
   type SourceAccessMetadata,
 } from '@/lib/etl'
 import ManualDraft from '@/components/ManualDraft.vue'
 import SourceSync from '@/components/SourceSync.vue'
+import ProcessAttentionButton from '@/components/ProcessAttentionButton.vue'
 import SheetClassification from '@/components/SheetClassification.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { sourceBlockers } from '@/lib/classification'
@@ -29,6 +31,8 @@ const sources = ref<Source[]>([]),
 const sourceTabTracking = ref<SourceSheetTracking[]>([])
 const sourceTrackingError = ref('')
 const deployedConfigs = ref<Record<string, Config>>({})
+const syncPanel = ref<InstanceType<typeof SourceSync> | null>(null)
+const sourceSheetPanel = ref<HTMLElement | null>(null)
 const sourceId = ref(''),
   sheetId = ref(''),
   error = ref(''),
@@ -357,18 +361,32 @@ function trackingStatusTone(status: string | null | undefined) {
 }
 function statusLabel(status: string | null | undefined) {
   if (!status || status === 'NOT_STARTED') return 'Belum'
+  const labels: Record<string, string> = {
+    NEEDS_INPUT: 'Menunggu tindakan', STALE_REVIEW: 'Perlu validasi ulang',
+    READY_FOR_APPROVAL: 'Menunggu langkah berikutnya', APPROVED: 'Menunggu Apply',
+    RUNNING: 'Sedang berjalan', VALIDATING: 'Sedang validasi', AI_REVIEWING: 'Sedang diperiksa AI',
+    APPLYING: 'Sedang memuat', QUEUED: 'Dalam antrean', IN_PROGRESS: 'Belum lengkap',
+  }
+  if (labels[status]) return labels[status]
   return status.replaceAll('_', ' ')
 }
-function tabFailureSummary(sheet: Sheet) {
+function tabProcessAttention(sheet: Sheet): ProcessAttention | null {
+  const attention = tabTracking(sheet)?.attention
+  if (attention) return attention
   const failures = Object.values(tabTracking(sheet)?.last_failures || {})
-  if (!failures.length) return ''
+  if (!failures.length) return null
   const latest = failures.sort((a, b) => (b.occurred_at || '').localeCompare(a.occurred_at || ''))[0]
-  if (!latest) return ''
-  return [latest.stage, latest.code, latest.message].filter(Boolean).join(' · ')
+  if (!latest) return null
+  return { status: 'FAILED', blocking_codes: latest.code ? [latest.code] : [], message: `Riwayat kegagalan terakhir: ${latest.message || 'Periksa monitor job untuk keterangan.'}` }
 }
 function chooseSheet(sheet: Sheet) {
   sheetId.value = sheet.id
   void run(loadConfigs)
+}
+async function openSourceSheet(sheet: Sheet) {
+  chooseSheet(sheet)
+  await nextTick()
+  sourceSheetPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 async function loadConfigs() {
   configs.value = sheetId.value
@@ -756,10 +774,7 @@ onBeforeUnmount(() => {
                 </td>
                 <td><span :class="['stage-pill', sheet.enabled ? 'stage-progress' : 'stage-muted']">{{ sheet.enabled ? 'Diikutkan' : 'Dikecualikan' }}</span></td>
                 <td>
-                  <details v-if="tabFailureSummary(sheet)">
-                    <summary class="stage-error-text">Gagal</summary>
-                    <small>{{ tabFailureSummary(sheet) }}</small>
-                  </details>
+                  <ProcessAttentionButton v-if="tabProcessAttention(sheet)" :attention="tabProcessAttention(sheet)!" :label="sheet.sheet_name" />
                   <span v-else class="muted">—</span>
                 </td>
                 <td><button type="button" :disabled="!sheet.is_present || busy" @click="chooseSheet(sheet)">{{ sheet.id === sheetId ? 'Tab dipilih' : 'Pilih tab' }}</button></td>
@@ -912,7 +927,7 @@ onBeforeUnmount(() => {
         server.
       </p>
     </section>
-    <SourceSync v-if="selectedSource && canEdit" :source-id="sourceId" :source-name="selectedSource.name" @completed="run(selectSource)" />
+    <SourceSync v-if="selectedSource && canEdit" ref="syncPanel" :source-id="sourceId" :source-name="selectedSource.name" @completed="run(selectSource)" />
     <section v-if="migrationPreview" class="panel">
       <h2>Hasil batch dan migrasi</h2>
       <details v-if="migrationPreview" open>
@@ -934,7 +949,7 @@ onBeforeUnmount(() => {
         })
       "
     />
-    <section v-if="selectedSheet" class="panel">
+    <section v-if="selectedSheet" ref="sourceSheetPanel" class="panel">
       <h2>Profil &amp; pengaturan tab</h2>
       <p class="muted">
         Edit nilai atau header langsung di Google Sheet; adapter hanya membaca. Setelah tambah/rename
@@ -1113,9 +1128,13 @@ onBeforeUnmount(() => {
     <section v-if="selectedSource" class="panel">
       <h2>Tabel hasil ETL aktif pada sumber ini</h2>
       <p class="muted">Daftar ini menampilkan output NON_MASTER yang sudah dideploy. Setiap baris menautkan kembali ke spreadsheet dan tab sumbernya. Untuk mengubah struktur atau semantic, buat revisi konfigurasi lalu jalankan review dan approval sebelum deploy.</p>
-      <p class="muted">Deploy menyiapkan struktur, bukan memuat data. Status dan baris dimuat berasal dari riwayat proses terakhir, bukan hitungan isi tabel saat ini. Jalankan Sync manual, selesaikan review/approval, lalu Apply batch untuk pemuatan data.</p>
+      <p class="muted">Deploy menyiapkan struktur, bukan memuat data. Sync manual data langsung memuat tab yang lolos validasi terhadap konfigurasi aktif; tab dengan blocker berhenti untuk ditinjau. Status dan baris dimuat berasal dari riwayat proses terakhir, bukan hitungan isi tabel saat ini.</p>
       <p v-if="sourceTrackingError" class="error" role="alert">{{ sourceTrackingError }}</p>
-      <button :disabled="busy" @click="run(selectSource)">Muat ulang tracking sumber</button>
+      <div class="toolbar">
+        <button :disabled="busy" @click="run(selectSource)">Muat ulang tracking sumber</button>
+        <button v-if="canEdit" class="primary" :disabled="busy" @click="syncPanel?.openConfirmation()">Sync manual data</button>
+      </div>
+      <p v-if="canEdit" class="muted">Sync membaca seluruh tab yang siap dan langsung memuat data yang lolos. Tidak meminta approval ulang konfigurasi aktif. Tombol tetap meminta konfirmasi sebelum perubahan database.</p>
       <p v-if="!deployedTables.length" class="muted">Belum ada tabel hasil ETL aktif untuk sumber ini. Tab MASTER dikelola melalui binding dan batch import master.</p>
       <div v-else class="tab-tracking-scroll">
         <table class="tab-tracking-table">
@@ -1125,11 +1144,15 @@ onBeforeUnmount(() => {
               <td>{{ item.config?.configuration_json.dataset_business_name || item.tracking?.data_product_code || '—' }}</td>
               <td>{{ item.config?.configuration_json.semantic.code || item.tracking?.data_product_code || '—' }}</td>
               <td><code>{{ physicalTableName(item.sheet) }}</code></td>
-              <td><a v-if="selectedSource?.spreadsheet_id" :href="`https://docs.google.com/spreadsheets/d/${selectedSource.spreadsheet_id}/edit`" target="_blank" rel="noopener noreferrer">Buka spreadsheet</a><span v-else>—</span></td>
+              <td><a v-if="sourceSheetUrl(item.sheet)" class="button" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">Buka Google Sheet</a><span v-else>—</span></td>
               <td><a v-if="sourceSheetUrl(item.sheet)" :href="sourceSheetUrl(item.sheet)" target="_blank" rel="noopener noreferrer">{{ item.sheet.sheet_name }}</a><span v-else>{{ item.sheet.sheet_name }}</span></td>
               <td><span v-if="item.tracking" :class="['stage-pill', trackingStatusTone(item.tracking.database_status)]">{{ item.tracking.database_status === 'NOT_STARTED' ? 'Belum dimuat' : statusLabel(item.tracking.database_status) }}</span><span v-else>Tracking belum tersedia</span></td>
               <td>{{ item.tracking?.rows_loaded ?? '—' }}</td>
-              <td><RouterLink v-if="item.config" :to="`/configurations/${item.config.id}/review`">Buka konfigurasi / buat revisi</RouterLink></td>
+              <td><div class="output-actions">
+                <ProcessAttentionButton v-if="tabProcessAttention(item.sheet)" :attention="tabProcessAttention(item.sheet)!" :label="item.sheet.sheet_name" />
+                <button :disabled="busy || !item.sheet.is_present" @click="openSourceSheet(item.sheet)">Buka sumber</button>
+                <RouterLink v-if="item.config" class="button" :to="`/configurations/${item.config.id}/review`">Buka konfigurasi / buat revisi</RouterLink>
+              </div></td>
             </tr>
           </tbody>
         </table>
@@ -1139,6 +1162,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.output-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 180px;
+}
 .metadata-review-actions {
   display: flex;
   align-items: flex-end;

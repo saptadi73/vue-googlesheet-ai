@@ -90,6 +90,7 @@ export interface ImportQuestion {
   target_column: string | null
   category: ImportQuestionCategory
   prompt: string
+  review_message?: string
   mandatory: boolean
   allowed_actions: ImportQuestionAction[]
   candidates: ImportQuestionCandidate[]

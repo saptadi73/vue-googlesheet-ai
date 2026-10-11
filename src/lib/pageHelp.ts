@@ -93,8 +93,9 @@ const entries: PageHelpEntry[] = [
       'Cari sumber berdasarkan nama, kode, atau spreadsheet; gunakan pagination untuk menelusuri daftar.',
       'Periksa status per tahap dan nama Data Owner/Data Steward untuk mengetahui tindak lanjut yang diperlukan.',
       'Pilih Buka sumber untuk melanjutkan proses pada sumber tersebut di Workspace ETL.',
-      'Tekan ikon tanda tanya di kolom tahap untuk melihat petunjuk dan cara menyelesaikannya. Ikon tanda seru membuka kegagalan terakhir beserta kode dan waktunya.',
+      'Tekan ikon tanda tanya untuk petunjuk tahap. Lihat detail berikon mata membuka modal kode, keterangan, nomor baris asli Google Sheet pada snapshot dan kolom temuan.',
       'Pilih Riwayat untuk meninjau kronologi aktivitas, pelaku, hasil, dan error setiap percobaan job.',
+      'Setelah konfigurasi ACTIVE disetujui reviewer berbeda, akses POLICY_APPROVED dan rilis siap, tekan Sync manual lalu Jalankan sync sekarang; NON_MASTER valid langsung dimuat tanpa approval batch tambahan.',
       'Admin dapat meninjau sumber duplikat, memilih sumber utama, lalu Unlink entri yang tidak dipakai setelah memastikan tidak ada relasi yang menghalangi.',
       'Aktifkan tampilan sumber unlink bila perlu memulihkan riwayat, lalu gunakan Pulihkan setelah dua konfirmasi.',
     ],
@@ -103,6 +104,8 @@ const entries: PageHelpEntry[] = [
       'Jika header baru atau berubah nama, edit Google Sheet lalu jalankan Profiling ulang pada sumber dan tab yang sama. Muat ulang tampilan bukan pembacaan ulang Sheet.',
       'Unlink menyimpan riwayat dan menghapus entri dari daftar aktif. Unlink memerlukan alasan dan dua konfirmasi; pemulihan juga meminta dua konfirmasi.',
       'Status tracking menjelaskan progres, bukan hak akses. Binding master approved belum berarti record sudah dimuat; periksa batch import dan apply.',
+      'Menunggu tindakan (NEEDS_INPUT) berarti pemuatan berhenti, bukan worker berjalan. Audit trail menyimpan ringkasan lokasi tanpa nilai mentah; membuka detail tidak menyetujui atau menjalankan sync.',
+      'Master, FULL_REFRESH, jadwal dan batch biasa tidak memakai sync langsung. Periksa SUCCEEDED dan Baris dimuat per tab, bukan hanya job induk.',
     ],
   },
   {
@@ -120,6 +123,8 @@ const entries: PageHelpEntry[] = [
       'Jika tab dihapus dari spreadsheet, Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Tekan Temukan tab untuk memeriksa Google Sheet; tab yang hilang akan dinonaktifkan dan dikeluarkan dari pilihan. Riwayat tetap tersimpan. Setelah tab dipulihkan dan discovery dijalankan, aktifkan kembali tab secara manual bila ingin memprosesnya.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual atau minta rekomendasi AI, kemudian buka halaman review konfigurasi.',
+      'Approver sumber membaca metadata dan memilih policy SOURCE APPROVED pada review konfigurasi. Approval gabungan menyetujui metadata PENDING dan akses sekaligus; tidak perlu approval metadata terpisah setelah berhasil.',
+      'Setelah ACTIVE dan akses/rilis siap, Sync manual data memuat NON_MASTER valid langsung. Lihat detail berikon mata menampilkan alasan berhenti, baris asli Sheet dan kolom; Buka Google Sheet/Buka sumber memudahkan perbaikan.',
     ],
     notes: [
       'Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.',
@@ -131,7 +136,7 @@ const entries: PageHelpEntry[] = [
       'Adapter Google Sheets hanya membaca. Header baru/rename harus diprofilkan ulang; source_column harus persis header profil terbaru. Profil drift membuat konfigurasi lama stale.',
       'Konfigurasi approved, active, atau rejected immutable: Clone untuk perbaikan menjadi draft baru. Jika clone gagal karena header lama sudah dihapus/rename, buat draft manual/AI baru dari profil terbaru.',
       'Range, baris header/awal data, dan enabled tab dengan konfigurasi aktif terkunci (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; perubahan memerlukan penanganan lifecycle/migrasi yang direview.',
-      'Sync review membaca dan memprofilkan sumber sebelum membuat batch; bukan cara memperbaiki mapping lama. Pastikan profil dan draft sudah sesuai.',
+      'Sync manual membaca/profiling sebelum validasi dan pemuatan; bukan cara memperbaiki mapping lama. NEEDS_INPUT berarti Menunggu tindakan, bukan proses aktif. Master/jadwal/batch biasa tetap preview/approval/Apply.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
@@ -176,11 +181,13 @@ const entries: PageHelpEntry[] = [
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
       'Lengkapi aturan kualitas, business key, strategi load, metrik, dan visualisasi.',
       'Validasi konfigurasi, simpan revisi, lalu submit untuk reviewer.',
-      'Reviewer menyetujui; bila gate rilis aktif, IT dan setiap unit terkait juga menyetujui revisi yang sama sebelum deploy.',
+      'Approver konfigurasi sumber yang bukan maker/editor metadata membaca ringkasan dan memilih policy SOURCE APPROVED untuk approval gabungan konfigurasi, metadata PENDING dan aktivasi akses. Gagal satu syarat berarti tidak ada approval sebagian.',
+      'Selesaikan gate IT/unit yang diwajibkan pada revisi yang sama sebelum deploy, lalu Sync manual NON_MASTER aktif; data valid langsung dimuat tanpa approval batch tambahan.',
     ],
     notes: [
       'Gunakan ikon bantuan di samping setiap tahap wizard untuk melihat tujuan, urutan kerja, dan contoh khusus tahap tersebut.',
       'Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.',
+      'Jika metadata incomplete/rejected, policy tidak cocok atau revisi berubah, baca helper /guide#approval-gabungan. Review metadata admin terpisah tetap tersedia bagi sumber aktif tanpa revisi.',
       'source_column harus persis header profil. Tambah/rename header di Google Sheet lalu Profiling ulang sumber yang sama; Muat ulang review tidak menggantikan profiling.',
       'Approved, active, dan rejected tidak dapat diedit; clone ke draft baru. Jika header lama sudah hilang dan clone gagal, buat draft baru dari profil terbaru.',
       'Target NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL. Penambahan/rename kolom, perubahan tipe atau nullability memerlukan migrasi manual yang direview (SCHEMA_CHANGE_UNSAFE); review/deploy saja tidak cukup.',
@@ -335,6 +342,7 @@ const entries: PageHelpEntry[] = [
       'Cari sumber di tabel daftar sumber; kolom status menunjukkan discovery, profiling, konfigurasi/binding, approval IT, dan database. Pilih sumber yang tepat.',
       'Pilih tab yang sudah diklasifikasikan dan konfigurasi active/approved bila diperlukan.',
       'Buat batch import dan tunggu proses staging serta pemeriksaan.',
+      'Untuk sync manual NON_MASTER ACTIVE yang valid, gunakan Sumber/Workspace: approval konfigurasi menjadi dasar pemuatan langsung. Jalur batch biasa/master di halaman ini tetap preview/approval/Apply.',
       'Buka detail batch untuk menyelesaikan temuan dan pertanyaan.',
       'Jalankan preview, approval, lalu apply setelah seluruh blocker selesai.',
     ],
@@ -346,10 +354,12 @@ const entries: PageHelpEntry[] = [
       'Menyelesaikan temuan, referensi, pertanyaan, preview, approval, dan apply sebuah batch.',
     steps: [
       'Periksa status batch, dependency, dan daftar temuan.',
+      'NEEDS_INPUT berarti Menunggu tindakan. Modal Lihat detail pada tracking/audit menunjukkan baris asli Sheet termasuk header, kolom dan keterangan; nomor baris dapat bergeser jika Sheet diedit setelah snapshot.',
       'Jawab pertanyaan wajib atau resolve referensi menggunakan master approved.',
       'Gunakan resume/revalidate sesuai status dan blocker. Jika profil, konfigurasi, binding, atau versi master berubah, gunakan batch baru dengan dependency terbaru; revalidate tidak mengganti dependency batch lama.',
       'Buat preview dan periksa seluruh perubahan.',
       'Reviewer melakukan approval; editor menjalankan apply menggunakan preview yang sama.',
+      'Temuan AI boleh Konfirmasi nilai asli sah dengan alasan wajib setelah verifikasi pemilik data, bukan bypass teknis/PII. Batch sync langsung siap dapat dilanjutkan dengan Sync manual kembali; jawaban saja belum memuat record.',
     ],
     notes: [
       'Jangan approve bila target, staging, atau dependency sudah berubah.',
@@ -436,7 +446,7 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Assignment unit dan penunjukan nama approver keduanya diperlukan; approval tidak memberi akses query data.',
       'Jika revisi, snapshot review, atau aturan rilis berubah, keputusan lama tidak berlaku. Penolakan meminta versi baru atau peninjauan aturan oleh admin.',
-      'Review batch import dilakukan terpisah setelah konfigurasi aktif.',
+      'Persetujuan tayang tidak memuat data. Sync manual NON_MASTER aktif yang valid memakai approval konfigurasi; master/jadwal/batch biasa tetap review batch terpisah.',
     ],
   },
   {

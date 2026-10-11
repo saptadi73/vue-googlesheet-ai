@@ -121,19 +121,20 @@ const stages = [
   },
   {
     number: 8,
-    title: 'Jalankan dan setujui batch import',
-    owner: 'Editor + approver',
-    to: '/import-reviews',
-    action: 'Buka Batch import',
-    purpose: 'Memindahkan snapshot ke target melalui staging, temuan, pertanyaan, preview, dan approval.',
+    title: 'Sync manual dan pemuatan data',
+    owner: 'Editor; approver untuk batch biasa/master',
+    to: '/sources',
+    action: 'Buka Sumber & tracking',
+    purpose: 'Memuat data valid sesuai konfigurasi aktif yang disetujui, tanpa approval batch tambahan pada sync langsung NON_MASTER.',
     steps: [
       'Gunakan Sync manual per sumber di Sumber & tracking atau Workspace. Konfirmasi pembacaan/biaya AI, pantau job dan hasil per tab; tidak perlu menunggu jadwal mingguan.',
-      'Tunggu staging serta pemeriksaan kualitas selesai.',
-      'Selesaikan pertanyaan taxonomy, referensi master, duplicate key, atau koreksi sumber.',
-      'Periksa blocker stale. Jika profil/konfigurasi/binding berubah, buat batch baru dengan dependency terbaru; revalidate tidak mengganti dependency batch lama. Buat preview terbaru sebelum approval.',
-      'Approver menyetujui preview; editor menjalankan apply.',
+      'NON_MASTER ACTIVE dengan approval reviewer berbeda, akses POLICY_APPROVED dan rilis siap langsung dimuat jika validasi teknis, AI dan preview konflik lolos.',
+      'Periksa status serta Baris dimuat per tab. Job sync induk berhasil belum membuktikan semua tab sudah dimuat.',
+      'Menunggu tindakan berarti berhenti. Tekan Lihat detail berikon mata untuk kode, keterangan, nomor baris asli Sheet dan kolom. Selesaikan temuan dengan verifikasi pemilik data.',
+      'Setelah batch sync langsung siap tanpa blocker, Sync manual kembali dapat melanjutkan pemuatan. Jika snapshot/dependency berubah, gunakan batch terbaru; revalidate tidak mengganti dependency lama.',
+      'Master, FULL_REFRESH, jadwal dan batch biasa tidak memakai jalur langsung. Batch biasa/master tetap preview, approval reviewer, lalu Apply.',
     ],
-    done: 'Batch berstatus SUCCEEDED dan jumlah record hasil sesuai preview yang disetujui.',
+    done: 'Batch per tab SUCCEEDED; Baris dimuat dan waktu pemuatan tersedia.',
   },
   {
     number: 9,
@@ -199,22 +200,25 @@ const stages = [
         <dt>Revisi metadata, konfigurasi, snapshot, atau klasifikasi berubah</dt>
         <dd>Muat ulang ringkasan approval dan konfigurasi. Jalankan validasi/profiling sesuai kebutuhan, selesaikan pertanyaan DQ, cek seluruh mapping/section, ajukan ulang review. Persetujuan memakai revision dan snapshot yang benar-benar diperiksa; tidak boleh memakai data lama dari browser.</dd>
         <dt>Gate siap tayang belum lengkap</dt>
-        <dd>Persetujuan IT dan setiap unit yang diwajibkan tetap berlaku. Buka Persetujuan tayang dan selesaikan keputusan terhadap revisi yang sama. Approval gabungan tidak menghapus gate release atau approval batch pemuatan.</dd>
+        <dd>Persetujuan IT dan setiap unit yang diwajibkan tetap berlaku. Buka Persetujuan tayang dan selesaikan keputusan terhadap revisi yang sama. Master/jadwal/batch biasa tetap approval batch; sync langsung NON_MASTER valid menggunakan approval konfigurasi aktif.</dd>
       </dl>
-      <p>Jika ringkasan gagal dimuat, baca pesan error, periksa kewenangan approver lalu Muat ulang ringkasan approval. Jika tombol masih nonaktif, selesaikan seluruh blocker yang ditampilkan. Setelah berhasil, deploy mengaktifkan konfigurasi; Sync manual, review batch, preview, approval dan Apply diperlukan untuk benar-benar memuat data.</p>
+      <p>Jika ringkasan gagal dimuat, baca pesan error, periksa kewenangan approver lalu Muat ulang ringkasan approval. Jika tombol masih nonaktif, selesaikan blocker. Setelah berhasil, tidak perlu approval metadata terpisah lagi. Deploy mengaktifkan konfigurasi; Sync manual langsung memuat NON_MASTER valid tanpa approval batch tambahan. Master/batch biasa tetap melalui preview, approval dan Apply.</p>
       <div class="toolbar"><RouterLink class="button" to="/workspace">Buka Workspace</RouterLink><RouterLink class="button" to="/release-approvals">Persetujuan tayang</RouterLink></div>
     </section>
     <section id="sync-manual" class="panel">
       <h2>Sync manual dan status katalog</h2>
-      <p>Data yang terlihat di Sheet belum tentu sudah dimuat. Pilih sumber di Sumber & tracking atau Workspace, tekan Sync manual dan Jalankan sync sekarang. Pembacaan terbaru berlangsung di worker; layar menampilkan antrean, proses, hasil per tab, jumlah baris valid, cakupan AI dan temuan, serta shortcut ke batch.</p>
+      <p>Untuk temuan AI, nilai asli yang sudah diverifikasi sah dapat dikonfirmasi melalui Konfirmasi nilai asli sah dengan alasan wajib yang diaudit. Error teknis tidak dapat dilewati. Setelah semua blocker selesai dan cakupan AI lengkap, Sync manual kembali dapat memuat batch NON_MASTER siap sesuai konfigurasi aktif. Batch biasa/master tetap preview, approval reviewer terpisah dan Apply. Menjawab temuan saja belum memuat data. Dugaan data pribadi atau salah mapping harus diverifikasi pemilik data, bukan diterima otomatis.</p>
+      <p>Data yang terlihat di Sheet belum tentu sudah dimuat. Tekan Sync manual lalu Jalankan sync sekarang untuk langsung memuat tab NON_MASTER yang lolos validasi teknis, pemeriksaan AI, dan preview konflik, berdasarkan konfigurasi ACTIVE yang telah disetujui reviewer terpisah. Konfigurasi dan akses/rilis sumber harus tetap berlaku. Tidak meminta approval batch ulang untuk data yang lolos. Master, perubahan konfigurasi, konflik, atau dugaan keamanan/PII berhenti tanpa pemuatan.</p>
+      <p>Tabel hasil ETL aktif menyediakan Buka Google Sheet ke tab asal, Buka sumber ke pengaturan tab, dan Sync manual data. Sync berlaku untuk seluruh tab yang siap. Konfirmasi menyetujui perubahan database dan biaya AI; Muat ulang hasil hanya memantau. Batch lama tanpa keputusan pengguna dapat diperiksa ulang terhadap konfigurasi aktif jika seluruh blocker berasal dari AI. Jadwal otomatis dan batch review biasa tetap memakai preview, approval, Apply.</p>
+      <p>Menunggu tindakan berarti proses berhenti pada temuan, bukan worker masih berjalan. Tombol Lihat detail berikon mata pada tracking, tabel hasil ETL, dan audit trail membuka modal berisi keterangan, kode penghambat, nomor baris asli Google Sheet saat snapshot dibaca (termasuk header), kolom temuan, serta tautan batch untuk tindak lanjut. Ringkasan audit menyimpan maksimal 20 lokasi tanpa isi nilai; daftar pertanyaan dapat dimuat bertahap. Membuka modal tidak menyetujui temuan atau menjalankan sync. Riwayat kegagalan lama tetap tersedia dan tidak berarti pemuatan terbaru gagal.</p>
       <ul>
         <li>BLOCKED: prasyarat tab belum siap, misalnya konfigurasi/binding belum disetujui atau tab hilang. Pesan per tab menjelaskan apa yang perlu diperbaiki; tab lain yang siap tetap dibuatkan batch.</li>
-        <li>NEEDS_INPUT: pemeriksaan berjalan tetapi ada pertanyaan/temuan. Buka hasil review, selesaikan koreksi, lalu buat preview terbaru dan minta approval.</li>
-        <li>READY_FOR_APPROVAL/APPROVED belum berarti record masuk database. Apply oleh operator masih diperlukan. SUCCEEDED adalah hasil pemuatan selesai.</li>
+        <li>NEEDS_INPUT / Menunggu tindakan: pemuatan berhenti pada pertanyaan/temuan, bukan masih berjalan. Lihat detail dan selesaikan tindakan; sync langsung dapat dilanjutkan ketika siap.</li>
+        <li>SUCCEEDED berarti pemuatan selesai. Batch biasa/master tetap memerlukan preview, approval dan Apply; sync langsung NON_MASTER memakai approval konfigurasi aktif dan menerapkan otomatis hanya bila seluruh pemeriksaan lolos.</li>
         <li>FAILED: perbaiki penyebab teknis terlebih dahulu; Revalidate batch gagal tanpa membuat batch duplikat. Resume hanya sesudah blocker NEEDS_INPUT selesai.</li>
         <li>Proses yang masih berjalan menolak enqueue sync baru. Muat ulang hasil tidak mengulang pembacaan Sheet atau membuat batch. Batas pemantauan 10 menit bukan pembatalan job; lanjutkan di monitor job.</li>
       </ul>
-      <p>Katalog mempertahankan versi aktif terakhir yang masih dapat diakses. Sedang diperbarui menandai job, revisi konfigurasi, drift struktur, perubahan snapshot atau batch yang belum selesai. Timestamp konfigurasi aktif diambil dari audit deployment; Data dimuat dari ETL sukses. Perubahan Google Sheet hanya diketahui setelah profiling/sync, bukan live push. Saat metadata akses berubah, policy dicabut atau hak pembaca berakhir, data boleh hilang dari katalog sampai izin kembali valid; status katalog tidak boleh melewati kontrol akses.</p>
+      <p>Katalog mempertahankan versi aktif terakhir yang masih dapat diakses. Sedang diperbarui menandai job, revisi konfigurasi, drift struktur, perubahan snapshot atau batch yang belum selesai. Timestamp konfigurasi aktif berasal dari audit deployment; Data dimuat dari ETL atau import yang berhasil. Perubahan Google Sheet hanya diketahui setelah profiling/sync, bukan live push. Saat metadata akses berubah, policy dicabut atau hak pembaca berakhir, data boleh hilang dari katalog sampai izin kembali valid; status katalog tidak boleh melewati kontrol akses.</p>
       <RouterLink class="button" to="/sources">Buka sumber &amp; tracking</RouterLink>
     </section>
     <p class="guide-intro">

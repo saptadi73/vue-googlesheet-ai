@@ -348,6 +348,19 @@ export interface SourceSheetTracking {
   master_binding_status: string
   data_product_code: string | null
   last_failures: Record<string, { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null }>
+  attention?: ProcessAttention | null
+}
+export interface ProcessAttention {
+  review_id?: string
+  source_sheet_id?: string
+  status: string
+  revision_no?: number
+  blocking_codes: string[]
+  message: string
+  ai_coverage?: string | null
+  affected_row_count?: number
+  locations?: { source_row: number; target_column: string | null }[]
+  has_more_locations?: boolean
 }
 export interface Sheet {
   id: string

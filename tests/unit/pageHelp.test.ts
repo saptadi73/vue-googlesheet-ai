@@ -32,6 +32,20 @@ const routes = [
 ]
 
 describe('page help registry', () => {
+  it('explains combined metadata approval and validated direct sync consistently', () => {
+    const review = getPageHelp('/configurations/config-id/review').steps.join(' ')
+    expect(review).toContain('approval gabungan')
+    expect(review).toContain('metadata PENDING')
+    expect(review).toContain('tidak ada approval sebagian')
+    for (const route of ['/sources', '/workspace']) {
+      const help = getPageHelp(route)
+      const content = [...help.steps, ...(help.notes || [])].join(' ')
+      expect(content).toContain('Sync manual')
+      expect(content).toContain('berikon mata')
+      expect(content).toContain('baris asli')
+      expect(content).toContain('NEEDS_INPUT')
+    }
+  })
   it('explains source tracking and safe unlink/restore flow', () => {
     const help = getPageHelp('/sources')
     expect(help.title).toContain('Sumber')

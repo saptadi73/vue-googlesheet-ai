@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { CircleCheck, CircleHelp, CircleMinus, CircleX, FileText, Trash2 } from '@lucide/vue'
+import { CircleCheck, CircleHelp, CircleMinus, CircleX, Eye, FileText, Trash2 } from '@lucide/vue'
 import { api, type ApiEnvelope } from '@/lib/api'
-import { call, editRoles, user, type Source } from '@/lib/etl'
+import { call, editRoles, user, type Source, type SourceSheetTracking, type ProcessAttention } from '@/lib/etl'
 import SourceSync from '@/components/SourceSync.vue'
+import ProcessAttentionButton from '@/components/ProcessAttentionButton.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
 
 const props = defineProps<{ canManage?: boolean }>()
@@ -20,11 +21,11 @@ type TrackedSource = Source & {
   owner_name?: string | null
   steward_name: string | null
   registered_by?: string | null
-  sheets: { id: string; name: string; enabled: boolean; is_present: boolean; presence_status: 'PRESENT' | 'MISSING'; rows_loaded: number; profiling_status: string; configuration_status: string; database_status: string; it_approval_status: string; last_failures: Record<string, StageFailure> }[]
+  sheets: SourceSheetTracking[]
 }
 type StageFailure = { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null; job_kind?: string }
 type StageKey = 'discovery' | 'profiling' | 'configuration' | 'database'
-type HistoryEvent = { id: string; occurred_at: string; stage: string; status: string; event: string; summary: string; actor_name?: string | null; error_code?: string | null; error_message?: string | null; details?: Record<string, unknown> }
+type HistoryEvent = { id: string; occurred_at: string; stage: string; status: string; event: string; summary: string; actor_name?: string | null; error_code?: string | null; error_message?: string | null; details?: Record<string, unknown>; attention?: ProcessAttention | null }
 const rows = ref<TrackedSource[]>([])
 const total = ref(0)
 const offset = ref(0)
@@ -69,7 +70,7 @@ const stageGuides: Record<StageKey, { title: string; steps: string[] }> = {
   discovery: { title: 'Discovery: menemukan tab Google Sheet', steps: ['Pastikan URL spreadsheet benar dan file sudah dibagikan ke service account backend sebagai Viewer.', 'Pilih sumber di Workspace ETL lalu tekan Temukan tab atau jalankan Hubungkan & profiling untuk sumber baru.', 'Tunggu job selesai. Jika gagal, buka monitor job dan tindak lanjuti pesan/kode error sebelum mencoba lagi.'] },
   profiling: { title: 'Profiling: membaca header dan contoh struktur data', steps: ['Pilih sumber dan tab di Workspace ETL setelah discovery menemukan tab. Edit data/header di Google Sheet; adapter hanya membaca.', 'Pastikan baris header benar, setiap nama kolom terisi, dan tidak ada header yang sama setelah normalisasi.', 'Setelah tambah/rename header, tekan Profiling ulang pada sumber yang sama, bukan daftarkan ulang. Muat ulang tampilan tidak membaca Sheet. Pengaturan header/range/enabled terkunci jika konfigurasi aktif (CONFIGURATION_CONFLICT).'] },
   configuration: { title: 'Konfigurasi atau binding master', steps: ['Konfirmasi klasifikasi tab sebagai MASTER atau NON_MASTER.', 'Untuk NON_MASTER, petakan source_column persis header profil. Clone konfigurasi approved/active/rejected ke draft; bila header lama hilang dan clone gagal, buat draft baru. Untuk MASTER, pilih master approved lalu review binding field wajib.', 'Validasi, simpan, ajukan review, dan tunggu approval. Target NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL; tambah/rename kolom, tipe atau nullability memerlukan migrasi manual yang direview (SCHEMA_CHANGE_UNSAFE).'] },
-  database: { title: 'Pemuatan data ke database', steps: ['Pastikan konfigurasi aktif atau binding master sudah approved dan dependency siap.', 'Buat batch import, selesaikan pertanyaan dan temuan, lalu tinjau preview.', 'Minta approval dan jalankan Apply. Pantau job dan error terakhir; binding atau konfigurasi saja belum memuat record.'] },
+  database: { title: 'Pemuatan data ke database', steps: ['Pastikan konfigurasi aktif atau binding master sudah approved dan dependency siap.', 'Untuk NON_MASTER dengan konfigurasi aktif yang disetujui, Sync manual langsung memuat data jika semua validasi lolos.', 'Menunggu tindakan berarti pemuatan berhenti pada temuan, bukan masih berjalan. Tekan Lihat detail untuk melihat penyebab dan buka batch untuk tindak lanjut. Master dan batch biasa tetap melalui review.'] },
 }
 const stageModal = ref<{ source?: TrackedSource; stage: StageKey } | null>(null)
 const historySource = ref<TrackedSource | null>(null)
@@ -123,6 +124,8 @@ function statusLabel(value: string) {
     NOT_STARTED: 'Belum dimulai', FAILED: 'Gagal', NEEDS_REVIEW: 'Perlu review',
     QUEUED: 'Dalam antrean', RUNNING: 'Sedang berjalan', STARTED: 'Sedang berjalan',
     RECORDED: 'Tercatat',
+    NEEDS_INPUT: 'Menunggu tindakan', STALE_REVIEW: 'Perlu validasi ulang',
+    VALIDATING: 'Sedang validasi', AI_REVIEWING: 'Sedang diperiksa AI', APPLYING: 'Sedang memuat',
     AI_FAILED: 'Rekomendasi AI gagal', PROFILE_FAILED: 'Profiling gagal',
     ACCESS_POLICY_REQUIRED: 'Menunggu policy akses', PENDING: 'Menunggu review',
     REJECTED: 'Ditolak', PENDING_IT_APPROVAL: 'Menunggu IT_APPROVER', NOT_SUBMITTED: 'Belum diajukan', NOT_APPLICABLE: 'Tidak berlaku', IN_PROGRESS: 'Belum lengkap', BINDING_READY: 'Binding siap',
@@ -133,7 +136,7 @@ function statusLabel(value: string) {
 function statusKind(value: unknown): 'success' | 'failure' | 'pending' | 'neutral' {
   const normalized = String(value || '').toUpperCase()
   if (['SUCCEEDED', 'SUCCEEDED_WITH_WARNINGS', 'ACTIVE', 'APPROVED', 'CONFIRMED', 'BINDING_READY', 'TERHUBUNG'].includes(normalized)) return 'success'
-  if (['FAILED', 'PROFILE_FAILED', 'AI_FAILED', 'REJECTED', 'UNLINKED', 'ERROR'].includes(normalized) || normalized.endsWith('_FAILED')) return 'failure'
+  if (['FAILED', 'PROFILE_FAILED', 'AI_FAILED', 'REJECTED', 'UNLINKED', 'ERROR', 'NEEDS_INPUT', 'STALE_REVIEW'].includes(normalized) || normalized.endsWith('_FAILED')) return 'failure'
   if (['QUEUED', 'RUNNING', 'STARTED', 'IN_PROGRESS', 'PENDING', 'NEEDS_REVIEW', 'READY_FOR_APPROVAL', 'ACCESS_POLICY_REQUIRED', 'BINDING_REVIEW', 'PENDING_IT_APPROVAL', 'NOT_SUBMITTED', 'NOT_STARTED', ''].includes(normalized)) return 'pending'
   return 'neutral'
 }
@@ -359,7 +362,10 @@ function restoreRow(row: Record<string, unknown>) {
         <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.configuration_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.configuration_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.configuration_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span class="sr-only">{{ value }}</span></span><button v-if="stageFailure(row, 'configuration')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan konfigurasi terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('configuration', row)"><FileText :size="16"/></button></span>
       </template>
       <template #cell-database_label="{ row, value }">
-        <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.database_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.database_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.database_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span class="sr-only">{{ value }}</span></span><button v-if="stageFailure(row, 'database')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan pemuatan terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('database', row)"><FileText :size="16"/></button></span>
+        <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.database_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.database_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.database_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span>{{ value }}</span></span><button v-if="stageFailure(row, 'database')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan pemuatan terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('database', row)"><Eye :size="16"/></button></span>
+        <div v-for="sheet in rows.find((source) => source.id === row.id)?.sheets.filter((sheet) => sheet.attention)" :key="sheet.id">
+          <ProcessAttentionButton v-if="sheet.attention" :attention="sheet.attention" :label="sheet.name" />
+        </div>
       </template>
       <template #cell-created_at="{ value }">{{ value ? new Date(String(value)).toLocaleString('id-ID') : '—' }}</template>
       <template #cell-link_status="{ row }"><span class="source-value"><span class="status-symbol" :class="`status-symbol--${row.unlinked_at ? 'failure' : 'success'}`" :title="row.unlinked_at ? 'Unlinked' : 'Terhubung'"><CircleX v-if="row.unlinked_at" :size="17"/><CircleCheck v-else :size="17"/></span><button v-if="row.unlinked_at && row.unlinked_to_source_id" class="icon-button" type="button" aria-label="Lihat sumber tujuan link" title="Lihat ID sumber tujuan" @click="detailModal = { title: 'ID sumber tujuan', value: String(row.unlinked_to_source_id), kind: 'text' }"><FileText :size="16"/></button></span></template>
@@ -427,6 +433,8 @@ function restoreRow(row: Record<string, unknown>) {
             <div>{{ new Date(item.occurred_at).toLocaleString('id-ID') }}<span v-if="item.actor_name"> · oleh {{ item.actor_name }}</span></div>
             <p v-if="item.error_code || item.error_message" class="stage-failure"><strong>{{ item.error_code || 'GAGAL' }}</strong><span v-if="item.error_message"> · {{ item.error_message }}</span></p>
             <p v-if="item.details?.reason" class="muted">Alasan: {{ item.details.reason }}</p>
+            <p v-if="item.attention" class="stage-failure">{{ item.attention.message }}</p>
+            <ProcessAttentionButton v-if="item.attention || item.error_code || item.error_message" :attention="item.attention || { status: item.status, blocking_codes: item.error_code ? [item.error_code] : [], message: item.error_message || item.summary }" :label="`${historySource.name} · ${item.summary}`" />
           </li>
           <li v-if="!historyEvents.length && !historyLoading">Belum ada riwayat aktivitas.</li>
         </ol>
@@ -452,6 +460,7 @@ function restoreRow(row: Record<string, unknown>) {
           <li v-for="sheet in detailModal.source.sheets" :key="sheet.id">
             <strong>{{ sheet.name }}</strong><span v-if="!sheet.is_present" class="muted"> · tidak ditemukan di spreadsheet</span><span v-else-if="!sheet.enabled" class="muted"> · nonaktif</span>
             <small>Profil: {{ statusLabel(sheet.profiling_status) }} | Konfigurasi: {{ statusLabel(sheet.configuration_status) }} | Approval IT: {{ statusLabel(sheet.it_approval_status) }} | Database: {{ statusLabel(sheet.database_status) }}</small>
+            <ProcessAttentionButton v-if="sheet.attention" :attention="sheet.attention" :label="sheet.name" />
             <p v-for="failure in Object.values(sheet.last_failures || {})" :key="`${failure.stage}-${failure.occurred_at}`" class="stage-failure"><strong>{{ failure.code || 'GAGAL' }}</strong> · {{ failure.message || 'Tidak ada keterangan.' }}</p>
           </li>
         </ol>

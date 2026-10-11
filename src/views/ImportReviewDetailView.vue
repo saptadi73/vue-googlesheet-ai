@@ -258,7 +258,7 @@ function normalizeCorrectionValue(raw: string) {
   }
 }
 function requiresReason(action: ImportQuestionAction | '') {
-  return action === 'CORRECT_SOURCE' || action === 'PROPOSE_MASTER'
+  return action === 'CORRECT_SOURCE' || action === 'PROPOSE_MASTER' || action === 'KEEP_ORIGINAL'
 }
 function candidateLabel(candidate: Record<string, unknown>) {
   return typeof candidate.label === 'string' && candidate.label
@@ -297,7 +297,10 @@ function buildAnswerPayload(question: ImportQuestion): ImportQuestionDecision {
       throw new Error('Pilih kandidat dari respons pertanyaan terbaru.')
     payload.selected_candidate_id = draft.selectedCandidateId.trim()
   } else if (draft.action === 'KEEP_ORIGINAL') {
-    if (question.mandatory) throw new Error('KEEP_ORIGINAL tidak tersedia untuk pertanyaan wajib.')
+    if (question.mandatory && question.category !== 'AI_REVIEW')
+      throw new Error('KEEP_ORIGINAL tidak tersedia untuk masalah teknis wajib.')
+    if (question.category === 'AI_REVIEW' && !draft.reason.trim())
+      throw new Error('Isi alasan mengapa nilai asli sah sebelum mengonfirmasi temuan AI.')
   }
   if (requiresReason(draft.action)) payload.reason = draft.reason.trim()
   return payload
@@ -808,6 +811,12 @@ onBeforeUnmount(() => {
             {{ item.question.source_row || '�' }}
           </h3>
           <p>{{ item.question.prompt }}</p>
+          <p v-if="item.question.review_message">{{ item.question.review_message }}</p>
+          <p v-if="item.question.category === 'AI_REVIEW'" class="muted">
+            Temuan AI tetap wajib ditinjau. Jika nilai memang sah, pilih Konfirmasi nilai asli sah
+            dan isi alasan. Jangan konfirmasi dugaan data pribadi atau salah mapping tanpa verifikasi.
+            Keputusan dicatat; preview dan approval reviewer tetap diperlukan sebelum Apply.
+          </p>
           <p>
             Kolom {{ item.question.source_column || '�' }} =>
             {{ item.question.target_column || '�' }} �
@@ -835,9 +844,10 @@ onBeforeUnmount(() => {
                 <option
                   v-for="action in item.question.allowed_actions"
                   :key="action"
-                  :disabled="item.question.mandatory && action === 'KEEP_ORIGINAL'"
+                  :value="action"
+                  :disabled="item.question.mandatory && item.question.category !== 'AI_REVIEW' && action === 'KEEP_ORIGINAL'"
                 >
-                  {{ action }}
+                  {{ action === 'KEEP_ORIGINAL' && item.question.category === 'AI_REVIEW' ? 'Konfirmasi nilai asli sah' : action }}
                 </option>
               </select></label
             >

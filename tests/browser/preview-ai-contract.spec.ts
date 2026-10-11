@@ -215,3 +215,43 @@ test('AI correction requires confirmation, preserves code and exposes provider f
   expect(aiBodies[0]).toEqual({ taxonomy_version: 2, values: ['teh tawar'], limit: 3 })
   expect(mock.errors).toEqual([])
 })
+test('AI finding confirmation requires reason and never approves or applies automatically', async ({ page }) => {
+  const mock = await setup(page)
+  await page.route('**/api/v1/master-definitions?**', (route) => route.fulfill({
+    json: { status: 'success', data: [], errors: [], meta: {} },
+  }))
+  const review = { id: 'batch', status: 'NEEDS_INPUT', revision_no: 6, dataset_kind: 'NON_MASTER', checkpoint: { blocking_codes: ['AI_REVIEW_ISSUES'] } }
+  const question = {
+    id: 'question', category: 'AI_REVIEW', status: 'OPEN', revision_no: 1,
+    prompt: 'Periksa nilai', review_message: 'Verify nullable percentage convention',
+    allowed_actions: ['APPLY_CORRECTION', 'CORRECT_SOURCE', 'KEEP_ORIGINAL'],
+    candidates: [], decisions: [], mandatory: true,
+  }
+  const answers: Record<string, unknown>[] = []
+  const writes: string[] = []
+  await page.route('**/api/v1/import-reviews/batch**', async (route) => {
+    const path = new URL(route.request().url()).pathname
+    let data: unknown = path.endsWith('/batch') ? review : { items: path.endsWith('/questions') ? [question] : [], has_more: false }
+    if (route.request().method() === 'POST') writes.push(path)
+    if (path.endsWith('/answer')) {
+      answers.push(route.request().postDataJSON())
+      question.status = 'ANSWERED'
+      review.status = 'READY_FOR_APPROVAL'
+      review.checkpoint.blocking_codes = []
+      data = { question, review, stale: false }
+    }
+    await route.fulfill({ json: { status: 'success', data, errors: [], meta: {} } })
+  })
+  await page.goto('/import-reviews/batch')
+  await login(page, 'editor')
+  await expect(page.getByText('Verify nullable percentage convention', { exact: true })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Tindakan', exact: true }).selectOption('KEEP_ORIGINAL')
+  await page.getByRole('button', { name: 'Simpan jawaban', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Isi alasan mengapa nilai asli sah')
+  expect(answers).toHaveLength(0)
+  await page.getByLabel('Alasan', { exact: true }).fill('Nilai kosong sah sesuai mapping nullable yang diverifikasi pemilik data.')
+  await page.getByRole('button', { name: 'Simpan jawaban', exact: true }).click()
+  expect(answers).toEqual([{ revision_no: 1, action: 'KEEP_ORIGINAL', reason: 'Nilai kosong sah sesuai mapping nullable yang diverifikasi pemilik data.' }])
+  expect(writes).toEqual(['/api/v1/import-reviews/batch/questions/question/answer'])
+  expect(mock.errors).toEqual([])
+})
