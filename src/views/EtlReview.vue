@@ -96,7 +96,7 @@ const stepGuides = [
   {
     title: '3. Cleansing',
     purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
-    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
+    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id dan pilih Format nilai tanggal = Serial Google Sheets pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
     example: 'Kolom kode: trim untuk membuang spasi tepi; pertahankan nol di depan dengan tipe text.',
   },
   {
@@ -108,7 +108,7 @@ const stepGuides = [
   {
     title: '5. Pemuatan',
     purpose: 'Memilih tabel tujuan dan cara data baru digabungkan dengan data yang sudah ada.',
-    instructions: ['Periksa schema dan nama dasar tabel. Untuk revisi dataset yang sama, pertahankan target lama kecuali perpindahan tabel memang direncanakan dan direview.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Tinjau Preview perubahan schema pada langkah 7. Nullable baru didukung (record lama null), tipe pada tabel kosong, dan bigint serial menjadi date dengan parse_date_id pada tabel berisi data. Rename/drop fisik, key, dan dependency tidak aman diblokir.', 'Nama view mengikuti ID tab. Perpindahan target/proyeksi ikut direview; worker menjaga data dan ACL dalam transaksi tanpa CASCADE saat deploy setelah approval.'],
+    instructions: ['Periksa schema dan nama dasar tabel. Untuk revisi dataset yang sama, pertahankan target lama kecuali perpindahan tabel memang direncanakan dan direview.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Tinjau Preview perubahan schema pada langkah 7. Nullable baru didukung (record lama null), tipe pada tabel kosong, dan bigint serial menjadi date dengan parse_date_id dan pilihan Format nilai tanggal = Serial Google Sheets pada tabel berisi data. Rename/drop fisik, key, dan dependency tidak aman diblokir.', 'Nama view mengikuti ID tab. Perpindahan target/proyeksi ikut direview; worker menjaga data dan ACL dalam transaksi tanpa CASCADE saat deploy setelah approval.'],
     example: 'Spreadsheet transaksi bertambah setiap hari: APPEND. Snapshot katalog produk lengkap: FULL_REFRESH atau UPSERT dengan product_code.',
   },
   {
@@ -120,13 +120,19 @@ const stepGuides = [
   {
     title: '7. Validasi dan persetujuan',
     purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
-    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: operasi, record lama, contoh tanggal dan blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan transaksi migrasi membatalkan DDL/konversi. Jika migrasi selesai tetapi aktivasi konfigurasi gagal, schema/audit tetap tersimpan; retry memerlukan schema/data yang masih cocok dengan hasil migrasi tercatat.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
+    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: kolom/tipe/nullability/key lama dan baru, dampak view/dependency, operasi, record lama, validasi dan contoh tanggal serta blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan transaksi migrasi membatalkan DDL/konversi. Aktivasi, audit sukses dan status job ikut transaksi DDL; gagal sebelum commit mempertahankan kondisi sebelumnya. Audit gagal tersedia setelah rollback; retry memeriksa fingerprint review.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
     example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
 const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
 const schemaReviewed = ref(false)
 const schemaMigration = computed(() => details.value?.validation.deployment_plan?.migration)
+function schemaChangeLabel(change: string) {
+  return ({ ADDED: 'Kolom tambahan', REMOVED: 'Kolom dihapus', TYPE: 'Tipe', NULLABILITY: 'Nullability', KEY: 'Key' } as Record<string, string>)[change] || change
+}
+function schemaKeysLabel(keys: string[][]) {
+  return keys.map(key => key.filter(name => !name.startsWith('_')).join(', ')).filter(Boolean).join(' / ') || 'Identitas record otomatis'
+}
 const schemaReviewStale = computed(() => record.value?.status === 'NEEDS_REVIEW' &&
   schemaMigration.value &&
   (record.value.review_state?.schema_migration || schemaMigration.value.requires_migration) &&
@@ -496,6 +502,7 @@ function addColumn() {
     numeric_scale: null,
     varchar_length: null,
     date_format: null,
+    date_input_format: null,
     number_locale: null,
     source_timezone: null,
     unit_conversion: null,
@@ -904,6 +911,7 @@ onBeforeRouteUpdate(confirmLeave)
                     maxlength="40"
                     placeholder="%d/%m/%Y"
                 /></label>
+
                 <label
                   v-if="
                     c.target_type === 'numeric' ||
@@ -1030,6 +1038,14 @@ onBeforeRouteUpdate(confirmLeave)
           </p>
           <div v-for="(c, index) in draft.columns" :key="index" class="card-row">
             <h3>{{ c.source_column }} → {{ c.target_column }}</h3>
+                <label v-if="c.target_type === 'date' || c.date_input_format != null"
+                  >Format nilai tanggal<select v-model="c.date_input_format">
+                    <option :value="null">Belum dinyatakan (konfigurasi lama)</option>
+                    <option value="TEXT">Tanggal teks, mengikuti pola tanggal</option>
+                    <option value="GOOGLE_SHEETS_SERIAL">Angka serial tanggal Google Sheets</option>
+                  </select>
+                  <span class="muted">Gunakan parse_date_id sesuai format yang dipilih. Untuk konversi bigint lama ke date, pilih angka serial secara eksplisit setelah memeriksa arti dan contoh nilainya. Angka ID atau tahun bukan tanggal serial.</span>
+                </label>
             <div v-for="(_, i) in c.transformation_codes" :key="i" class="toolbar">
               <span>{{ i + 1 }}.</span
               ><select
@@ -1428,6 +1444,25 @@ onBeforeRouteUpdate(confirmLeave)
           <h2>Preview perubahan schema database</h2>
           <p>{{ schemaMigration.rows_existing }} record lama · {{ schemaMigration.allowed ? 'Rencana dapat dijalankan setelah review.' : 'Rencana ditahan; selesaikan blocker.' }}</p>
           <p class="muted">Worker memeriksa ulang rencana yang disetujui, mengubah tabel/view dalam transaksi, menjaga grant dan menghitung ulang hash record bila bentuk data berubah. Tidak menghapus kolom atau memakai DROP CASCADE.</p>
+          <section v-if="schemaMigration.comparison" aria-label="Perbandingan schema lama dan baru">
+            <h3>Schema lama dan baru</h3>
+            <div class="scroll"><table>
+              <thead><tr><th>Kolom</th><th>Tipe lama</th><th>Tipe baru</th><th>Kosong sebelumnya</th><th>Kosong setelah perubahan</th><th>Perubahan</th></tr></thead>
+              <tbody><tr v-for="column in schemaMigration.comparison.columns" :key="column.column">
+                <td>{{ column.column }}</td><td>{{ column.before?.type || 'Belum ada' }}</td><td>{{ column.after?.type || 'Dihapus' }}</td>
+                <td>{{ column.before == null ? '—' : column.before.nullable ? 'Boleh' : 'Tidak boleh' }}</td>
+                <td>{{ column.after == null ? '—' : column.after.nullable ? 'Boleh' : 'Tidak boleh' }}</td>
+                <td>{{ column.changes.map(schemaChangeLabel).join(', ') || 'Tetap' }}</td>
+              </tr></tbody>
+            </table></div>
+            <p><strong>Key lama:</strong> {{ schemaKeysLabel(schemaMigration.comparison.keys.before) }}. <strong>Key baru:</strong> {{ schemaKeysLabel(schemaMigration.comparison.keys.after) }}.</p>
+            <h3>Dampak view analitik</h3>
+            <p>Target lama: {{ schemaMigration.comparison.view.before_target.join(', ') || 'Belum ada' }}. Target baru: {{ schemaMigration.comparison.view.after_target }}.</p>
+            <p>Kolom lama: {{ schemaMigration.comparison.view.before_columns.filter(c => !c.name.startsWith('_')).map(c => `${c.name} (${c.type})`).join(', ') || 'Belum ada' }}.</p>
+            <p>Kolom baru: {{ schemaMigration.comparison.view.after_columns.filter(c => !c.name.startsWith('_')).map(c => `${c.name} (${c.type})`).join(', ') }}.</p>
+            <p>{{ schemaMigration.comparison.view.recreate ? 'View perlu dibuat ulang; izin akses dipertahankan.' : 'View diperiksa dan disesuaikan dalam transaksi yang sama.' }}</p>
+            <p>Dependency: {{ schemaMigration.comparison.view.dependencies.join(', ') || 'Tidak ada view turunan' }}.</p>
+          </section>
           <ul>
             <li v-for="(op, i) in schemaMigration.operations" :key="i">
               {{ op.action }} · {{ op.column }}
@@ -1435,6 +1470,7 @@ onBeforeRouteUpdate(confirmLeave)
               <template v-else-if="op.type"> · {{ op.type }}</template>
               <template v-if="op.nullable !== undefined"> · {{ op.nullable ? 'boleh kosong' : 'wajib' }}</template>
               <strong v-if="op.conversion"> · Angka serial Google Sheets → tanggal (asal 1899-12-30). Pastikan arti kolom memang tanggal serial.</strong>
+              <span v-if="op.validation"> · {{ op.validation.checked }} nilai diperiksa, {{ op.validation.convertible }} dapat dikonversi, {{ op.validation.invalid }} tidak valid. {{ op.validation.declared ? 'Format serial dinyatakan eksplisit.' : 'Format serial belum dinyatakan; perubahan diblokir.' }}</span>
               <span v-for="example in op.examples || []" :key="example.before"> · {{ example.before }} → {{ example.after }}</span>
             </li>
           </ul>

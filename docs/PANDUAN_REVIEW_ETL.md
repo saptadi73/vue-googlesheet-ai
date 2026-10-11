@@ -4,7 +4,7 @@ Wizard Vue dan round-trip XLSX tersedia untuk parameter yang sudah didukung runt
 
 ## Menjalankan
 
-1. Jalankan migrasi pada database aplikasi yang dituju setelah meninjau konfigurasi koneksinya. Migrasi `9c32a61d740e` menambahkan kolom JSONB `review_state` pada `platform.configuration_version`, tanpa mengubah tabel data ETL. Migrasi ini sudah diuji pada database test terpisah; penerapan pada database aplikasi/production dilakukan saat rollout.
+1. Jalankan migrasi pada database aplikasi yang dituju setelah meninjau konfigurasi koneksinya. Migrasi `b8r1e4o7v0x3` memerlukan PostgreSQL >=16 untuk role terpisah; admin memberi role runtime TO DDL dengan INHERIT FALSE, SET TRUE. Gunakan ALEMBIC_DATABASE_URL untuk koneksi admin tanpa mengganti DATABASE_URL operasional. Migrasi `9c32a61d740e` menambahkan kolom JSONB `review_state` pada `platform.configuration_version`, tanpa mengubah tabel data ETL. Migrasi ini sudah diuji pada database test terpisah; penerapan pada database aplikasi/production dilakukan saat rollout.
 
    ```powershell
    .\venv\Scripts\python.exe -m alembic upgrade head
@@ -70,11 +70,9 @@ Konfigurasi APPROVED/ACTIVE/REJECTED tidak dapat diedit langsung, termasuk versi
    submit dan minta reviewer berbeda menyetujui snapshot/revisi yang sama.
 5. Periksa Preview perubahan schema dan konfirmasi. Nullable baru didukung (record lama null);
    tipe boleh berubah pada tabel kosong. Pada tabel berisi data, bigint serial menjadi date
-   didukung dengan parse_date_id dan seluruh serial valid. View mengikuti ID tab; perpindahan
+   didukung dengan parse_date_id, pilihan Format nilai tanggal = Serial Google Sheets dan seluruh nilai valid. View mengikuti ID tab; perpindahan
    target/proyeksi ikut direview. Worker menjaga ACL/data dan memperbarui hash tanpa CASCADE.
-6. DDL/view/konversi/hash transaksional; kegagalan transaksi migrasi membatalkan perubahan.
-   Jika migrasi selesai tetapi aktivasi konfigurasi gagal, schema/audit tetap tersimpan.
-   Retry hanya melanjutkan bila schema/data masih cocok dengan hasil migrasi pada audit.
+6. DDL, view, konversi, hash, aktivasi konfigurasi, audit sukses dan status job SUCCEEDED berada dalam satu transaksi. Kegagalan sebelum commit mempertahankan schema/data serta konfigurasi aktif sebelumnya. Audit kegagalan dan alasan UI dicatat setelah rollback; retry memeriksa fingerprint review kembali.
    Perubahan di luar aplikasi tetap meminta review ulang meskipun target sudah cocok.
    Rename/drop fisik, key,
    kolom wajib baru pada tabel berisi data/dependency tidak aman tetap diblokir.
@@ -231,3 +229,15 @@ Status `Tidak` pada cleansing atau `Nonaktif` pada aturan kualitas/metrik berart
 - Frontend: `npm run build` menjalankan TypeScript dan build Vite. OpenAI dan Google pada integration test memakai mock; konfigurasi/integrasi akun nyata tetap harus diuji pada lingkungan tujuan.
 - Hasil verifikasi implementasi: 63 pengujian backend lulus. Smoke test Edge headless dengan API mock juga lulus untuk login, edit/simpan draft, checklist, submit, dan approval akun berbeda tanpa exception JavaScript. Pengujian browser ini tidak mengakses data aplikasi nyata.
 - `scripts/export_api_reference.py --check` memeriksa 89 operasi serta seluruh contoh payload terhadap schema runtime.
+
+### Review perubahan schema NON_MASTER
+
+Langkah 7 menampilkan `deployment_plan.migration.comparison`: kolom lama/baru beserta tipe dan nullability, key sebelum/sesudah, target/proyeksi view dan dependency. Operasi, jumlah record lama, contoh konversi dan blocker tersedia sebelum submit/approval/deploy. Reviewer menyetujui schema dan mapping pada revisi serta fingerprint schema/data yang sama. Perubahan setelah review meminta review ulang (`SCHEMA_MIGRATION_STALE`).
+
+Untuk `bigint menjadi date` pada tabel berisi data, pilih **Format nilai tanggal = Serial Google Sheets** (`date_input_format: "GOOGLE_SHEETS_SERIAL"`) bersama `parse_date_id`. Tipe bigint atau angka dalam rentang valid saja tidak membuktikan bahwa nilainya tanggal. Konfirmasi makna sumber melalui mapping; backend memeriksa seluruh nilai non-null dan menampilkan `validation.checked`, `convertible`, `invalid`, serta contoh. Nilai di luar rentang 1..2958465 menghentikan migrasi. Mode serial eksplisit menolak text, pecahan dan nilai non-finite; mode `TEXT` memakai pola strptime dan menolak angka. Default null mempertahankan parser konfigurasi lama, tetapi tidak mengizinkan migrasi berisiko tanpa deklarasi format. Workbook menyimpan pilihan ini di `02 Struktur Kolom`, kolom AD.
+
+Worker mendukung kolom nullable baru dan perubahan tipe pada tabel kosong. View yang perlu dibuat ulang mempertahankan ACL/komentar; dependency yang tidak aman, rename/drop fisik, perubahan key dan backfill wajib diblokir. DDL, view, konversi, hash, aktivasi konfigurasi, audit sukses dan status job SUCCEEDED berada dalam satu transaksi. Kegagalan sebelum commit mempertahankan schema/data serta konfigurasi aktif sebelumnya. Audit kegagalan dan alasan UI dicatat setelah rollback; retry memeriksa fingerprint review kembali.
+
+`DATABASE_RETRY_REQUIRED`: database sibuk/timeout/konflik; tunggu lalu retry. `DATABASE_PERMISSION_DENIED`: admin memeriksa role DDL, ownership dan izin SET ke role aplikasi. Catat ID job; jangan mengubah SQL atau menghapus data untuk melewati blocker. Migrasi platform saat rollout berbeda dari perubahan schema dataset melalui aplikasi.
+
+Verifikasi 11 Oktober 2026: 497 pengujian backend tanpa integrasi (di luar workbook), 20 alur integrasi schema dan 12 tes PostgreSQL lulus. Round-trip workbook juga lulus. Frontend: 117 unit dan 15 browser test dengan API mock lulus; type-check/build statis berhasil. Export/check kontrak memeriksa 234 operasi. Tes rollback mencakup kegagalan aktivasi dan status job, dengan role runtime/DDL terpisah.

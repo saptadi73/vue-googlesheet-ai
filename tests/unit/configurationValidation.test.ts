@@ -34,6 +34,18 @@ function draft(): ETL {
   } as unknown as ETL
 }
 describe('BE12 configuration validation', () => {
+  it('requires date and parse_date_id for an explicit date input format', () => {
+    const value = draft(), c = value.columns[0]!
+    c.currency_conversion = null
+    c.numeric_precision = null
+    c.numeric_scale = null
+    c.date_input_format = 'GOOGLE_SHEETS_SERIAL'
+    expect(configurationIssues(value).some(issue => issue.field.endsWith('date_input_format'))).toBe(true)
+    c.target_type = 'date'
+    c.transformation_codes = ['parse_date_id']
+    expect(configurationIssues(value)).toEqual([])
+    expect(normalizeConfiguration(value).columns[0]!.date_input_format).toBe('GOOGLE_SHEETS_SERIAL')
+  })
   it('retains precise decimal strings and untouched metadata without mutating the draft', () => {
     const value = draft()
     const candidate = normalizeConfiguration(value)

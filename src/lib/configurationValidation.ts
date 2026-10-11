@@ -62,6 +62,7 @@ export function normalizeConfiguration(draft: ETL): ETL {
       'numeric_scale',
       'varchar_length',
       'date_format',
+      'date_input_format',
       'number_locale',
       'source_timezone',
       'unit_conversion',
@@ -93,6 +94,10 @@ export function configurationIssues(config: ETL): ConfigurationIssue[] {
       add(field, `Wajib integer ${min}..${max}.`)
   }
   for (const [index, c] of config.columns.entries()) {
+    if (c.date_input_format != null && (
+      !['TEXT', 'GOOGLE_SHEETS_SERIAL'].includes(c.date_input_format) ||
+      c.target_type !== 'date' || !c.transformation_codes.includes('parse_date_id')
+    )) add(`columns.${index}.date_input_format`, 'Pilih format tanggal untuk target date dengan parse_date_id.')
     const path = `columns[${index}] (${c.source_column})`
     const parameters = c.transform_parameters || []
     const parameterized = ['prefix', 'suffix', 'replace']

@@ -37,12 +37,14 @@ function deferred<T>() {
   return { promise, resolve }
 }
 beforeEach(() => {
+  vi.stubEnv('VITE_API_ORIGIN', '')
   vi.resetModules()
 })
 afterEach(() => {
   axios.defaults.adapter = originalAdapter
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 describe('API session contract', () => {
   it('restores a tab session and persists the rotated refresh token', async () => {

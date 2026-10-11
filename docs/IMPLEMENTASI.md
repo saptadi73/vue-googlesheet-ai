@@ -65,8 +65,8 @@ melalui `scripts/prepare_test_db.py`, terpisah dari database aplikasi `googleai`
    memfilter tenant tetap, dan query builder menambahkan tenant serta row scope dari akun database aplikasi.
 7. Metadata menggunakan composite FK untuk mencegah referensi tenant/source/tab silang. API tidak menyediakan
    SQL bebas. Role aplikasi harus dibatasi sebelum deployment produksi; RLS menyeluruh belum dipasang.
-8. DDL dan registry dapat menggunakan koneksi berbeda. Jika DDL commit tetapi aktivasi registry gagal,
-   object fisik yang belum aktif mungkin tertinggal. Retry memeriksa kompatibilitas object; tidak ada aktivasi otomatis.
+8. Deploy/rollback NON_MASTER memakai satu transaksi untuk DDL, registry, audit dan status sukses job.
+   Kegagalan aktivasi juga membatalkan perubahan schema; alasan UI dan audit gagal dicatat setelah rollback.
 9. SQL fallback bebas sengaja tidak diekspos. NL2SQL menggunakan structured plan dan dapat memilih
    relationship APPROVED yang accessible dari konteks katalog; root eksplisit tetap dikunci.
    FK master bukan izin join semantic. Pertanyaan berulang dapat dijadikan template setelah validasi dan activation.

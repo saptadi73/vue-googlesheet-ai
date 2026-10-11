@@ -229,6 +229,7 @@ export interface Column {
   numeric_scale: number | null
   varchar_length: number | null
   date_format: string | null
+  date_input_format?: 'TEXT' | 'GOOGLE_SHEETS_SERIAL' | null
   number_locale: string | null
   source_timezone: string | null
   unit_conversion: UnitConversion | null
@@ -410,7 +411,13 @@ export interface SchemaMigration {
   allowed: boolean
   requires_migration: boolean
   rows_existing: number
-  operations: { action: string; column: string; from?: string; type?: string; nullable?: boolean; conversion?: string; examples?: { before: number; after: string }[] }[]
+  operations: { action: string; column: string; from?: string; type?: string; nullable?: boolean; conversion?: string; examples?: { before: number; after: string }[]; validation?: { checked: number; convertible: number; invalid: number; declared: boolean; input_format: string | null } }[]
+  comparison?: {
+    target: string
+    columns: { column: string; before: { type: string; nullable: boolean } | null; after: { type: string; nullable: boolean } | null; changes: string[] }[]
+    keys: { before: string[][]; after: string[][]; changed: boolean }
+    view: { name: string; before_target: string[]; after_target: string; before_columns: { name: string; type: string }[]; after_columns: { name: string; type: string }[]; exists: boolean; recreate: boolean; dependencies: string[]; grants_preserved: boolean }
+  }
   blockers: string[]
   policy: string
 }

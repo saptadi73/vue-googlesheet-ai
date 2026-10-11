@@ -1,12 +1,37 @@
 import { expect, test } from '@playwright/test'
 import { configId, login, setup, sheetId, sourceId } from './fixtures'
 
+test('reviewer declares the date serial format in the saved mapping', async ({ page }) => {
+  const state = await setup(page)
+  Object.assign(state.record.configuration_json.columns[0], {
+    target_type: 'date', transformation_codes: ['parse_date_id'], date_input_format: null,
+  })
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: '3. Cleansing', exact: true }).click()
+  await page.getByRole('combobox', { name: /^Format nilai tanggal/ }).selectOption('GOOGLE_SHEETS_SERIAL')
+  await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
+  await expect.poll(() => state.requests.filter(r => r.method === 'PATCH').length).toBe(1)
+  expect(state.requests.find(r => r.method === 'PATCH')?.body.configuration.columns[0].date_input_format).toBe('GOOGLE_SHEETS_SERIAL')
+  expect(state.errors).toEqual([])
+})
+
 test('schema changes require explicit preview confirmation before submission', async ({ page }) => {
   const state = await setup(page)
   const migration = {
     fingerprint: 'b'.repeat(64), allowed: true, requires_migration: true, rows_existing: 40,
     operations: [{ action: 'SERIAL_TO_DATE', column: 'start_date', from: 'bigint', type: 'date',
-      conversion: 'GOOGLE_SHEETS_SERIAL_1899_12_30', examples: [{ before: 46023, after: '2026-01-01' }] }],
+      conversion: 'GOOGLE_SHEETS_SERIAL_1899_12_30', examples: [{ before: 46023, after: '2026-01-01' }],
+      validation: { checked: 40, convertible: 40, invalid: 0, declared: true } }],
+    comparison: {
+      target: 'trusted.events',
+      columns: [{ column: 'start_date', before: { name: 'start_date', type: 'bigint', nullable: false },
+        after: { name: 'start_date', type: 'date', nullable: false }, changes: ['TYPE'] }],
+      keys: { before: [['_tenant_id', '_row_hash']], after: [['_tenant_id', '_row_hash']], changed: false },
+      view: { name: 'semantic.v_events', before_target: ['trusted.events'], after_target: 'trusted.events',
+        before_columns: [{ name: 'start_date', type: 'bigint' }], after_columns: [{ name: 'start_date', type: 'date' }],
+        exists: true, recreate: true, dependencies: [], grants_preserved: true },
+    },
     blockers: [], policy: 'REVIEWED_NON_DESTRUCTIVE_EVOLUTION',
   }
   state.validation.deployment_plan = { migration }
@@ -15,6 +40,11 @@ test('schema changes require explicit preview confirmation before submission', a
   await page.getByRole('button', { name: /^7\./ }).click()
   const preview = page.getByRole('region', { name: 'Preview perubahan schema' })
   await expect(preview).toContainText('40 record lama')
+  const comparison = page.getByRole('region', { name: 'Perbandingan schema lama dan baru' })
+  await expect(comparison).toContainText('bigint')
+  await expect(comparison).toContainText('date')
+  await expect(comparison).toContainText('trusted.events')
+  await expect(comparison).toContainText('start_date')
   await expect(preview).toContainText('46023 → 2026-01-01')
   const checklist = page.locator('fieldset').filter({ hasText: 'Pernyataan verifikasi' })
   for (const checkbox of await checklist.getByRole('checkbox').all()) await checkbox.check()

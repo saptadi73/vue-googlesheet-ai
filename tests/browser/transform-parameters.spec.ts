@@ -16,7 +16,7 @@ test('BE12 edits ordered static transform parameters and saves the reviewed payl
   await page.getByLabel('Nilai replace Cabang').fill('lama')
   await page.getByLabel('Replacement Cabang').fill('baru')
   await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Draft tersimpan')
+  await expect(page.getByRole('status').filter({ hasText: 'Draft tersimpan' })).toBeVisible()
 
   const column = state.requests.filter((request) => request.method === 'PATCH').at(-1)?.body
     .configuration.columns[0]
