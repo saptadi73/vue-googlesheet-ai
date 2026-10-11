@@ -4,6 +4,7 @@ import EtlShell from '@/components/EtlShell.vue'
 import ErrorResponseTable from '@/components/ErrorResponseTable.vue'
 import GoogleSheetFormatGuide from '@/components/GoogleSheetFormatGuide.vue'
 import TechnicalGlossary from '@/components/TechnicalGlossary.vue'
+import AnalyticsExamples from '@/components/AnalyticsExamples.vue'
 
 const stages = [
   {
@@ -250,6 +251,7 @@ const stages = [
         <a href="#error-responses">Tabel error response</a>
         <a href="#format-google-sheet">Format Google Sheet ideal</a>
         <a href="#istilah-teknis">Istilah teknis</a>
+        <a href="#contoh-excel">Contoh Excel</a>
       </div>
     </nav>
 
@@ -339,6 +341,10 @@ const stages = [
         <RouterLink class="button" to="/import-reviews">Periksa batch</RouterLink>
         <RouterLink class="button primary" to="/dashboard">Coba dashboard</RouterLink>
       </div>
+    </section>
+    <section id="contoh-excel" class="panel guide-troubleshooting">
+      <h2>Contoh Excel untuk analitik dan action plan</h2>
+      <AnalyticsExamples />
     </section>
     <section id="istilah-teknis" class="panel guide-troubleshooting">
       <h2>Istilah teknis dalam bahasa sederhana</h2>
