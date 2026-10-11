@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { formatDefaultScalar, parseDefaultScalar } from '@/lib/defaultScalar'
+import { normalizeProductCode, suggestDatasetIdentity } from '@/lib/datasetIdentity'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import ConfigurationHistory from '@/components/ConfigurationHistory.vue'
@@ -83,7 +84,7 @@ const stepGuides = [
   {
     title: '1. Identitas dataset',
     purpose: 'Memberi nama dan arti bisnis pada dataset agar pengguna memahami satu baris data mewakili apa.',
-    instructions: ['Isi Nama bisnis yang mudah dikenali dan Kode produk data yang stabil.', 'Jelaskan isi dataset, sumbernya, dan batas cakupannya.', 'Tulis makna satu baris (grain) secara spesifik; ini membantu menghindari hitung ganda.'],
+    instructions: ['Gunakan nama file dan tab untuk mengisi saran Nama bisnis dan Kode produk data, lalu periksa atau edit. Nama tersimpan tidak ditimpa otomatis. Profil lama memakai nama sumber; profiling ulang menangkap nama file asli.', 'Kode hanya huruf ASCII/angka/underscore, diawali huruf, maksimal 63 karakter. Karakter lain pada saran diganti underscore; nama bisnis mempertahankan tanda baca yang valid dan maksimal 200 karakter.', 'Jelaskan isi dataset, sumbernya, dan batas cakupannya.', 'Tulis makna satu baris (grain) secara spesifik; ini membantu menghindari hitung ganda.'],
     example: 'Nama: Penjualan Cabang · Grain: satu baris per transaksi per produk.',
   },
   {
@@ -124,6 +125,26 @@ const stepGuides = [
   },
 ]
 const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
+const suggestedIdentity = computed(() => details.value ? suggestDatasetIdentity(
+  details.value.profile?.spreadsheet_title || details.value.source.name,
+  details.value.sheet.sheet_name,
+) : null)
+const codeNormalizationNotice = ref('')
+function normalizeIdentityCode() {
+  if (!draft.value || !canEdit.value) return
+  const before = draft.value.semantic.code
+  const after = normalizeProductCode(before)
+  if (after !== before) {
+    draft.value.semantic.code = after
+    codeNormalizationNotice.value = `Kode produk data dirapikan otomatis menjadi ${after}. Nama bisnis tidak diubah.`
+  }
+}
+function useSourceIdentity() {
+  if (!draft.value || !suggestedIdentity.value) return
+  draft.value.dataset_business_name = suggestedIdentity.value.businessName
+  draft.value.semantic.code = suggestedIdentity.value.code
+  notice.value = 'Nama bisnis dan kode diisi dari nama file/sumber dan tab. Periksa lalu simpan draft; belum ada perubahan tersimpan.'
+}
 const fieldIssues = ref<ConfigurationIssue[]>([])
 const defaultInputs = ref(new Map<Quality, string>())
 const hasInvalidDefaults = computed(
@@ -282,6 +303,7 @@ async function load() {
 }
 function payload() {
   if (!draft.value || !record.value) throw new Error('Draft belum tersedia.')
+  normalizeIdentityCode()
   if (hasInvalidDefaults.value)
     throw new Error('Perbaiki default value yang tidak valid sebelum menyimpan.')
   const configuration = normalizeConfiguration(draft.value),
@@ -745,8 +767,12 @@ onBeforeRouteUpdate(confirmLeave)
                 v-model="draft.dataset_business_name"
                 maxlength="200"
                 required /></label
-            ><label>Kode produk data<input v-model="draft.semantic.code" required /></label>
+            ><label>Kode produk data<input v-model="draft.semantic.code" required @blur="normalizeIdentityCode" pattern="[A-Za-z][A-Za-z0-9_]*" /></label>
           </div>
+          <p class="muted">Nama bisnis menerima tanda baca dan maksimal 200 karakter. Kode produk data hanya huruf ASCII, angka dan underscore, diawali huruf, maksimal 63 karakter. Kode tidak valid dirapikan otomatis saat selesai mengisi atau menyimpan; kode valid tetap dipertahankan.</p>
+          <p v-if="codeNormalizationNotice" role="status" class="notice">{{ codeNormalizationNotice }}</p>
+          <p v-if="suggestedIdentity" class="muted">Saran dari {{ details?.profile?.spreadsheet_title ? 'nama file Google Sheet pada profiling' : 'nama sumber terdaftar (profil lama; profiling ulang untuk nama file asli)' }} + tab: {{ suggestedIdentity.businessName }} · {{ suggestedIdentity.code }}</p>
+          <button type="button" @click="useSourceIdentity">Gunakan nama file dan tab</button>
           <label
             >Deskripsi<textarea
               v-model="draft.dataset_description"

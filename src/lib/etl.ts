@@ -390,6 +390,8 @@ export interface Profile {
   created_at: string
   status: string
   profile_json: {
+    spreadsheet_title?: string
+    sheet_name?: string
     row_count: number
     warnings: string[]
     columns: {
@@ -426,6 +428,7 @@ export interface Review {
   validation: Validation
   classification: SheetClassification
   profile: {
+    spreadsheet_title?: string
     columns: { source_column: string; inferred_type?: string; pii_suspected?: boolean }[]
   } | null
   capabilities: { unsupported: string[]; max_workbook_bytes: number }

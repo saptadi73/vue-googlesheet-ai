@@ -160,7 +160,8 @@ const entries: PageHelpEntry[] = [
     purpose: 'Melihat semua Data Product aktif yang dapat diakses, asal spreadsheet/tab, metadata semantic, dan peluang perbaikan untuk analitik/NL2SQL.',
     steps: [
       'Cari berdasarkan nama atau kode data product, nama sumber, tab, nama tabel, kolom, dimensi, atau metrik.',
-      'Buka spreadsheet/tab dari kolom sumber untuk memeriksa data asal.',
+      'Klik ikon mata pada Data product untuk melihat sumber/tab, tabel database, view semantic dan deskripsi di modal. Buka Google Sheet dari kolom Tindakan untuk memeriksa data asal.',
+      'Semantic dan versi ETL ditampilkan dalam satu kolom. Status pembaruan, profil terakhir, waktu konfigurasi aktif dan data dimuat juga digabung agar Peluang peningkatan lebih luas.',
       'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, metrik, deskripsi metrik, sinonim, dan relasi antardataset bila dibutuhkan.',
       'Ubah data/header di Google Sheet dan Profiling ulang sumber yang sama. Untuk mapping, dimensi, dan definisi metrik, clone konfigurasi immutable atau buat draft baru bila header lama hilang, lalu review. Nama/deskripsi produk serta unit/sinonim metrik dapat diedit admin/steward di katalog Dashboard; Governance mengelola relationship dan policy AI.',
     ],
@@ -178,6 +179,7 @@ const entries: PageHelpEntry[] = [
       'Memeriksa mapping kolom, transformasi, aturan kualitas, target, semantic metadata, dan lifecycle approval konfigurasi.',
     steps: [
       'Periksa identitas sumber dan fingerprint profil yang menjadi dasar draft.',
+      'Gunakan nama file dan tab mengisi saran identitas tanpa menyimpan/menimpa otomatis. Nama bisnis mempertahankan tanda baca valid (200 karakter); kode diawali huruf, memakai ASCII/angka/underscore (63 karakter). Profiling ulang menangkap nama file asli; profil lama memakai nama sumber.',
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
       'Lengkapi aturan kualitas, business key, strategi load, metrik, dan visualisasi.',
       'Validasi konfigurasi, simpan revisi, lalu submit untuk reviewer.',

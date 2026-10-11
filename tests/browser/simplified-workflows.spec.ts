@@ -71,10 +71,12 @@ test('manual source sync shows per-tab results and reload does not enqueue again
 })
 
 test('catalog keeps active output while a revision is updating and offers source shortcuts', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 })
   const state = await setup(page)
   await page.route('**/api/v1/semantic/data-product-inventory', (route) => route.fulfill({
     json: { status: 'success', data: [{
       ...state.product, source_id: sourceId, source_name: 'Penjualan cabang', source_code: 'sales',
+      description: 'Deskripsi khusus sumber penjualan',
       spreadsheet_id: 'sheet-file', spreadsheet_url: 'https://docs.google.com/spreadsheets/d/sheet-file/edit',
       sheet_name: 'Sales', sheet_id: 42, database_schema: 'trusted', database_table: 'sales_table', semantic_view: 'v_sales',
       configuration_id: configId, configuration_version: 1, configuration_status: 'ACTIVE',
@@ -89,10 +91,51 @@ test('catalog keeps active output while a revision is updating and offers source
   await login(page, 'admin')
   await expect(page.getByRole('cell', { name: /Sedang diperbarui/ })).toContainText('NEEDS_REVIEW')
   await expect(page.getByRole('cell', { name: /Konfigurasi aktif:/ })).toContainText('Belum dimuat')
+  const table = page.locator('.catalog-table table')
+  await expect(table.getByRole('columnheader')).toHaveText([
+    'Data product', 'Semantic / versi ETL', 'Peluang peningkatan', 'Pembaruan / terakhir dimuat', 'Tindakan',
+  ])
+  await expect(table).not.toContainText('Deskripsi khusus sumber penjualan')
+  await expect(table).not.toContainText('trusted.sales_table')
+  const semanticCell = table.locator('tbody tr').first().locator('td').nth(1)
+  await expect(semanticCell).toContainText('ETL v1')
+  await expect(semanticCell).toContainText('Semantic v1')
+  const recommendationWidth = await table.getByRole('columnheader', { name: 'Peluang peningkatan' }).evaluate(el => el.getBoundingClientRect().width)
+  const semanticWidth = await table.getByRole('columnheader', { name: 'Semantic / versi ETL' }).evaluate(el => el.getBoundingClientRect().width)
+  expect(recommendationWidth).toBeGreaterThanOrEqual(280)
+  expect(recommendationWidth).toBeGreaterThan(semanticWidth)
+  const detailsButton = page.getByRole('button', { name: 'Lihat detail produk Penjualan', exact: true })
+  await detailsButton.click()
+  const modal = page.getByRole('dialog', { name: 'Detail produk Penjualan', exact: true })
+  await expect(modal).toContainText('Penjualan cabang')
+  await expect(modal).toContainText('Sales · gid 42')
+  await expect(modal).toContainText('trusted.sales_table')
+  await expect(modal).toContainText('v_sales')
+  await expect(modal).toContainText('Deskripsi khusus sumber penjualan')
+  await page.keyboard.press('Escape')
+  await expect(modal).toHaveCount(0)
+  await expect(detailsButton).toBeFocused()
+  await page.getByRole('searchbox').fill('sales_table')
+  await expect(detailsButton).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await detailsButton.click()
+  await expect(modal).toBeVisible()
+  const modalBounds = await modal.boundingBox()
+  expect(modalBounds?.width).toBeLessThanOrEqual(390)
+  await modal.getByRole('button', { name: 'Tutup detail produk' }).click()
+  await expect(detailsButton).toBeFocused()
   await expect(page.getByRole('link', { name: 'Buka Google Sheet', exact: true })).toHaveAttribute('href', 'https://docs.google.com/spreadsheets/d/sheet-file/edit#gid=42')
   await expect(page.getByRole('link', { name: 'Buka sumber di Workspace', exact: true })).toHaveAttribute('href', `/workspace?source_id=${sourceId}`)
+  await expect(page.getByRole('link', { name: 'Revisi ETL', exact: true })).toHaveAttribute('href', `/configurations/${configId}/review`)
+  for (const name of ['Buka Google Sheet', 'Buka sumber di Workspace', 'Revisi ETL']) {
+    const shortcut = page.getByRole('link', { name, exact: true })
+    await expect(shortcut).toHaveAttribute('title', name)
+    await expect(shortcut).toHaveText('')
+    await expect(shortcut.locator('svg')).toHaveCount(1)
+  }
   expect(state.unexpected).toEqual([])
   expect(state.errors).toEqual([])
+  expect(state.requests.filter(request => request.method !== 'GET' && !request.path.startsWith('/auth/'))).toHaveLength(0)
 })
 
 test('admin can review multiple account access requests with one explicit confirmation', async ({ page }) => {

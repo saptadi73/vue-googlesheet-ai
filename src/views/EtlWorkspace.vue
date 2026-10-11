@@ -280,11 +280,13 @@ async function activateSourceAccess() {
   sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
   notice.value = 'Policy sumber aktif. Izin pengguna tetap diperiksa pada setiap akses data.'
 }
-async function selectSource() {
-  sheetId.value = ''
-  configs.value = []
-  sheets.value = []
-  profiles.value = []
+async function selectSource(preserveSelection = false) {
+  if (!preserveSelection) {
+    sheetId.value = ''
+    configs.value = []
+    sheets.value = []
+    profiles.value = []
+  }
   sourceTabTracking.value = []
   sourceTrackingError.value = ''
   deployedConfigs.value = {}
@@ -298,6 +300,10 @@ async function selectSource() {
     if (sourceId.value !== selectedId || user.value?.id !== accountId) return
     sheets.value = results[0]
     profiles.value = results[1]
+    if (preserveSelection && !sheets.value.some((sheet) => sheet.id === sheetId.value && sheet.is_present)) {
+      sheetId.value = ''
+      configs.value = []
+    }
     const deployed = await Promise.all(sheets.value
       .filter((sheet) => sheet.active_configuration_id && sheet.dataset_kind !== 'MASTER')
       .map(async (sheet) => {
@@ -445,7 +451,7 @@ async function poll(id: string, epoch: number) {
       const refreshedSourceId = result.source_id || sourceId.value
       if (refreshedSourceId) {
         sourceId.value = refreshedSourceId
-        await selectSource()
+        await selectSource(true)
       }
       await loadConfigs()
     }
@@ -1092,6 +1098,8 @@ onBeforeUnmount(() => {
         :key="sheetId"
         :sheet-id="sheetId"
         :profile="currentProfile"
+        :source-name="selectedSource?.name || ''"
+        :sheet-name="selectedSheet.sheet_name"
       />
     </section>
     <section v-if="job" class="panel" aria-live="polite">
@@ -1131,7 +1139,7 @@ onBeforeUnmount(() => {
       <p class="muted">Deploy menyiapkan struktur, bukan memuat data. Sync manual data langsung memuat tab yang lolos validasi terhadap konfigurasi aktif; tab dengan blocker berhenti untuk ditinjau. Status dan baris dimuat berasal dari riwayat proses terakhir, bukan hitungan isi tabel saat ini.</p>
       <p v-if="sourceTrackingError" class="error" role="alert">{{ sourceTrackingError }}</p>
       <div class="toolbar">
-        <button :disabled="busy" @click="run(selectSource)">Muat ulang tracking sumber</button>
+        <button :disabled="busy" @click="run(() => selectSource(true))">Muat ulang tracking sumber</button>
         <button v-if="canEdit" class="primary" :disabled="busy" @click="syncPanel?.openConfirmation()">Sync manual data</button>
       </div>
       <p v-if="canEdit" class="muted">Sync membaca seluruh tab yang siap dan langsung memuat data yang lolos. Tidak meminta approval ulang konfigurasi aktif. Tombol tetap meminta konfirmasi sebelum perubahan database.</p>
