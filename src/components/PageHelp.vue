@@ -4,6 +4,7 @@ import { CircleHelp, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import { getPageHelp } from '@/lib/pageHelp'
 import ErrorResponseTable from '@/components/ErrorResponseTable.vue'
+import GoogleSheetFormatGuide from '@/components/GoogleSheetFormatGuide.vue'
 
 const route = useRoute()
 const open = ref(false)
@@ -114,6 +115,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <li v-for="note in content.notes" :key="note">{{ note }}</li>
             </ul>
           </section>
+          <details>
+            <summary>Format Google Sheet ideal</summary>
+            <GoogleSheetFormatGuide />
+          </details>
           <details>
             <summary>Tabel error response</summary>
             <ErrorResponseTable />

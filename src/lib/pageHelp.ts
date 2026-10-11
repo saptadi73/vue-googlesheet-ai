@@ -114,6 +114,7 @@ const entries: PageHelpEntry[] = [
     purpose:
       'Menghubungkan Google Sheet, membaca struktur tab, membuat konfigurasi ETL, dan mengelola metadata akses sumber.',
     steps: [
+      'Sebelum onboarding, baca Format Google Sheet ideal pada Bantuan: header, grain/key, master, metrik dan waktu/periode wajib untuk data periodik serta waktu pengambilan.',
       'Hubungkan spreadsheet baru dengan nama, URL/ID, pemilik, domain, yurisdiksi, purpose, dan sensitivitas.',
       'Bagikan spreadsheet kepada service account backend sebagai Viewer sebelum profiling.',
       'Tekan Hubungkan & profiling sekali; baca status di dekat tombol dan buka monitor job bila discovery masih berjalan atau gagal.',

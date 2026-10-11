@@ -24,6 +24,8 @@ const input = ref<HTMLTextAreaElement | null>(null)
 let sequence = 0
 
 const starterQuestions = [
+  'Bagaimana format Google Sheet ideal untuk data analitik dan action plan?',
+  'Kolom waktu, periode dan waktu pengambilan apa yang wajib untuk data periodik?',
   'Apa penyebab SOURCE_READ_FAILED dan bagaimana menjalankan discovery ulang?',
   'Apa arti REVIEW_STALE dan DEFAULT_DENY, serta tindakan yang harus dilakukan?',
   'Bagaimana alur dari Google Sheet sampai dashboard?',

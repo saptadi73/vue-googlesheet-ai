@@ -2,6 +2,7 @@
 import { ArrowRight, CheckCircle2 } from '@lucide/vue'
 import EtlShell from '@/components/EtlShell.vue'
 import ErrorResponseTable from '@/components/ErrorResponseTable.vue'
+import GoogleSheetFormatGuide from '@/components/GoogleSheetFormatGuide.vue'
 
 const stages = [
   {
@@ -246,6 +247,7 @@ const stages = [
         <a href="#stage-6">Konfigurasi &amp; import</a>
         <a href="#stage-10">Dashboard &amp; chart</a>
         <a href="#error-responses">Tabel error response</a>
+        <a href="#format-google-sheet">Format Google Sheet ideal</a>
       </div>
     </nav>
 
@@ -335,6 +337,10 @@ const stages = [
         <RouterLink class="button" to="/import-reviews">Periksa batch</RouterLink>
         <RouterLink class="button primary" to="/dashboard">Coba dashboard</RouterLink>
       </div>
+    </section>
+    <section id="format-google-sheet" class="panel guide-troubleshooting">
+      <h2>Format Google Sheet ideal</h2>
+      <GoogleSheetFormatGuide />
     </section>
     <section id="error-responses" class="panel guide-troubleshooting">
       <h2>Tabel error response</h2>
