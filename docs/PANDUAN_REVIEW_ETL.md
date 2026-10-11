@@ -72,7 +72,11 @@ Konfigurasi APPROVED/ACTIVE/REJECTED tidak dapat diedit langsung, termasuk versi
    tipe boleh berubah pada tabel kosong. Pada tabel berisi data, bigint serial menjadi date
    didukung dengan parse_date_id dan seluruh serial valid. View mengikuti ID tab; perpindahan
    target/proyeksi ikut direview. Worker menjaga ACL/data dan memperbarui hash tanpa CASCADE.
-6. DDL/view/konversi/hash transaksional; gagal berarti dibatalkan. Rename/drop fisik, key,
+6. DDL/view/konversi/hash transaksional; kegagalan transaksi migrasi membatalkan perubahan.
+   Jika migrasi selesai tetapi aktivasi konfigurasi gagal, schema/audit tetap tersimpan.
+   Retry hanya melanjutkan bila schema/data masih cocok dengan hasil migrasi pada audit.
+   Perubahan di luar aplikasi tetap meminta review ulang meskipun target sudah cocok.
+   Rename/drop fisik, key,
    kolom wajib baru pada tabel berisi data/dependency tidak aman tetap diblokir.
    SCHEMA_MIGRATION_STALE meminta preview/review baru; SCHEMA_REVIEW_REQUIRED meminta
    clone/review versi lama tanpa bukti schema; SCHEMA_MIGRATION_BLOCKED meminta penyelesaian blocker.

@@ -50,15 +50,16 @@ test('unsafe schema blockers prevent confirming and submitting the review', asyn
   expect(state.errors).toEqual([])
 })
 
-test('approver sees submitted schema evidence and cannot approve a changed plan', async ({ page }) => {
+for (const requiresMigration of [true, false]) {
+test(`approver cannot approve a changed fingerprint with requires_migration=${requiresMigration}`, async ({ page }) => {
   const state = await setup(page)
   state.record.status = 'NEEDS_REVIEW'
   state.record.review_state = { submitted_revision: 1, schema_migration: {
     fingerprint: 'b'.repeat(64), operations: [{ action: 'ALTER_TYPE', column: 'start_date' }],
   } }
   state.validation.deployment_plan = { migration: {
-    fingerprint: 'c'.repeat(64), allowed: true, requires_migration: true, rows_existing: 40,
-    operations: [{ action: 'SERIAL_TO_DATE', column: 'start_date', from: 'bigint', type: 'date' }],
+    fingerprint: 'c'.repeat(64), allowed: true, requires_migration: requiresMigration, rows_existing: 40,
+    operations: requiresMigration ? [{ action: 'SERIAL_TO_DATE', column: 'start_date', from: 'bigint', type: 'date' }] : [],
     blockers: [], policy: 'REVIEWED_NON_DESTRUCTIVE_EVOLUTION',
   } }
   await page.goto(`/configurations/${configId}/review`)
@@ -72,6 +73,7 @@ test('approver sees submitted schema evidence and cannot approve a changed plan'
   expect(state.requests.filter(r => r.path.endsWith('/approve'))).toHaveLength(0)
   expect(state.errors).toEqual([])
 })
+}
 
 test('date review guidance covers serial parsing, view migration and correct deployment version', async ({ page }) => {
   const state = await setup(page)

@@ -120,7 +120,7 @@ const stepGuides = [
   {
     title: '7. Validasi dan persetujuan',
     purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
-    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: operasi, record lama, contoh tanggal dan blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan membatalkan DDL/konversi.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
+    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: operasi, record lama, contoh tanggal dan blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan transaksi migrasi membatalkan DDL/konversi. Jika migrasi selesai tetapi aktivasi konfigurasi gagal, schema/audit tetap tersimpan; retry memerlukan schema/data yang masih cocok dengan hasil migrasi tercatat.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
     example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
@@ -128,7 +128,8 @@ const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuid
 const schemaReviewed = ref(false)
 const schemaMigration = computed(() => details.value?.validation.deployment_plan?.migration)
 const schemaReviewStale = computed(() => record.value?.status === 'NEEDS_REVIEW' &&
-  schemaMigration.value?.requires_migration &&
+  schemaMigration.value &&
+  (record.value.review_state?.schema_migration || schemaMigration.value.requires_migration) &&
   record.value.review_state?.schema_migration?.fingerprint !== schemaMigration.value.fingerprint)
 const suggestedIdentity = computed(() => details.value ? suggestDatasetIdentity(
   details.value.profile?.spreadsheet_title || details.value.source.name,
