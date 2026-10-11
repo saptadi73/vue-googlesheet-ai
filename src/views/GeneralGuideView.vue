@@ -15,6 +15,8 @@ const stages = [
       'Buat atribut departemen, domain bisnis, yurisdiksi, purpose, dan clearance.',
       'Berikan assignment serta permission bundle dengan masa berlaku yang sesuai.',
       'Siapkan policy akses resource; gunakan Preview keputusan sebelum approval.',
+      'Untuk katalog, pilih policy SOURCE ALLOW dengan DISCOVER/READ/QUERY dan atribut unit/domain/yurisdiksi sumber. Semua atribut wajib harus menjadi assignment aktif pembaca.',
+      'Admin A membuat/submit policy, admin B approve. Reviewer berbeda dari editor menyetujui metadata sumber; admin bukan editor lalu Aktifkan policy sumber di Workspace sampai POLICY_APPROVED. ETL ACTIVE saja tidak membuka katalog.',
       'Untuk sumber yang memerlukan gate rilis, tunjuk pemeriksa IT dan approver setiap unit terkait.',
     ],
     done: 'Admin, source owner/data steward, approver, dan pengguna analitik dapat login dengan akses yang tepat.',

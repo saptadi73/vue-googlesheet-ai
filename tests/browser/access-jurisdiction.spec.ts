@@ -1,6 +1,55 @@
 import { expect, test } from '@playwright/test'
 import { login, setup } from './fixtures'
 
+test('existing policies are visible before creation and can be reloaded for reviewer approval', async ({ page }) => {
+  const state = await setup(page)
+  let status = 'IN_REVIEW'
+  let creator = 'another-admin'
+  await page.route('**/api/v1/access/policies**', async (route) => {
+    if (route.request().method() === 'POST') {
+      expect(route.request().url()).toContain('/policy-review/approve')
+      expect(route.request().postDataJSON().revision).toBe(12)
+      status = 'APPROVED'
+    }
+    await route.fulfill({ json: {
+      status: 'success',
+      data: [{
+        id: 'policy-review', code: 'READ_MARKETING_ACTIVE_SOURCES', effect: 'ALLOW',
+        actions: ['DISCOVER', 'READ', 'QUERY'], status, revision: 12, created_by: creator,
+      }],
+      meta: {}, errors: [],
+    } })
+  })
+  await page.goto('/admin')
+  await login(page, 'admin')
+  const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Access policy', exact: true }) })
+  const card = section.locator('.card-row').filter({ hasText: 'READ_MARKETING_ACTIVE_SOURCES' })
+  await expect(card).toContainText('IN_REVIEW')
+  const cardBox = await card.boundingBox()
+  const formBox = await section.getByRole('heading', { name: 'Buat policy baru', exact: true }).boundingBox()
+  expect(cardBox!.y).toBeLessThan(formBox!.y)
+  await expect(card.getByRole('button', { name: 'Approve policy' })).toBeEnabled()
+  creator = 'admin-id'
+  await section.getByRole('button', { name: 'Muat ulang policy' }).click()
+  await expect(card.getByRole('button', { name: 'Approve policy' })).toBeDisabled()
+  await expect(card).toContainText('Admin reviewer berbeda')
+  creator = 'another-admin'
+  await section.getByRole('button', { name: 'Muat ulang policy' }).click()
+  await card.getByRole('button', { name: 'Approve policy' }).click()
+  await expect(card).toContainText('APPROVED')
+  await expect(card.getByRole('button', { name: 'Revoke policy' })).toBeVisible()
+  expect(state.errors).toEqual([])
+  expect(state.unexpected).toEqual([])
+})
+
+test('empty policy list explains how to reload existing policies', async ({ page }) => {
+  await setup(page)
+  await page.goto('/admin')
+  await login(page, 'admin')
+  await expect(page.getByText('Daftar policy kosong atau belum berhasil dimuat.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Muat ulang policy' })).toBeEnabled()
+})
+
 test('admin manages access registry and effective user assignments', async ({ page }) => {
   const state = await setup(page)
   const attributes: any[] = []
@@ -235,12 +284,12 @@ test('admin manages access registry and effective user assignments', async ({ pa
     .filter({ has: page.getByRole('heading', { name: 'Access policy' }) })
   await policySection.getByLabel('Kode policy').fill('finance_query')
   await policySection.getByLabel('Nama policy').fill('Finance Query')
-  await policySection.getByLabel('Cari kode resource').fill('unknown_code')
-  await policySection.getByRole('button', { name: 'Cari resource', exact: true }).first().click()
-  await expect(policySection.getByRole('combobox', { name: 'Resource', exact: true }).locator('option')).toHaveCount(1)
-  await policySection.getByLabel('Cari kode resource').fill('FINANCE')
-  await policySection.getByRole('button', { name: 'Cari resource', exact: true }).first().click()
-  await policySection.getByRole('combobox', { name: 'Resource', exact: true }).selectOption('FINANCE_REPORT')
+  const resourceSearch = policySection.getByLabel('Cari data', { exact: true }).first()
+  await resourceSearch.fill('unknown_code')
+  await expect(policySection.getByText('Resource tidak ditemukan. Coba kata kunci lain.').first()).toBeVisible()
+  await resourceSearch.fill('FINANCE')
+  await policySection.getByRole('row').filter({ hasText: 'Finance Report' }).first().getByRole('button', { name: 'Pilih', exact: true }).click()
+  await expect(policySection.getByLabel('Resource terpilih', { exact: true })).toHaveValue('FINANCE_REPORT')
   await policySection.getByLabel('QUERY', { exact: true }).check()
   await policySection.getByLabel('EXPORT', { exact: true }).check()
   await policySection.getByLabel('Izinkan ekspor data').check()
@@ -249,7 +298,7 @@ test('admin manages access registry and effective user assignments', async ({ pa
   await expect(policySection.getByText(/FINANCE_QUERY.*DRAFT/)).toBeVisible()
   await policySection.getByRole('button', { name: 'Submit review' }).click()
   await expect(policySection.getByText(/FINANCE_QUERY.*IN_REVIEW/)).toBeVisible()
-  await policySection.getByRole('combobox', { name: 'Resource evaluasi', exact: true }).selectOption('FINANCE_REPORT')
+  await policySection.getByRole('row').filter({ hasText: 'Finance Report' }).last().getByRole('button', { name: 'Pilih', exact: true }).click()
   await policySection.getByRole('button', { name: /Evaluasi viewer/ }).click()
   await expect(policySection.locator('pre')).toContainText('POLICY_MATCH')
   await policySection.getByLabel('Aksi evaluasi').selectOption('EXPORT')

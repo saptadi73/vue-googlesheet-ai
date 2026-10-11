@@ -1131,8 +1131,56 @@ watch(evaluationResourceSearch, () => {
     </section>
     <section class="panel">
       <h2>Access policy</h2>
+      <h3>Daftar policy</h3>
+      <p class="muted">
+        Untuk menyetujui policy yang sudah dibuat, cari kartu IN_REVIEW di bawah dan klik
+        Approve policy. Tidak perlu mengisi form baru atau memilih resource.
+      </p>
+      <button :disabled="busy" @click="run(loadAccessPolicies)">Muat ulang policy</button>
+      <p v-if="!busy && !accessPolicies.length">
+        Daftar policy kosong atau belum berhasil dimuat. Klik Muat ulang policy; jika gagal,
+        periksa pesan error di atas halaman.
+      </p>
+      <div v-for="policy in accessPolicies" :key="policy.id" class="card-row">
+        <strong>{{ policy.code }} · {{ policy.effect }} · {{ policy.status }}</strong>
+        <p>{{ policy.actions.join(', ') }} · revision {{ policy.revision }}</p>
+        <div class="toolbar">
+          <button
+            v-if="policy.status === 'DRAFT'"
+            :disabled="busy"
+            @click="run(() => transitionPolicy(policy, 'submit'))"
+          >
+            Submit review
+          </button>
+          <button
+            v-if="policy.status === 'IN_REVIEW'"
+            :disabled="busy || policy.created_by === user?.id"
+            @click="run(() => transitionPolicy(policy, 'approve'))"
+          >
+            Approve policy
+          </button>
+          <button
+            v-if="policy.status === 'APPROVED'"
+            :disabled="busy"
+            @click="run(() => transitionPolicy(policy, 'revoke'))"
+          >
+            Revoke policy
+          </button>
+        </div>
+        <p v-if="policy.status === 'IN_REVIEW' && policy.created_by === user?.id" class="muted">
+          Policy ini dibuat oleh Anda. Admin reviewer berbeda harus menyetujuinya.
+        </p>
+      </div>
+      <h3>Buat policy baru</h3>
       <p class="muted">
         Policy baru selalu DRAFT. Pembuat policy tidak dapat menyetujui policy miliknya sendiri.
+      </p>
+      <p class="notice">
+        Katalog kosong walaupun ETL ACTIVE? Pilih resource SOURCE, efek ALLOW, aksi
+        DISCOVER/READ/QUERY, serta unit, domain bisnis, dan yurisdiksi yang sama dengan metadata
+        sumber. Berikan semua assignment tersebut kepada pembaca. Submit lalu approve dengan admin
+        berbeda; setelah review metadata APPROVED, aktifkan policy sumber di Workspace.
+        Policy DATA_PRODUCT saja tidak membuka sumber induk. Semua atribut wajib berarti AND.
       </p>
       <form @submit.prevent="run(createAccessPolicy)">
         <div class="grid">
@@ -1214,33 +1262,6 @@ watch(evaluationResourceSearch, () => {
           Buat policy DRAFT
         </button>
       </form>
-      <div v-for="policy in accessPolicies" :key="policy.id" class="card-row">
-        <strong>{{ policy.code }} · {{ policy.effect }} · {{ policy.status }}</strong>
-        <p>{{ policy.actions.join(', ') }} · revision {{ policy.revision }}</p>
-        <div class="toolbar">
-          <button
-            v-if="policy.status === 'DRAFT'"
-            :disabled="busy"
-            @click="run(() => transitionPolicy(policy, 'submit'))"
-          >
-            Submit review
-          </button>
-          <button
-            v-if="policy.status === 'IN_REVIEW'"
-            :disabled="busy"
-            @click="run(() => transitionPolicy(policy, 'approve'))"
-          >
-            Approve policy
-          </button>
-          <button
-            v-if="policy.status === 'APPROVED'"
-            :disabled="busy"
-            @click="run(() => transitionPolicy(policy, 'revoke'))"
-          >
-            Revoke policy
-          </button>
-        </div>
-      </div>
       <h3>Preview keputusan</h3>
       <form class="grid" @submit.prevent="run(evaluatePolicy)">
         <label

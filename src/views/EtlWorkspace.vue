@@ -867,6 +867,12 @@ onBeforeUnmount(() => {
     </section>
     <section v-if="selectedSource && reviewRoles.includes(user?.role || '')" class="panel">
       <h2>Review metadata sumber</h2>
+      <p class="muted">
+        Status ETL ACTIVE belum memberi akses katalog. Reviewer berbeda dari editor perlu menyetujui
+        metadata. Setelah itu admin bukan editor memilih policy SOURCE ALLOW yang APPROVED dan
+        mengaktifkannya sampai akses POLICY_APPROVED. Pembaca juga harus memiliki semua assignment
+        wajib policy dan role yang diizinkan produk.
+      </p>
       <button :disabled="busy" @click="run(loadReviewContext)">Tinjau metadata</button>
       <template v-if="reviewContext">
         <dl class="grid">
