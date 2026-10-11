@@ -47,3 +47,8 @@ berbeda dari registry aktif tidak dapat disimpan atau dipublikasikan.
 Konfirmasi publikasi direset ketika diff registry atau versi aktif berubah. Respons
 snapshot/mutation dari sesi atau komponen lama tidak mengisi state baru.
 Tes browser memakai mock API; otorisasi dan konkurensi PostgreSQL tetap diuji di backend.
+
+
+### Tabel error response
+
+Lihat [Error response: kemungkinan penyebab dan tindakan](ERROR_RESPONSES.md). Tabel mencakup error sumber, review/deploy schema, validasi/import, akses katalog serta layanan database/AI. Di aplikasi: **Bantuan > Tabel error response** atau **Panduan lengkap > Tabel error response**; gunakan pencarian kode. Alasan keputusan akses dan blocker batch dibedakan dari error HTTP.

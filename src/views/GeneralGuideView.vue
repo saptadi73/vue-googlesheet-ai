@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, CheckCircle2 } from '@lucide/vue'
 import EtlShell from '@/components/EtlShell.vue'
+import ErrorResponseTable from '@/components/ErrorResponseTable.vue'
 
 const stages = [
   {
@@ -244,6 +245,7 @@ const stages = [
         <a href="#stage-4">Master &amp; taxonomy</a>
         <a href="#stage-6">Konfigurasi &amp; import</a>
         <a href="#stage-10">Dashboard &amp; chart</a>
+        <a href="#error-responses">Tabel error response</a>
       </div>
     </nav>
 
@@ -333,6 +335,11 @@ const stages = [
         <RouterLink class="button" to="/import-reviews">Periksa batch</RouterLink>
         <RouterLink class="button primary" to="/dashboard">Coba dashboard</RouterLink>
       </div>
+    </section>
+    <section id="error-responses" class="panel guide-troubleshooting">
+      <h2>Tabel error response</h2>
+      <p>Catat kode, ID job, sumber/tab dan versi konfigurasi. Kode keputusan akses, temuan validasi dan blocker batch juga tercakup; tidak semuanya merupakan error HTTP.</p>
+      <ErrorResponseTable />
     </section>
   </EtlShell>
 </template>

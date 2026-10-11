@@ -24,6 +24,8 @@ const input = ref<HTMLTextAreaElement | null>(null)
 let sequence = 0
 
 const starterQuestions = [
+  'Apa penyebab SOURCE_READ_FAILED dan bagaimana menjalankan discovery ulang?',
+  'Apa arti REVIEW_STALE dan DEFAULT_DENY, serta tindakan yang harus dilakukan?',
   'Bagaimana alur dari Google Sheet sampai dashboard?',
   'Mengapa data saya belum muncul di dashboard?',
   'Kapan saya perlu membuat master data?',
