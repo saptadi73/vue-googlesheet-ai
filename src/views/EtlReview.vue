@@ -96,8 +96,8 @@ const stepGuides = [
   {
     title: '3. Cleansing',
     purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
-    instructions: ['Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id dan pilih Format nilai tanggal = Serial Google Sheets pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
-    example: 'Kolom kode: trim untuk membuang spasi tepi; pertahankan nol di depan dengan tipe text.',
+    instructions: ['Text/varchar mendapat trim otomatis sebelum transformasi: spasi tepi dibuang, spasi tengah dan nol depan tetap. Spasi saja menjadi NULL jika nullable; kolom wajib tetap error.', 'Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id dan pilih Format nilai tanggal = Serial Google Sheets pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
+    example: 'Kolom kode bertipe text: trim tepi otomatis, nol depan tetap; normalize_whitespace hanya bila spasi tengah juga perlu dirapikan.',
   },
   {
     title: '4. Kualitas data',
@@ -1033,7 +1033,7 @@ onBeforeRouteUpdate(confirmLeave)
         <template v-if="step === 2"
           ><h2>Urutan cleansing</h2>
           <p class="muted">
-            Transformasi berjalan dari atas ke bawah pada setiap kolom. Tidak ada koreksi ejaan
+            Text/varchar mendapat trim otomatis sebelum transformasi dan validasi: spasi tepi dibuang, spasi tengah dan nol depan tetap. Nilai berisi spasi saja menjadi NULL jika boleh kosong; kolom wajib tetap error. Transformasi tambahan berjalan dari atas ke bawah. Tidak ada koreksi ejaan
             otomatis tanpa aturan yang disetujui.
           </p>
           <div v-for="(c, index) in draft.columns" :key="index" class="card-row">
