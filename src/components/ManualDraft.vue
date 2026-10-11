@@ -64,7 +64,7 @@ async function create() {
   if (form.value.template === 'UPSERT' && !keyColumns.value.length) throw new Error('Template upsert memerlukan minimal satu business key.')
   if (keyColumns.value.some((column) => column.nullable)) throw new Error('Business key tidak boleh nullable.')
   const configuration: ETL = {
-    schema_version: '1.0', dataset_business_name: form.value.name, dataset_description: 'Konfigurasi dibuat dengan template manual dari hasil profiling.', grain: form.value.grain, target_schema: 'trusted', target_table: form.value.table, load_strategy: form.value.template, append_duplicate_policy: form.value.template === 'APPEND' ? 'SKIP_IDENTICAL' : null, columns: columns.value.map(fullColumn), data_quality_rules: [],
+    schema_version: '1.0', dataset_business_name: form.value.name, dataset_description: 'Konfigurasi dibuat dengan template manual dari hasil profiling.', grain: form.value.grain, target_schema: 'trusted', target_table: form.value.table, load_strategy: form.value.template, append_duplicate_policy: form.value.template === 'APPEND' && !keyColumns.value.length ? 'SKIP_IDENTICAL' : null, columns: columns.value.map(fullColumn), data_quality_rules: [],
     semantic: { code: form.value.code, dimensions: columns.value.filter((column) => column.pii_classification === 'NONE').slice(0, 8).map((column) => column.target_column), metrics: [], allowed_roles: ['PLATFORM_ADMIN', 'DATA_STEWARD', 'ANALYST', 'VIEWER'] },
     unresolved_questions: ['Periksa tipe data, business key, sensitivitas, dan aturan kualitas sebelum approval.'], overall_confidence: 1,
   }
@@ -91,6 +91,7 @@ async function create() {
           <label>Template pemuatan<select v-model="form.template"><option value="APPEND">Append — tambah baris baru</option><option value="FULL_REFRESH">Full refresh — ganti isi tabel</option><option value="UPSERT">Upsert — perbarui berdasarkan business key</option></select></label>
         </div>
         <p class="muted">APPEND cocok untuk log/transaksi dengan identitas yang sesuai. FULL_REFRESH cocok untuk snapshot lengkap. UPSERT wajib memiliki key unik dan tidak nullable. Tab MASTER memakai binding master dan batch import, bukan draft ETL NON_MASTER ini.</p>
+        <p v-if="form.template === 'APPEND'" class="notice">{{ keyColumns.length ? 'APPEND memakai key yang dipilih. Policy duplikat identik tanpa key tidak dikirim; key tetap dipertahankan.' : 'APPEND tanpa key memakai SKIP_IDENTICAL untuk melewati baris identik. Pilihan duplikat dapat diubah pada halaman review.' }}</p>
         <div class="manual-columns">
           <h3>Pemetaan kolom</h3>
           <p class="muted">Pilih tipe tujuan, tandai business key untuk UPSERT, dan tandai data sensitif agar akses dapat dibatasi.</p>
