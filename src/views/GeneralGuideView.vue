@@ -179,6 +179,9 @@ const stages = [
     done: 'Data tampil dengan angka yang dapat ditelusuri ke produk, konfigurasi, dan sumber approved.',
   },
 ]
+
+const workflowTransitionNotice =
+  'Rancangan penyederhanaan sedang ditinjau. Saat ini aplikasi masih dapat meminta review metadata sumber, review konfigurasi, approval rilis, approval batch, serta approval master/binding. Ikuti status dan blocker yang tampil di aplikasi sampai rollout perubahan diumumkan.'
 </script>
 
 <template>
@@ -358,6 +361,8 @@ const stages = [
       Ikuti tahapan berikut secara berurutan untuk membawa spreadsheet menjadi data yang
       tervalidasi, dapat diakses sesuai kewenangan, dan siap ditampilkan sebagai tabel atau chart.
     </p>
+
+    <aside class="info-banner" role="note">{{ workflowTransitionNotice }}</aside>
 
     <section class="panel guide-prerequisites">
       <h2>Sebelum mulai</h2>
