@@ -282,8 +282,8 @@
     "group": "operasi",
     "id": "approval",
     "term": "Approval",
-    "meaning": "Persetujuan reviewer terhadap versi yang diperiksa.",
-    "example": "Reviewer berwenang berbeda dari pembuat menyetujui konfigurasi; bukan izin baca otomatis.",
+    "meaning": "Keputusan pada tahap yang memang memerlukan review. Registrasi sumber tetap diperiksa approver; konfigurasi dan master dapat memakai validasi pemilik saat ETL_OWNER_WORKFLOW_ENABLED aktif.",
+    "example": "Validasi pemilik mengesahkan konfigurasi hanya setelah snapshot, dry-run, schema, checklist dan audit lolos; bukan izin baca otomatis.",
     "aliases": []
   },
   {

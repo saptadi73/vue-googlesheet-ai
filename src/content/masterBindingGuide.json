@@ -1,10 +1,10 @@
 {
   "title": "Panduan khusus binding master",
-  "intro": "Mulai dari Registry master, siapkan storage, hubungkan tab sumber, lalu muat record melalui Batch import. Definisi, binding dan pemuatan adalah persetujuan yang berbeda; binding APPROVED belum berarti record sudah dimuat.",
+  "intro": "Mulai dari Registry master, siapkan storage, hubungkan tab sumber, lalu muat record melalui Batch import. Pada mode ETL_OWNER_WORKFLOW_ENABLED, pemilik melakukan validasi definisi dan binding tanpa approver kedua; mode ini OFF secara default. Binding approved tetap belum berarti record sudah dimuat.",
   "prerequisites": [
     "Sumber Google Sheets sudah terdaftar, bisa dibaca service account sebagai Viewer, discovery dan profiling terbaru berhasil.",
     "Tab rujukan dikonfirmasi MASTER. Tab transaksi yang memakai rujukan tetap NON_MASTER.",
-    "SOURCE_OWNER, DATA_STEWARD atau PLATFORM_ADMIN menyiapkan definisi dan binding. Reviewer berwenang berbeda pembuat menyetujui definisi, binding dan batch. Deploy storage dilakukan PLATFORM_ADMIN atau TECHNICAL_APPROVER.",
+    "SOURCE_OWNER, DATA_STEWARD atau PLATFORM_ADMIN menyiapkan definisi dan binding. Jika mode owner workflow aktif, pemilik mengesahkan definisi/binding dan dapat deploy storage setelah validasi; jika OFF, jalur reviewer lama tetap berlaku.",
     "Gunakan master yang sudah ada jika identitas dan arti bisnisnya sesuai. Jangan membuat master duplikat hanya karena sumbernya berbeda.",
     "Akses sumber, assignment, policy dan gate lain yang diwajibkan tetap dipenuhi; klasifikasi MASTER atau approval binding tidak memberikan izin baca otomatis."
   ],
@@ -45,21 +45,20 @@
       "result": "Draft definisi master dengan arti field dan identitas record yang jelas."
     },
     {
-      "title": "Ajukan dan setujui definisi",
+      "title": "Validasi dan aktifkan definisi",
       "where": "Halaman definisi / review master",
-      "actor": "Editor mengajukan; reviewer berbeda memutuskan",
+      "actor": "Pemilik pada mode owner workflow; reviewer pada mode lama",
       "actions": [
-        "Simpan draft dan ajukan review definisi.",
-        "Reviewer memeriksa field, business key, label, sensitivitas dan policy, lalu approve atau reject dengan catatan.",
-        "Gunakan versi approved terbaru dari master aktif. Definisi yang belum approved tidak dapat dipilih sebagai tujuan binding.",
-        "Sebelum storage pertama dibuat, koreksi key/tipe/field wajib dapat direview dan disetujui reviewer berbeda. Backend memeriksa storage fisik dan riwayat deployment; binding lama perlu review ulang."
+        "Periksa field, business key, label, sensitivitas, policy, authority dan kandidat master serupa.",
+        "Dalam mode owner workflow, tombol Validasi & setujui definisi menjalankan pemeriksaan versi/schema dan membuat versi aktif. Dalam mode lama, ajukan review kepada reviewer berbeda.",
+        "Gunakan versi aktif terbaru. Perubahan key/tipe/field wajib tetap tunduk pada pemeriksaan storage dan schema backend; binding lama mungkin perlu diperbarui."
       ],
       "result": "Definisi master aktif memiliki versi APPROVED."
     },
     {
       "title": "Siapkan storage master",
       "where": "Master terpilih → Storage & record master",
-      "actor": "Platform Admin / Technical Approver",
+      "actor": "Pemilik dengan konfirmasi rencana bila owner workflow aktif; Platform Admin / Technical Approver pada mode lama",
       "actions": [
         "Periksa storage plan dan perubahan yang akan diterapkan.",
         "Centang konfirmasi rencana, lalu tekan Deploy storage.",
@@ -75,19 +74,19 @@
         "Pilih Master tujuan yang aktif dan memakai versi approved terbaru.",
         "Pada Mapping terhadap snapshot approved, pilih header sumber untuk setiap field yang diwajibkan, termasuk business key dan label.",
         "Tinjau transformasi dan kecocokan tipe; header harus cocok dengan profil terbaru.",
-        "Tekan Simpan binding & dry-run. Binding disimpan sebagai DRAFT; tidak ada langkah submit terpisah untuk binding tab."
+        "Tekan Simpan binding & dry-run. Mode owner workflow mengesahkan binding setelah dry-run dan snapshot lolos; mode lama menyimpan DRAFT untuk reviewer."
       ],
       "result": "Binding DRAFT tersimpan dan hasil dry-run tersedia."
     },
     {
       "title": "Periksa dry-run dan setujui binding",
       "where": "Binding master → Dry-run binding tersimpan → Keputusan binding",
-      "actor": "Editor memperbaiki; reviewer berbeda menyetujui",
+      "actor": "Pemilik memeriksa dry-run; reviewer pada mode lama",
       "actions": [
         "Periksa baris valid/bermasalah, error dan Preview data yang sudah disamarkan.",
         "Jika mapping diubah, tekan Simpan binding & dry-run lagi; preview sebelumnya hanya untuk binding tersimpan.",
-        "Reviewer memeriksa snapshot, versi master dan revisi klasifikasi, mengisi catatan, lalu menekan Setujui binding atau Tolak binding.",
-        "Jika tombol tidak aktif, periksa perubahan belum disimpan, dry-run, reviewer sama pembuat, versi master, klasifikasi dan perubahan sumber."
+        "Snapshot, versi master, revisi klasifikasi, referential checks dan profil tetap diverifikasi backend.",
+        "Jika binding masih DRAFT pada mode lama, reviewer memeriksa keputusan. Pada mode baru, status APPROVED berarti validasi selesai, bukan record sudah dimuat."
       ],
       "result": "Binding APPROVED dan sesuai versi/snapshot yang diperiksa; record belum dimuat."
     },

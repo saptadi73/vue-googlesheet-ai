@@ -49,6 +49,7 @@ const headers = computed(
 const approvalReady = computed(
   () =>
     !dirty.value &&
+    !detail.value?.owner_workflow_enabled &&
     detail.value?.binding?.status === 'DRAFT' &&
     detail.value.validation?.valid === true &&
     detail.value.binding.created_by !== user.value?.id &&
@@ -136,8 +137,9 @@ async function save() {
     columns,
   })
   await load()
-  notice.value =
-    'Binding disimpan sebagai DRAFT. Periksa dry-run dan minta approver berbeda; data belum dimuat.'
+  notice.value = detail.value?.owner_workflow_enabled
+    ? 'Binding tersimpan dan tervalidasi. Periksa kesiapan storage; data master belum dimuat.'
+    : 'Binding disimpan sebagai DRAFT. Periksa dry-run dan minta approver berbeda; data belum dimuat.'
 }
 async function decision(name: 'approve' | 'reject') {
   if (!detail.value?.binding || dirty.value)

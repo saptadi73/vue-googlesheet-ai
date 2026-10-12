@@ -43,6 +43,7 @@ export interface Master {
   submitted_by: string | null
   approved_by: string | null
   approved_at: string | null
+  owner_workflow_enabled?: boolean
 }
 export interface Candidate {
   id: string
@@ -75,6 +76,7 @@ export interface BindingDetail {
   storage_ready?: boolean
   execution_ready: boolean
   blocking_reason?: string
+  owner_workflow_enabled?: boolean
 }
 export interface MasterSourceBindings {
   master_id: string

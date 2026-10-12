@@ -17,6 +17,7 @@ interface StoragePlan {
   ddl: string
   schema_policy: string
   execution_ready: false
+  owner_workflow_enabled?: boolean
 }
 interface RecordsPage {
   items: Record<string, unknown>[]
@@ -130,7 +131,7 @@ async function loadRecords(next = 0, apply = false) {
   }
 }
 async function deploy() {
-  if (!reviewer.value || !plan.value || !confirmed.value) return
+  if (!(reviewer.value || (editRoles.includes(user.value?.role || '') && plan.value?.owner_workflow_enabled)) || !plan.value || !confirmed.value) return
   const current = generation
   const revision = plan.value.revision_no
   confirmed.value = false
@@ -196,8 +197,8 @@ onBeforeUnmount(() => {
     <RouterLink :to="`/masters/${id}`">← Definisi master</RouterLink>
     <h1>Storage &amp; record master</h1>
     <p class="notice">
-      Storage siap tidak berarti import berhasil. Jalankan preview, approval, dan apply melalui
-      halaman Batch import.
+      Storage siap tidak berarti import berhasil. Periksa preview batch dan selesaikan konflik atau
+      pertanyaan sebelum apply.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
@@ -219,7 +220,7 @@ onBeforeUnmount(() => {
           </p>
           <pre class="scroll">{{ plan.ddl }}</pre>
         </details>
-        <form v-if="reviewer" @submit.prevent="run(deploy)">
+        <form v-if="reviewer || (editRoles.includes(user?.role || '') && plan.owner_workflow_enabled)" @submit.prevent="run(deploy)">
           <label
             >Catatan deployment<textarea v-model="comment" :disabled="busy" maxlength="2000" />
           </label>
@@ -230,7 +231,7 @@ onBeforeUnmount(() => {
           <button class="primary" :disabled="busy || !confirmed">Deploy storage</button>
         </form>
         <p v-else class="muted">
-          Deployment hanya tersedia bagi Platform Admin dan Technical Approver.
+          Deployment storage memerlukan Platform Admin atau Technical Approver.
         </p>
       </template>
     </section>

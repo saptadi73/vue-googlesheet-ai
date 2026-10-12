@@ -142,7 +142,7 @@ async function save() {
     : await call<Master>('POST', '/master-definitions', { ...body, code: code.value })
   accept(result)
   await refreshStorageState()
-  notice.value = 'Draft master tersimpan. Ajukan review sebelum approval.'
+  notice.value = 'Draft master tersimpan. Periksa business key dan struktur sebelum melanjutkan.'
   if (!id.value) await router.replace(`/masters/${result.id}`)
 }
 async function action(name: string) {
@@ -154,7 +154,9 @@ async function action(name: string) {
       comment: comment.value,
     }),
   )
-  notice.value = `Keputusan tersimpan: ${record.value?.status}.`
+  notice.value = name === 'submit-review' && record.value?.status === 'APPROVED'
+    ? 'Definisi tervalidasi dan disetujui pemilik. Periksa rencana storage berikutnya.'
+    : `Keputusan tersimpan: ${record.value?.status}.`
   await refreshStorageState()
 }
 watch(
@@ -455,10 +457,11 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       </button>
     </section>
     <section v-if="record" class="panel">
-      <h2>Keputusan review</h2>
+      <h2>{{ record.owner_workflow_enabled ? 'Validasi definisi master' : 'Keputusan review' }}</h2>
       <p class="muted">
-        Approval menghasilkan versi baru dan dapat membuat binding versi lama stale. Editor/pengaju
-        tidak menyetujui definisi sendiri.
+        {{ record.owner_workflow_enabled
+          ? 'Validasi menghasilkan versi baru dan dapat membuat binding versi lama stale. Periksa business key dan schema sebelum melanjutkan.'
+          : 'Approval menghasilkan versi baru dan dapat membuat binding versi lama stale. Editor/pengaju tidak menyetujui definisi sendiri.' }}
       </p>
       <label
         >Catatan keputusan<textarea v-model="comment" maxlength="2000" :disabled="busy" />
@@ -470,7 +473,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
           :disabled="busy || dirty"
           @click="run(() => action('submit-review'))"
         >
-          Ajukan review master</button
+          {{ record.owner_workflow_enabled ? 'Validasi & setujui definisi' : 'Ajukan review master' }}</button
         ><template v-if="reviewer && record.status === 'NEEDS_REVIEW'"
           ><button
             class="primary"
