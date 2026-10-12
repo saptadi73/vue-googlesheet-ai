@@ -364,7 +364,7 @@ async function validate() {
 }
 async function submit() {
   if (!ready.value || !record.value) throw new Error('Lengkapi pemeriksaan semua bagian dan kolom.')
-  await call('POST', `${base.value}/submit-review`, {
+  const result = await call<Config>('POST', `${base.value}/submit-review`, {
     revision_no: record.value.revision_no,
     snapshot_hash: details.value?.validation.snapshot_hash,
     reviewed_columns: checkedColumns.value,
@@ -372,8 +372,9 @@ async function submit() {
     reviewed_schema_fingerprint: schemaReviewed.value ? schemaMigration.value?.fingerprint : undefined,
   })
   await load()
-  notice.value =
-    'Review diajukan. Akun technical approver yang berbeda dapat memeriksa dan menyetujuinya.'
+  notice.value = result.status === 'APPROVED'
+    ? 'Konfigurasi lolos validasi dan disetujui oleh pemilik. Anda dapat melanjutkan ke deploy.'
+    : 'Review diajukan. Akun approver yang berbeda dapat memeriksa dan menyetujuinya.'
 }
 async function decision(action: 'approve' | 'reject') {
   if (dirty.value) throw new Error('Simpan atau muat ulang perubahan terlebih dahulu.')
@@ -1581,7 +1582,7 @@ onBeforeRouteUpdate(confirmLeave)
             </div>
           </div>
           <button class="primary" :disabled="!ready" @click="run(submit)">
-            Ajukan review revisi {{ record.revision_no }}
+            {{ details.owner_workflow_enabled ? 'Validasi & setujui konfigurasi' : `Ajukan review revisi ${record.revision_no}` }}
           </button>
         </fieldset>
         <p v-if="submitted && !isMasterTab" class="success">Revisi ini sudah diajukan untuk review.</p>
@@ -1800,7 +1801,7 @@ onBeforeRouteUpdate(confirmLeave)
           <pre>{{ JSON.stringify(job.result, null, 2) }}</pre>
         </details>
       </Card>
-      <Card v-if="releaseStatus?.configured && ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(record.status)" title="Persetujuan siap tayang">
+      <Card v-if="!record.review_state?.owner_managed && releaseStatus?.configured && ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(record.status)" title="Persetujuan siap tayang">
         <p :class="releaseStatus.ready ? 'success' : 'notice'">{{ releaseStatus.ready ? 'Semua persetujuan IT dan unit terkait lengkap.' : 'Deployment menunggu persetujuan IT dan unit terkait.' }}</p>
         <div v-for="group in releaseStatus.groups" :key="group.key" class="toolbar"><strong>{{ group.label }}</strong><span>{{ group.status }}</span></div>
         <RouterLink class="button" to="/release-approvals">Buka kotak masuk persetujuan</RouterLink>
@@ -1825,9 +1826,9 @@ onBeforeRouteUpdate(confirmLeave)
           <Copy class="icon" :size="14" />Clone untuk perbaikan
         </button>
         <button
-          v-if="reviewer && record.status === 'APPROVED'"
+          v-if="(reviewer || (editor && record.review_state?.owner_managed)) && record.status === 'APPROVED'"
           class="primary"
-          :disabled="busy || !evidenceReady || (releaseStatus?.configured && !releaseStatus.ready)"
+          :disabled="busy || !evidenceReady || (!record.review_state?.owner_managed && releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/deploy`))"
         >
           <Rocket class="icon" :size="14" />Deploy konfigurasi

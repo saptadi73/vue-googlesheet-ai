@@ -293,6 +293,7 @@ export interface Config {
     submitted_by?: string
     classification_revision?: number
     dataset_kind?: 'MASTER' | 'NON_MASTER'
+    owner_managed?: boolean
     answers?: Record<string, { answer: string }>
   }
 }
@@ -452,6 +453,7 @@ export interface Review {
     columns: { source_column: string; inferred_type?: string; pii_suspected?: boolean }[]
   } | null
   capabilities: { unsupported: string[]; max_workbook_bytes: number }
+  owner_workflow_enabled: boolean
 }
 export interface ConfigurationAccessReview {
   source_id: string
