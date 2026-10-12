@@ -49,6 +49,13 @@ test('mobile helper finds the relevant sample and shows import limitations', asy
   await dialog.locator('summary').filter({ hasText: 'Cara memakai Excel / Google Sheets' }).click()
   await expect(dialog.getByText(/Tanggal contoh berupa teks ISO/)).toBeVisible()
   await expect(dialog.getByText(/UNVERIFIED adalah hipotesis/)).toBeVisible()
+  await expect(
+    dialog.getByText(/Setiap Excel memuat Formula_Analitik dan Aturan_Action_Plan/),
+  ).toBeVisible()
+  const guide = dialog.getByRole('link', { name: 'Unduh panduan aturan dan formula' })
+  const response = await page.request.get((await guide.getAttribute('href')) || '')
+  expect(response.ok()).toBe(true)
+  expect(await response.text()).toContain('POST /api/v1/analytics-rules/import-sheet')
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
 })

@@ -85,7 +85,23 @@ const examples = computed(() => {
           follow-up kosong berarti belum dievaluasi. Aplikasi tidak menetapkan tindakan bisnis yang
           pasti benar secara otomatis.
         </li>
+        <li>
+          Setiap Excel memuat Formula_Analitik dan Aturan_Action_Plan. Tandai kedua tab kontrol
+          Dikecualikan dari ETL. Impor aturan melalui API analytics-rules/import-sheet setelah
+          produk data aktif; contoh query ada di BACA_DULU dan folder rules dalam ZIP.
+        </li>
+        <li>
+          Preview dan approval reviewer berbeda diperlukan sebelum evaluate. 50% ditulis 0.50 pada
+          RATIO. Formula kosong atau penyebut nol tidak memicu tindakan. Hasil berupa usulan
+          PROPOSED dengan bukti angka; perubahan tab kontrol atau semantic memerlukan review ulang.
+        </li>
       </ol>
+      <p>
+        Alur aturan saat ini menggunakan API; wizard ETL dan chat AI belum menjalankannya otomatis.
+        <a href="/examples/analytics/PANDUAN_ATURAN_ANALITIK.md" download
+          >Unduh panduan aturan dan formula</a
+        >
+      </p>
     </details>
   </div>
 </template>
