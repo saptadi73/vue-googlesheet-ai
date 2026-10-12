@@ -80,6 +80,12 @@ async function masterSetup(page: Page) {
       return ok(master)
     }
     if (path === `/master-definitions/${master.id}` && method === 'GET') return ok(master)
+    if (path === `/master-definitions/${master.id}/storage-plan` && method === 'GET')
+      return ok({
+        storage_exists: false,
+        storage_deployed_before: false,
+        initial_definition_correction_allowed: true,
+      })
     if (path === `/master-definitions/${master.id}` && method === 'PATCH') {
       if (body.revision_no !== master.revision_no) return fail('MASTER_REVISION_CONFLICT')
       master = {
@@ -294,10 +300,7 @@ test('binding uses approved snapshot and independent revisions without offering 
   await page.getByRole('button', { name: 'Keluar / ganti akun' }).click()
   await expect(page).toHaveURL(/\/login\?redirect=/)
   await login(page, 'approver')
-  await page.getByRole('link', { name: 'Workspace ETL', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Sumber', exact: true }).selectOption(sourceId)
-  await page.getByRole('combobox', { name: 'Tab Google Sheet' }).selectOption(sheetId)
-  await page.getByRole('link', { name: 'Atur binding master' }).click()
+  await page.goto(`/sources/${sourceId}/sheets/${sheetId}/master-binding`)
   await page.getByRole('button', { name: 'Setujui binding' }).click()
   await expect(page.getByText('Metadata siap · MASTER_RUNTIME_PENDING')).toBeVisible()
   expect(mock.requests.find((r) => r.path.endsWith('/master-binding/approve'))?.body).toEqual({

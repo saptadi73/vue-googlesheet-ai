@@ -247,7 +247,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Field nullable baru dapat ditambahkan melalui approval definisi lalu redeploy storage; record lama bernilai null. Tinjau dan approve ulang binding sebelum import.',
-      'Field wajib baru, business key, tipe, rename/drop, atau perubahan nullability memerlukan migrasi yang direview (MASTER_SCHEMA_MIGRATION_REQUIRED); jangan hapus/buat ulang tabel.',
+      'Jika storage sudah ada atau pernah dideploy, field wajib baru, business key, tipe, rename/drop, atau perubahan nullability memerlukan migrasi yang direview (MASTER_SCHEMA_MIGRATION_REQUIRED); jangan hapus/buat ulang tabel. Sebelum storage pertama, koreksi definisi dapat direview dan disetujui reviewer berbeda.',
     ],
   },
   {
@@ -262,7 +262,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Untuk field nullable baru: revisi dan approve definisi, redeploy storage, lalu review binding. Record lama tetap null sampai pemuatan yang disetujui.',
-      'Field wajib baru, key, tipe, rename/drop, dan perubahan nullability bukan evolusi otomatis; perlu migrasi yang direview.',
+      'Jika storage sudah ada atau pernah dideploy, field wajib baru, key, tipe, rename/drop, dan perubahan nullability perlu migrasi yang direview. Jika storage belum dibuat dan belum pernah dideploy, koreksi definisi dapat diajukan dan disetujui reviewer berbeda; binding lama perlu review ulang.',
     ],
   },
   {

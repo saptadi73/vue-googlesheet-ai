@@ -44,6 +44,8 @@ async function storageSetup(page: Page, sensitivity = 'NONE') {
         schema_policy: 'IDENTICAL_OR_ADD_NULLABLE_ATTRIBUTES',
         execution_ready: false,
       })
+    if (path.endsWith('/source-bindings'))
+      return ok({ master_definition_id: 'example', master_version: 2, items: [] })
     if (path.endsWith('/deploy-storage')) {
       if (conflict) {
         revision = 8
@@ -108,7 +110,7 @@ test('reviewer deploys reviewed revision, preserves masking and leading zero, pa
     revision_no: 7,
     comment: 'Schema telah ditinjau',
   })
-  await expect(page.getByText('Storage siap. Lanjutkan import', { exact: false })).toBeVisible()
+  await expect(page.getByText('Storage siap. Pilih tab terikat', { exact: false })).toBeVisible()
   await expect(page.getByText('Field disamarkan oleh backend:', { exact: false })).toContainText(
     'salary',
   )

@@ -2,16 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import {
-  call,
-  copy,
-  editRoles,
-  reviewRoles,
-  types,
-  user,
-  type Sheet,
-  type Source,
-} from '@/lib/etl'
+import { call, copy, editRoles, reviewRoles, types, user, type Sheet, type Source } from '@/lib/etl'
 import { blankDefinition, validateDefinition, type Candidate, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 const route = useRoute(),
@@ -46,6 +37,30 @@ async function loadAuthoritativeSheets() {
 }
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
 const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const storageState = ref<{
+  initial_definition_correction_allowed: boolean
+  storage_exists: boolean
+  storage_deployed_before: boolean
+} | null>(null)
+const storageStateError = ref('')
+async function refreshStorageState() {
+  storageState.value = null
+  storageStateError.value = ''
+  const master = record.value
+  if (!master?.approved_definition_json) return
+  try {
+    const result = await call<typeof storageState.value>(
+      'GET',
+      `/master-definitions/${master.id}/storage-plan`,
+    )
+    if (record.value?.id === master.id && record.value.revision_no === master.revision_no)
+      storageState.value = result
+  } catch {
+    if (record.value?.id === master.id)
+      storageStateError.value =
+        'Status storage belum dapat diperiksa. Buka Storage & record atau muat ulang; backend tetap memeriksa keamanan saat approval.'
+  }
+}
 function payload() {
   const definition = copy(draft.value)
   // A field may be renamed or removed after being selected as a business key.
@@ -91,7 +106,10 @@ async function load() {
   const requested = id.value
   if (requested) {
     const master = await call<Master>('GET', `/master-definitions/${requested}`)
-    if (requested === id.value) accept(master)
+    if (requested === id.value) {
+      accept(master)
+      await refreshStorageState()
+    }
   }
 }
 async function preview() {
@@ -123,6 +141,7 @@ async function save() {
       })
     : await call<Master>('POST', '/master-definitions', { ...body, code: code.value })
   accept(result)
+  await refreshStorageState()
   notice.value = 'Draft master tersimpan. Ajukan review sebelum approval.'
   if (!id.value) await router.replace(`/masters/${result.id}`)
 }
@@ -136,6 +155,7 @@ async function action(name: string) {
     }),
   )
   notice.value = `Keputusan tersimpan: ${record.value?.status}.`
+  await refreshStorageState()
 }
 watch(
   serialized,
@@ -152,6 +172,8 @@ watch(
   (_, previous) => {
     if (previous?.[1] === user.value && id.value && record.value?.id === id.value) return
     record.value = null
+    storageState.value = null
+    storageStateError.value = ''
     code.value = ''
     draft.value = blankDefinition()
     aliases.value = ''
@@ -203,6 +225,17 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
       {{ record.approved_version }}
     </p>
     <p v-if="dirty" class="notice">Perubahan belum disimpan.</p>
+    <p v-if="storageState?.initial_definition_correction_allowed" class="notice" role="status">
+      Storage belum dibuat dan belum pernah dideploy. Koreksi key, tipe atau field wajib sebelum
+      deployment pertama dapat diajukan melalui review definisi dan approval reviewer berbeda.
+      Binding versi sebelumnya perlu diperiksa ulang.
+    </p>
+    <p v-else-if="storageState" class="notice" role="status">
+      Storage sudah ada atau pernah dideploy. Perubahan key, tipe, nullability, rename/drop atau
+      field wajib baru memerlukan migrasi yang direview. Field nullable baru memakai approval
+      definisi, redeploy storage dan review binding. Jangan hapus atau buat ulang tabel.
+    </p>
+    <p v-if="storageStateError" class="notice" role="status">{{ storageStateError }}</p>
     <form class="panel" @submit.prevent="run(preview)">
       <fieldset :disabled="busy || !editor || (!!id && !record)">
         <h2>Identitas &amp; schema</h2>
@@ -280,9 +313,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               (draft.business_key.length >= 10 && !draft.business_key.includes(field.name))
             "
             @change="
-              ($event.target as HTMLInputElement).checked
-                ? (field.nullable = false)
-                : undefined
+              ($event.target as HTMLInputElement).checked ? (field.nullable = false) : undefined
             "
           />{{ field.name }}</label
         ><label
@@ -382,10 +413,13 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
               </option>
             </select></label
           >
-          <p>Awal inklusif, akhir eksklusif; overlap ditolak saat preview dan apply.
-            Business key harus memuat awal berlaku yang non-null dan minimal satu key entitas.
-            Akhir berlaku bukan key; null berarti tanpa batas akhir. Versi tersimpan immutable.
-            Perubahan key atau policy master approved memerlukan migrasi yang direview.
+          <p>
+            Awal inklusif, akhir eksklusif; overlap ditolak saat preview dan apply. Business key
+            harus memuat awal berlaku yang non-null dan minimal satu key entitas. Akhir berlaku
+            bukan key; null berarti tanpa batas akhir. Versi tersimpan immutable. Jika storage sudah
+            ada atau pernah dideploy, perubahan key atau policy master approved memerlukan migrasi
+            yang direview. Sebelum storage pertama dibuat, koreksi definisi tetap melalui review dan
+            approval reviewer berbeda.
           </p>
         </div>
         <button>Preview kandidat master</button>

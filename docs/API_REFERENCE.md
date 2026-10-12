@@ -1907,3 +1907,15 @@ Lihat [panduan aturan dan formula](PANDUAN_ATURAN_ANALITIK.md). Draft immutable 
 | POST | `/analytics-rules/{bundle_id}/preview` | EDIT_ROLES/REVIEW_ROLES; hasil PREVIEW sebelum approval, formula/blocker/usulan dapat diperiksa. |
 | POST | `/analytics-rules/{bundle_id}/decision` | Reviewer konfigurasi sumber berbeda pembuat; expected_hash, APPROVE/REJECT/REVOKE, reason; REVOKE menghentikan aturan APPROVED. |
 | POST | `/analytics-rules/{bundle_id}/evaluate` | Hanya aturan APPROVED dan hash semantic/tab kontrol saat ini; hasil berbasis query yang direview. |
+
+
+### Koreksi definisi master sebelum storage pertama
+
+Storage plan master juga mengembalikan `storage_exists`, `storage_deployed_before`, dan
+`initial_definition_correction_allowed`. Sebelum storage pertama, koreksi key/tipe/field wajib
+boleh melalui revisi definisi dan approval reviewer berbeda. Backend memeriksa katalog PostgreSQL
+serta audit deployment sambil memegang lock registry master yang juga dipakai deploy storage.
+Jika storage ada atau pernah dideploy, evolusi yang tidak kompatibel tetap ditolak dengan
+`MASTER_SCHEMA_MIGRATION_REQUIRED`, termasuk ketika tabel kosong atau pernah dihapus.
+Audit approval mempertahankan versi lama dan menandai `initial_schema_correction`.
+
