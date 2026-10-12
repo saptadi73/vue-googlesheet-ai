@@ -1918,4 +1918,3 @@ serta audit deployment sambil memegang lock registry master yang juga dipakai de
 Jika storage ada atau pernah dideploy, evolusi yang tidak kompatibel tetap ditolak dengan
 `MASTER_SCHEMA_MIGRATION_REQUIRED`, termasuk ketika tabel kosong atau pernah dihapus.
 Audit approval mempertahankan versi lama dan menandai `initial_schema_correction`.
-
