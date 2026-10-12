@@ -171,7 +171,15 @@ const canApply = computed(
     !preview.value.read_only &&
     !preview.value.blocking_codes?.length &&
     review.value.dependencies_current !== false &&
-    review.value.status === 'APPROVED',
+    ((review.value.status === 'APPROVED') ||
+      (review.value.owner_workflow_enabled &&
+        review.value.status === 'READY_FOR_APPROVAL' &&
+        !!preview.value.preview_hash &&
+        preview.value.can_approve &&
+        !preview.value.blocking_codes?.length &&
+        preview.value.review.revision_no === review.value.revision_no &&
+        (!preview.value.requires_source_confirmation ||
+          (acceptSourceConflicts.value && !!comment.value.trim())))),
 )
 const questionStatusItems: Array<'' | ImportQuestion['status']> = [
   '',
@@ -461,16 +469,26 @@ async function approveBatch() {
 }
 async function applyBatch() {
   if (!review.value || !preview.value) return
-  const token = preview.value.preview_token
+  const reviewedPreview = preview.value
+  const token = reviewedPreview.preview_token
   if (!canApply.value || !token) return
   preview.value = null
   const epoch = generation
-  const result = await applyImportReview(id.value, review.value.revision_no, token)
+  const result = await applyImportReview(
+    id.value,
+    review.value.revision_no,
+    token,
+    reviewedPreview.preview_hash,
+    !!reviewedPreview.requires_source_confirmation && acceptSourceConflicts.value,
+    comment.value,
+  )
   if (epoch !== generation) return
   review.value = result.review
   appliedRows.value = result.rows_applied
   appliedPeriods.value = result.periods_closed ?? 0
-  notice.value = `Apply selesai. ${result.rows_applied} baris ditulis, ${result.periods_closed ?? 0} periode ditutup.`
+  notice.value = result.review.checkpoint.approval_mode === 'OWNER_VALIDATED'
+    ? `Validasi pemilik dan apply selesai. ${result.rows_applied} baris ditulis, ${result.periods_closed ?? 0} periode ditutup.`
+    : `Apply selesai. ${result.rows_applied} baris ditulis, ${result.periods_closed ?? 0} periode ditutup.`
   await Promise.all([loadFindings(), loadQuestions()])
 }
 async function resolveReference() {
@@ -622,12 +640,12 @@ onBeforeUnmount(() => {
         </div>
         <p v-if="['READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)" class="muted">
           Revalidate mencabut approval dan preview lama. Tunggu validasi selesai, lalu preview dan
-          approve ulang.
+          {{ review.owner_workflow_enabled ? 'apply ulang setelah meninjau preview.' : 'approve ulang.' }}
         </p>
       </section>
       <section class="panel">
         <h2>Preview dan apply</h2>
-        <p v-if="canReview && !canEdit" class="notice">
+        <p v-if="canReview && !canEdit && !review.owner_workflow_enabled" class="notice">
           Baca preview editor sebelum menyetujui batch.
         </p>
         <label v-if="closureEligible"
@@ -672,7 +690,7 @@ onBeforeUnmount(() => {
           </button>
           <button class="primary" :disabled="busy || !canPreview" @click="run(previewBatch)">
             Buat preview</button
-          ><button :disabled="busy || !canApprove" @click="run(approveBatch)">
+          ><button v-if="!review.owner_workflow_enabled" :disabled="busy || !canApprove" @click="run(approveBatch)">
             Approve preview</button
           ><button :disabled="busy || !canApply" @click="run(applyBatch)">Apply batch</button>
         </div>
@@ -685,7 +703,7 @@ onBeforeUnmount(() => {
           </p>
           <p>
             Target {{ preview.target }} · hash {{ preview.preview_hash }} ·
-            {{ preview.can_approve ? 'siap approval' : 'belum siap approval' }}
+            {{ preview.can_approve ? (review.owner_workflow_enabled ? 'siap apply oleh pemilik' : 'siap approval') : 'belum siap' }}
           </p>
           <pre>{{ JSON.stringify(preview.summary, null, 2) }}</pre>
           <p v-if="preview.blocking_codes?.length" class="error">
@@ -699,7 +717,7 @@ onBeforeUnmount(() => {
             <h3>Konflik sumber</h3>
             <DataTable :rows="preview.source_conflicts || []" />
             <p>Konfirmasi mencakup seluruh konflik, termasuk CLOSE_PERIOD, pada preview ini.</p>
-            <label v-if="canReview" class="check">
+            <label v-if="canReview || (canEdit && review.owner_workflow_enabled)" class="check">
               <input
                 v-model="acceptSourceConflicts"
                 type="checkbox"
@@ -707,7 +725,7 @@ onBeforeUnmount(() => {
               />
               Saya menyetujui seluruh konflik sumber pada preview ini
             </label>
-            <p>Isi Catatan aksi dengan alasan pemilihan sumber sebelum approval.</p>
+            <p>Isi Catatan aksi dengan alasan pemilihan sumber sebelum apply.</p>
           </section>
           <DataTable :rows="previewRows" />
           <h3>Penutupan periode: {{ closureRows.length }}</h3>

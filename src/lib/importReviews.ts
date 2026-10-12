@@ -40,6 +40,7 @@ export interface ImportCheckpoint {
   ai_masked_fields?: string[]
   ai_metadata?: Record<string, unknown>[]
   last_error_code?: string | null
+  approval_mode?: string
 }
 
 export interface ImportReview {
@@ -64,6 +65,7 @@ export interface ImportReview {
   finding_count: number
   dependencies_current?: boolean
   execution_ready: boolean
+  owner_workflow_enabled?: boolean
 }
 
 export interface Finding {
@@ -256,10 +258,16 @@ export async function applyImportReview(
   reviewId: string,
   revisionNo: number,
   previewToken: string,
+  previewHash?: string,
+  acceptSourceConflicts = false,
+  approvalComment = '',
 ) {
   return call<ImportReviewApplyResult>('POST', `/import-reviews/${reviewId}/apply`, {
     revision_no: revisionNo,
     preview_token: previewToken,
+    preview_hash: previewHash,
+    accept_source_conflicts: acceptSourceConflicts,
+    approval_comment: approvalComment.trim(),
   })
 }
 

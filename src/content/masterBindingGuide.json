@@ -109,7 +109,7 @@
       "actions": [
         "Selesaikan pertanyaan wajib, nilai tidak valid, kandidat record baru dan konflik sesuai policy.",
         "Jalankan Preview dan periksa record baru/update, konflik, dependency serta dampak pemuatan.",
-        "Reviewer berbeda menyetujui preview yang diperiksa; setelah approval, editor menjalankan Apply.",
+        "Pada owner workflow, pemilik menjalankan Apply setelah preview bersih; konflik sumber memerlukan centang konfirmasi dan alasan pemilik. Pada mode lama, reviewer berbeda tetap menyetujui preview sebelum editor Apply.",
         "Pantau sampai SUCCEEDED dan periksa jumlah record dimuat. Jika data/snapshot berubah, gunakan review terbaru sesuai pesan blocker."
       ],
       "result": "Apply sukses; record rujukan benar-benar masuk ke storage master."
