@@ -69,9 +69,24 @@ const registrationDuplicateIds = ref<string[]>([])
 const metadataEdit = ref(emptyAccessMetadata())
 type ReviewContext = {
   source_id: string
+  spreadsheet_id: string
   can_decide: boolean
   access_revision: number
+  registration_review_mode: boolean
   review_status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  review_fingerprint: string
+  tabs: {
+    source_sheet_id: string
+    sheet_id: number
+    sheet_name: string
+    enabled: boolean
+    present: boolean
+    dataset_kind: 'MASTER' | 'NON_MASTER' | null
+    classification_status: string
+    profile_status: string
+    row_count: number | null
+    columns: { source_column: string | null; inferred_type: string | null; pii_suspected: boolean }[]
+  }[]
   attributes: Record<string, { code: string; label: string; is_active: boolean } | null>
   people: Record<string, { username: string; is_active: boolean } | null>
   sensitivity: string | null
@@ -172,6 +187,11 @@ const canDecideReview = computed(() => Boolean(
 ))
 const canApproveReview = computed(() => Boolean(
   canDecideReview.value && reviewContext.value &&
+  (!reviewContext.value.registration_review_mode || (
+    reviewContext.value.tabs.length > 0 &&
+    reviewContext.value.tabs.filter((tab) => tab.enabled && tab.present).every((tab) =>
+      tab.profile_status === 'SUCCEEDED' && tab.classification_status === 'CONFIRMED')
+  )) &&
   Object.values(reviewContext.value.attributes).every((item) => item?.is_active) &&
   Object.values(reviewContext.value.people).every((item) => item?.is_active),
 ))
@@ -232,7 +252,9 @@ async function saveAccessMetadata() {
   })
   if (sourceId.value !== source.id || user.value?.id !== accountId) return
   sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
-  notice.value = 'Metadata akses sumber tersimpan. Policy akses perlu ditinjau.'
+  notice.value = updated.access_status === 'POLICY_APPROVED'
+    ? 'Metadata tersimpan. Akses default mengikuti domain dan unit pemilik.'
+    : 'Metadata akses sumber tersimpan. Policy akses perlu ditinjau.'
 }
 async function loadReviewContext() {
   const source = selectedSource.value
@@ -252,10 +274,13 @@ async function decideReview(decision: 'APPROVE' | 'REJECT') {
     revision_no: source.access_revision,
     decision,
     reason: decision === 'APPROVE' ? 'METADATA_VERIFIED' : rejectReason.value,
+    review_fingerprint: reviewContext.value?.review_fingerprint,
   })
   if (sourceId.value !== source.id || user.value?.id !== accountId) return
   sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
-  notice.value = 'Review metadata tersimpan. Akses data tetap memerlukan policy.'
+  notice.value = updated.access_status === 'POLICY_APPROVED'
+    ? 'Registrasi sumber disetujui. Pemilik dapat melanjutkan proses ETL.'
+    : 'Review metadata tersimpan. Akses data tetap memerlukan policy.'
 }
 async function loadPolicyOptions() {
   const source = selectedSource.value
@@ -906,12 +931,14 @@ onBeforeUnmount(() => {
       </form>
     </section>
     <section v-if="selectedSource && reviewRoles.includes(user?.role || '')" class="panel">
-      <h2>Review metadata sumber</h2>
-      <p class="muted">
-        Status ETL ACTIVE belum memberi akses katalog. Reviewer berbeda dari editor perlu menyetujui
-        metadata. Setelah itu admin bukan editor memilih policy SOURCE ALLOW yang APPROVED dan
-        mengaktifkannya sampai akses POLICY_APPROVED. Pembaca juga harus memiliki semua assignment
-        wajib policy dan role yang diizinkan produk.
+      <h2>Review registrasi sumber</h2>
+      <p v-if="reviewContext?.registration_review_mode" class="muted">
+        Periksa metadata pemilik dan seluruh tab yang ditemukan. Ringkasan menampilkan struktur tanpa
+        nilai sel; gunakan tautan spreadsheet untuk memeriksa isi sumber. Perubahan tab/profil setelah
+        panel dibuka membuat keputusan lama kedaluwarsa.
+      </p>
+      <p v-else class="muted">
+        Periksa metadata akses sumber. Sumber dan data product tetap mengikuti policy akses yang berlaku.
       </p>
       <button :disabled="busy" @click="run(loadReviewContext)">Tinjau metadata</button>
       <template v-if="reviewContext">
@@ -926,9 +953,40 @@ onBeforeUnmount(() => {
           </div>
           <div><dt>Sensitivitas</dt><dd>{{ reviewContext.sensitivity || 'Tidak tersedia' }}</dd></div>
         </dl>
+        <p v-if="reviewContext.registration_review_mode"><a :href="`https://docs.google.com/spreadsheets/d/${reviewContext.spreadsheet_id}/edit`" target="_blank" rel="noopener noreferrer">
+          Buka spreadsheet untuk meninjau isi sumber
+        </a></p>
+        <h3 v-if="reviewContext.registration_review_mode">Semua tab yang ditemukan</h3>
+        <div v-if="reviewContext.registration_review_mode && !reviewContext.tabs.length" class="notice">
+          Belum ada tab ditemukan. Jalankan Discovery sebelum menyetujui sumber.
+        </div>
+        <table v-if="reviewContext.registration_review_mode && reviewContext.tabs.length" class="review-tabs-table">
+          <thead><tr><th>Tab</th><th>Klasifikasi</th><th>Profil</th><th>Baris</th><th>Kolom</th><th>Keikutsertaan</th></tr></thead>
+          <tbody>
+            <tr v-for="tab in reviewContext.tabs" :key="tab.source_sheet_id">
+              <td>{{ tab.sheet_name }}<span v-if="!tab.present"> · tidak ditemukan</span></td>
+              <td>{{ tab.classification_status === 'CONFIRMED' ? tab.dataset_kind : 'Belum diklasifikasi' }}</td>
+              <td>{{ tab.profile_status }}</td>
+              <td>{{ tab.row_count ?? '—' }}</td>
+              <td>
+                <details>
+                  <summary>{{ tab.columns.length }} kolom</summary>
+                  <ul><li v-for="column in tab.columns" :key="`${tab.source_sheet_id}-${column.source_column}`">
+                    {{ column.source_column }} · {{ column.inferred_type || 'unknown' }}
+                    <span v-if="column.pii_suspected">· indikasi PII</span>
+                  </li></ul>
+                </details>
+              </td>
+              <td>{{ tab.enabled && tab.present ? 'Diproses' : 'Dikecualikan' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="reviewContext.registration_review_mode && reviewContext.tabs.some((tab) => tab.enabled && tab.present && (tab.profile_status !== 'SUCCEEDED' || tab.classification_status !== 'CONFIRMED'))" class="notice">
+          Selesaikan profiling dan klasifikasi pada setiap tab yang akan diproses, atau kecualikan tab tersebut sebelum approval.
+        </p>
         <div class="metadata-review-actions">
           <button class="primary" :disabled="busy || !canApproveReview" @click="run(() => decideReview('APPROVE'))">
-            Setujui metadata
+            {{ reviewContext.registration_review_mode ? 'Setujui registrasi sumber' : 'Setujui metadata' }}
           </button>
           <label>Alasan penolakan<select v-model="rejectReason">
             <option value="SCOPE_MISMATCH">Scope tidak sesuai</option>
@@ -936,7 +994,7 @@ onBeforeUnmount(() => {
             <option value="OTHER">Alasan lain</option>
           </select></label>
           <button :disabled="busy || !canDecideReview" @click="run(() => decideReview('REJECT'))">
-            Tolak metadata
+            {{ reviewContext.registration_review_mode ? 'Tolak registrasi sumber' : 'Tolak metadata' }}
           </button>
         </div>
       </template>
