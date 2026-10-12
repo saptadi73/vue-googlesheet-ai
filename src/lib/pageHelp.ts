@@ -161,7 +161,8 @@ const entries: PageHelpEntry[] = [
   {
     matches: exact('/data-catalog'),
     title: 'Katalog tabel hasil ETL',
-    purpose: 'Melihat semua Data Product aktif yang dapat diakses, asal spreadsheet/tab, metadata semantic, dan peluang perbaikan untuk analitik/NL2SQL.',
+    purpose:
+      'Melihat semua Data Product aktif yang dapat diakses, asal spreadsheet/tab, metadata semantic, dan peluang perbaikan untuk analitik/NL2SQL.',
     steps: [
       'Cari berdasarkan nama atau kode data product, nama sumber, tab, nama tabel, kolom, dimensi, atau metrik.',
       'Klik ikon mata pada Data product untuk melihat sumber/tab, tabel database, view semantic dan deskripsi di modal. Buka Google Sheet dari kolom Tindakan untuk memeriksa data asal.',
@@ -241,7 +242,8 @@ const entries: PageHelpEntry[] = [
       'Tinjau storage plan dan DDL yang akan diterapkan.',
       'Reviewer mengonfirmasi dan menjalankan deploy storage.',
       'Cari record menggunakan nilai bisnis atau filter periode.',
-      'Gunakan Batch import untuk menambah atau memperbarui record; halaman ini tidak melewati proses approval.',
+      'Pada Sumber master terikat, pastikan tab Siap diimpor lalu tekan Buat batch review/import dengan akun editor.',
+      'Selesaikan temuan batch, Preview, approval reviewer berbeda, lalu Apply. Periksa hasil di Record kanonis; binding approved belum memuat record.',
     ],
     notes: [
       'Field nullable baru dapat ditambahkan melalui approval definisi lalu redeploy storage; record lama bernilai null. Tinjau dan approve ulang binding sebelum import.',
@@ -268,10 +270,11 @@ const entries: PageHelpEntry[] = [
     title: 'Binding sumber ke master',
     purpose: 'Memetakan kolom tab sumber ke field master approved.',
     steps: [
-      'Pilih master tujuan yang sesuai dengan isi tab.',
-      'Petakan setiap field wajib ke header sumber.',
-      'Tinjau transformasi dan hasil validasi mapping.',
-      'Simpan draft binding, lalu submit dan approve sebelum menjalankan import.',
+      'Pastikan tab MASTER terkonfirmasi, profil terbaru tersedia, definisi master approved aktif dan storage siap. Ikuti panduan khusus di /guide#binding-master.',
+      'Pilih Master tujuan pada versi approved terbaru; petakan field wajib, business key dan label ke header sumber yang benar.',
+      'Tinjau transformasi dan tipe, lalu tekan Simpan binding & dry-run. Binding tersimpan sebagai DRAFT; tidak ada submit binding tab terpisah.',
+      'Periksa Dry-run binding tersimpan; simpan ulang jika mapping berubah. Reviewer berbeda mengisi catatan lalu Setujui binding atau Tolak binding.',
+      'Setelah APPROVED, buka Storage & record master → Sumber master terikat → Buat batch review/import. Lanjutkan Preview, approval dan Apply sebelum record tersedia.',
     ],
   },
   {
@@ -429,7 +432,8 @@ const entries: PageHelpEntry[] = [
       },
       {
         label: 'Pendaftaran sumber',
-        value: 'Centang unit di Berikan unit; pilih domain dan yurisdiksi pada form Atribut untuk akun yang akan login.',
+        value:
+          'Centang unit di Berikan unit; pilih domain dan yurisdiksi pada form Atribut untuk akun yang akan login.',
       },
       {
         label: 'Approver per sumber',
@@ -437,14 +441,16 @@ const entries: PageHelpEntry[] = [
       },
       {
         label: 'Persetujuan tayang',
-        value: 'Sumber gabungan: IT, Penjualan Malang, dan Keuangan; satu akun berbeda per kelompok.',
+        value:
+          'Sumber gabungan: IT, Penjualan Malang, dan Keuangan; satu akun berbeda per kelompok.',
       },
     ],
   },
   {
     matches: exact('/release-approvals'),
     title: 'Persetujuan sebelum tayang',
-    purpose: 'Mencatat pemeriksaan IT dan persetujuan unit terkait untuk revisi konfigurasi yang akan live.',
+    purpose:
+      'Mencatat pemeriksaan IT dan persetujuan unit terkait untuk revisi konfigurasi yang akan live.',
     steps: [
       'Cari nama sumber, data product, status, revisi, atau kelompok approver pada tabel. Daftar hanya berisi konfigurasi yang ditugaskan kepada akun Anda.',
       'Pilih satu konfigurasi untuk membuka ringkasan dan keputusan tiap kelompok.',
@@ -452,7 +458,12 @@ const entries: PageHelpEntry[] = [
       'Pilih kelompok yang menjadi tanggung jawab Anda. Pemeriksa IT melengkapi checklist skema, kualitas, dan keamanan; isi catatan, lalu setujui atau tolak.',
       'Deploy atau rollback baru dapat dilakukan setelah IT dan setiap unit terkait berstatus approved pada revisi yang sama.',
     ],
-    examples: [{ label: 'Lintas unit', value: 'IT, Penjualan Malang, dan Keuangan masing-masing menyetujui revisi yang sama.' }],
+    examples: [
+      {
+        label: 'Lintas unit',
+        value: 'IT, Penjualan Malang, dan Keuangan masing-masing menyetujui revisi yang sama.',
+      },
+    ],
     notes: [
       'Assignment unit dan penunjukan nama approver keduanya diperlukan; approval tidak memberi akses query data.',
       'Jika revisi, snapshot review, atau aturan rilis berubah, keputusan lama tidak berlaku. Penolakan meminta versi baru atau peninjauan aturan oleh admin.',
