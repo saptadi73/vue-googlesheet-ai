@@ -71,8 +71,15 @@ watch(
       <p v-if="classification.blocking_reason" class="notice">
         {{ classification.blocking_reason.code }}: {{ classification.blocking_reason.message }}
       </p>
+      <p v-else-if="classification.dataset_kind === 'MASTER'" class="success">
+        Binding dan storage siap untuk Batch Import master. MASTER tetap tidak dimuat lewat
+        konfigurasi atau sync ETL biasa.
+      </p>
       <p v-else class="success">
         Gate klasifikasi terpenuhi. Validasi data, approval, dan konfigurasi aktif tetap diperlukan.
+      </p>
+      <p v-if="classification.dataset_kind === 'MASTER' && classification.standard_etl_blocking_reason" class="muted">
+        {{ classification.standard_etl_blocking_reason.code }} hanya berlaku untuk konfigurasi/sync ETL biasa.
       </p>
       <form @submit.prevent="run(save)">
         <fieldset :disabled="busy || disabled || !editor">

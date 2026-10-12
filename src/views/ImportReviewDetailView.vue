@@ -6,6 +6,7 @@ import DataTable from '@/components/DataTable.vue'
 import { call, editRoles, reviewRoles, user } from '@/lib/etl'
 import {
   answerImportReviewQuestion,
+  dismissImportAISuggestions,
   applyImportReview,
   approveImportReview,
   type Finding,
@@ -75,6 +76,7 @@ interface QuestionAnswerDraft {
   proposedMasterDefinitionId: string
 }
 const comment = ref(''),
+  aiDismissReason = ref(''),
   questionDrafts = ref<Record<string, QuestionAnswerDraft>>({})
 const findingRows = computed(() => findings.value as Record<string, unknown>[])
 const previewRows = computed(() => (preview.value?.changes || []) as Record<string, unknown>[])
@@ -323,6 +325,31 @@ function applyQuestionResponse(response: ImportQuestionActionResponse) {
     if (index >= 0) questions.value[index] = updated
   }
 }
+async function dismissAiSuggestions() {
+  if (!review.value) return
+  const reason = aiDismissReason.value.trim()
+  if (reason.length < 10) throw new Error('Isi alasan minimal 10 karakter.')
+  if (
+    !window.confirm(
+      'Tandai semua saran nilai AI sebagai telah ditinjau? Nilai sumber dan staging tidak akan diubah.',
+    )
+  )
+    return
+  const result = await dismissImportAISuggestions(id.value, review.value.revision_no, reason)
+  if (result.stale) {
+    notice.value = 'Sumber atau konfigurasi berubah. Muat ulang dan buat batch baru.'
+    await load()
+    return
+  }
+  review.value = result.review
+  preview.value = null
+  aiDismissReason.value = ''
+  notice.value = result.dismissed_count
+    ? `${result.dismissed_count} saran AI ditandai telah ditinjau. Tidak ada nilai yang diubah.`
+    : 'Tidak ada saran VALUE_ISSUE terbuka. Periksa pertanyaan duplikat atau risiko privasi.'
+  await Promise.all([loadFindings(), loadQuestions()])
+}
+
 async function answerQuestion(question: ImportQuestion) {
   const response = await answerImportReviewQuestion(
     id.value,
@@ -822,6 +849,34 @@ onBeforeUnmount(() => {
             </option></select
           ><button :disabled="busy" @click="run(() => loadQuestions(0))">Muat ulang</button>
         </div>
+        <div
+          v-if="
+            canEdit &&
+            review.status === 'NEEDS_INPUT' &&
+            review.checkpoint.blocking_codes?.includes('AI_REVIEW_ISSUES')
+          "
+          class="notice"
+        >
+          <p>
+            Saran umum AI tidak mengubah data. Anda dapat menandai VALUE_ISSUE sebagai telah ditinjau;
+            exact duplicate dan risiko privasi tetap harus diperiksa satu per satu.
+          </p>
+          <label for="ai-dismiss-reason">Alasan peninjauan steward</label>
+          <textarea
+            id="ai-dismiss-reason"
+            v-model="aiDismissReason"
+            minlength="10"
+            maxlength="2000"
+            rows="3"
+            placeholder="Contoh: temuan istilah ini hanya saran; validasi tipe, key, dan kualitas sudah diperiksa."
+          />
+          <button
+            :disabled="busy || aiDismissReason.trim().length < 10"
+            @click="run(dismissAiSuggestions)"
+          >
+            Tandai saran AI telah ditinjau
+          </button>
+        </div>
         <p v-if="!questions.length" class="muted">Belum ada pertanyaan untuk batch ini.</p>
         <article v-for="item in questionItems" :key="item.question.id" class="card-row">
           <h3>
@@ -831,9 +886,8 @@ onBeforeUnmount(() => {
           <p>{{ item.question.prompt }}</p>
           <p v-if="item.question.review_message">{{ item.question.review_message }}</p>
           <p v-if="item.question.category === 'AI_REVIEW'" class="muted">
-            Temuan AI tetap wajib ditinjau. Jika nilai memang sah, pilih Konfirmasi nilai asli sah
-            dan isi alasan. Jangan konfirmasi dugaan data pribadi atau salah mapping tanpa verifikasi.
-            Keputusan dicatat; preview dan approval reviewer tetap diperlukan sebelum Apply.
+            Temuan {{ item.question.review_issue_kind || 'AI' }} perlu diperiksa. Jangan konfirmasi dugaan
+            data pribadi atau exact duplicate tanpa verifikasi; koreksi tidak menulis balik ke Sheet.
           </p>
           <p>
             Kolom {{ item.question.source_column || '�' }} =>

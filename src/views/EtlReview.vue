@@ -124,7 +124,33 @@ const stepGuides = [
     example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
-const activeStepGuide = computed(() => helpStep.value === null ? null : stepGuides[helpStep.value] || null)
+const ownerWorkflow = computed(() => {
+  const result = details.value
+  if (!result?.owner_workflow_enabled) return false
+  return result.configuration.review_state?.owner_managed === true ||
+    ['AI_DRAFT', 'NEEDS_REVIEW'].includes(result.configuration.status)
+})
+const finalStepLabel = computed(() => ownerWorkflow.value ? 'Validasi & deploy' : 'Validasi & persetujuan')
+const activeStepGuide = computed(() => {
+  if (helpStep.value === null) return null
+  const guide = stepGuides[helpStep.value]
+  if (!guide) return null
+  if (helpStep.value === 6 && ownerWorkflow.value) {
+    return {
+      ...guide,
+      title: '7. Validasi dan deploy',
+      purpose: 'Memastikan konfigurasi dan data valid sebelum pemilik mengaktifkan tabel.',
+      instructions: [
+        'Jalankan Dry-run dan baca jumlah baris, temuan, serta lokasi baris/field bila ada error. Perbaiki sumber atau mapping, lalu validasi ulang.',
+        'Periksa Preview perubahan schema, dampak view, key, dan blocker. Konfirmasi perubahan yang ditampilkan; perubahan berbahaya tetap ditolak.',
+        'Periksa kembali checklist dan mapping yang sudah ditinjau. Tekan Validasi & setujui konfigurasi untuk menyimpan hasil validasi pemilik pada snapshot terbaru.',
+        'Setelah status konfigurasi siap, Deploy mengaktifkan tabel. Sync data baru dapat dijalankan setelah job Deploy berhasil.',
+        'Alur owner-managed tidak memerlukan approval konfigurasi atau approval rilis IT/unit kedua. Perubahan snapshot, mapping invalid, konflik schema, dan aturan kualitas tetap memblokir deploy.',
+      ],
+    }
+  }
+  return guide
+})
 const schemaReviewed = ref(false)
 const schemaMigration = computed(() => details.value?.validation.deployment_plan?.migration)
 function schemaChangeLabel(change: string) {
@@ -189,6 +215,16 @@ const isDraft = computed(
 const editor = computed(() => !!user.value && editRoles.includes(user.value.role))
 const canEdit = computed(() => editor.value && isDraft.value)
 const reviewer = computed(() => !!user.value && reviewRoles.includes(user.value.role))
+const canRollbackOwnerManaged = computed(() => {
+  const actor = user.value
+  const metadata = details.value?.source.access_metadata
+  if (!actor || !details.value?.configuration.review_state?.owner_managed) return false
+  if (actor.role === 'PLATFORM_ADMIN') return true
+  return (
+    editRoles.includes(actor.role) &&
+    [metadata?.data_owner_user_id, metadata?.data_steward_user_id].includes(actor.id)
+  )
+})
 const dirty = computed(
   () =>
     !!draft.value &&
@@ -298,11 +334,19 @@ async function run(action: () => Promise<void>) {
 }
 async function load() {
   const epoch = generation
-  const [result, catalog, release] = await Promise.all([
+  const [result, catalog] = await Promise.all([
     call<Review>('GET', `${base.value}/review`),
     call<typeof parameterCatalog.value>('GET', '/configurations/parameter-catalog'),
-    call<typeof releaseStatus.value>('GET', `/release-approvals/configurations/${configId.value}`),
   ])
+  if (epoch !== generation) return
+  const config = result.configuration
+  const pendingOwnerPath = result.owner_workflow_enabled &&
+    (config.review_state?.owner_managed === true || ['AI_DRAFT', 'NEEDS_REVIEW'].includes(config.status))
+  const releaseRequired = !pendingOwnerPath &&
+    (!result.owner_workflow_enabled || ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(config.status))
+  const release = releaseRequired
+    ? await call<typeof releaseStatus.value>('GET', `/release-approvals/configurations/${configId.value}`)
+    : null
   if (epoch !== generation) return
   details.value = result
   parameterCatalog.value = catalog
@@ -773,8 +817,8 @@ onBeforeRouteUpdate(confirmLeave)
           </button>
         </div>
         <div class="step-control">
-          <button class="step-tab" :class="{ active: step === 6 }" :aria-current="step === 6 ? 'step' : undefined" @click="step = 6">7. Validasi &amp; persetujuan</button>
-          <button class="step-help" type="button" aria-label="Petunjuk langkah 7: Validasi dan persetujuan" title="Petunjuk validasi dan persetujuan" @click="helpStep = 6">
+          <button class="step-tab" :class="{ active: step === 6 }" :aria-current="step === 6 ? 'step' : undefined" @click="step = 6">7. {{ finalStepLabel }}</button>
+          <button class="step-help" type="button" :aria-label="`Petunjuk langkah 7: ${finalStepLabel}`" :title="`Petunjuk ${finalStepLabel}`" @click="helpStep = 6">
             <CircleHelp :size="16" aria-hidden="true" />
           </button>
         </div>
@@ -1493,7 +1537,7 @@ onBeforeRouteUpdate(confirmLeave)
             Saya sudah memeriksa perubahan schema dan arti konversi tanggal serial.
           </label>
           <p v-if="record?.review_state?.schema_migration" class="muted">Rencana perubahan schema tersimpan dalam bukti pengajuan review revisi ini.</p>
-          <p v-if="schemaReviewStale" class="error" role="alert">Rencana schema berubah atau belum direview. Editor perlu memeriksa preview terkini dan mengajukan review ulang sebelum approval.</p>
+          <p v-if="schemaReviewStale" class="error" role="alert">Rencana schema berubah atau belum diperiksa. Periksa preview terbaru dan simpan validasi ulang sebelum deploy.</p>
           <details v-if="record?.review_state?.schema_migration">
             <summary>Bukti rencana schema yang diajukan</summary>
             <pre>{{ JSON.stringify(record.review_state.schema_migration, null, 2) }}</pre>
@@ -1582,10 +1626,12 @@ onBeforeRouteUpdate(confirmLeave)
             </div>
           </div>
           <button class="primary" :disabled="!ready" @click="run(submit)">
-            {{ details.owner_workflow_enabled ? 'Validasi & setujui konfigurasi' : `Ajukan review revisi ${record.revision_no}` }}
+            {{ ownerWorkflow ? 'Simpan validasi pemilik' : `Ajukan review revisi ${record.revision_no}` }}
           </button>
         </fieldset>
-        <p v-if="submitted && !isMasterTab" class="success">Revisi ini sudah diajukan untuk review.</p>
+        <p v-if="submitted && !isMasterTab" class="success">
+          {{ ownerWorkflow ? 'Validasi pemilik tersimpan. Lanjutkan ke Deploy setelah status siap.' : 'Revisi ini sudah diajukan untuk review.' }}
+        </p>
         <div v-if="!isMasterTab && reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
           <h3>Keputusan approver</h3>
           <p class="muted">
@@ -1772,16 +1818,17 @@ onBeforeRouteUpdate(confirmLeave)
         </div>
       </details>
       <ConfigurationHistory :config="record" :disabled="busy || dirty" />
-      <Card v-if="reviewer && record.status === 'SUPERSEDED'" title="Rollback konfigurasi">
+      <Card v-if="((reviewer && !record.review_state?.owner_managed) || canRollbackOwnerManaged) &&
+        record.status === 'SUPERSEDED'" title="Rollback konfigurasi">
         <p class="notice">
           Mengaktifkan versi ini mengganti konfigurasi aktif. Ini tidak memulihkan data historis.
-          Snapshot yang disetujui akan diperiksa ulang.
+          Snapshot yang disetujui akan diperiksa ulang. Pada konfigurasi owner-managed, aksi ini hanya dapat dilakukan data owner, steward terdaftar, atau Platform Admin.
         </p>
         <label class="check"
           ><input v-model="rollbackAcknowledged" type="checkbox" :disabled="busy" />Saya sudah
           memeriksa versi yang akan diaktifkan kembali.</label
         ><button
-          :disabled="busy || !rollbackAcknowledged || !evidenceReady || (releaseStatus?.configured && !releaseStatus.ready)"
+          :disabled="busy || !rollbackAcknowledged || !evidenceReady || (!record.review_state?.owner_managed && releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/rollback`))"
         >
           Antrekan rollback versi ini

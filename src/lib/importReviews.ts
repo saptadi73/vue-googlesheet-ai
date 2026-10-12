@@ -93,6 +93,7 @@ export interface ImportQuestion {
   category: ImportQuestionCategory
   prompt: string
   review_message?: string
+  review_issue_kind?: 'VALUE_ISSUE' | 'EXACT_DUPLICATE' | 'PRIVACY_RISK'
   mandatory: boolean
   allowed_actions: ImportQuestionAction[]
   candidates: ImportQuestionCandidate[]
@@ -116,6 +117,12 @@ export interface ImportQuestionActionResponse {
   question: ImportQuestion | null
   review: ImportReview
   stale: boolean
+}
+
+export interface ImportAISuggestionsDismissResult {
+  review: ImportReview
+  stale: boolean
+  dismissed_count: number
 }
 
 export interface ImportQuestionResolve {
@@ -209,6 +216,18 @@ export async function answerImportReviewQuestion(
     'POST',
     `/import-reviews/${reviewId}/questions/${questionId}/answer`,
     payload,
+  )
+}
+
+export async function dismissImportAISuggestions(
+  reviewId: string,
+  revisionNo: number,
+  reason: string,
+) {
+  return call<ImportAISuggestionsDismissResult>(
+    'POST',
+    `/import-reviews/${reviewId}/dismiss-ai-suggestions`,
+    { revision_no: revisionNo, reason: reason.trim() },
   )
 }
 

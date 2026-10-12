@@ -270,11 +270,11 @@ const entries: PageHelpEntry[] = [
     title: 'Binding sumber ke master',
     purpose: 'Memetakan kolom tab sumber ke field master approved.',
     steps: [
-      'Pastikan tab MASTER terkonfirmasi, profil terbaru tersedia, definisi master approved aktif dan storage siap. Ikuti panduan khusus di /guide#binding-master.',
+      'Pastikan tab MASTER terkonfirmasi, profil terbaru tersedia, definisi master aktif/tervalidasi dan storage siap. Ikuti panduan khusus di /guide#binding-master.',
       'Pilih Master tujuan pada versi approved terbaru; petakan field wajib, business key dan label ke header sumber yang benar.',
-      'Tinjau transformasi dan tipe, lalu tekan Simpan binding & dry-run. Binding tersimpan sebagai DRAFT; tidak ada submit binding tab terpisah.',
-      'Periksa Dry-run binding tersimpan; simpan ulang jika mapping berubah. Reviewer berbeda mengisi catatan lalu Setujui binding atau Tolak binding.',
-      'Setelah APPROVED, buka Storage & record master → Sumber master terikat → Buat batch review/import. Lanjutkan Preview, approval dan Apply sebelum record tersedia.',
+      'Tinjau transformasi dan tipe, lalu tekan Simpan binding & dry-run. Owner workflow mengesahkan binding lewat validasi; workflow legacy menyimpan DRAFT.',
+      'Periksa hasil dry-run dan kesiapan storage. Jika snapshot, tipe, field wajib, atau business key tidak cocok, binding tetap tertahan dan tidak dapat diimpor.',
+      'Saat binding dan storage siap, buka Storage & record master → Sumber master terikat → Buat batch review/import. Pemilik Apply setelah preview valid pada owner workflow; legacy mengikuti review yang tampil.',
     ],
   },
   {

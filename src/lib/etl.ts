@@ -485,6 +485,8 @@ export interface SheetClassification {
   confirmed_by: string | null
   confirmed_at: string | null
   execution_ready: boolean
+  execution_path?: 'MASTER_BATCH_IMPORT'
+  standard_etl_blocking_reason?: { code: string; message: string } | null
   blocking_reason: { code: string; message: string } | null
   master_binding?: unknown
 }
