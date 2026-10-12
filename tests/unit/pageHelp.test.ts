@@ -51,11 +51,12 @@ describe('page help registry', () => {
     expect(review).toContain('Worker mendukung nullable baru')
     expect(review).toContain('Dry-run lulus tidak menjamin')
   })
-  it('explains combined metadata approval and validated direct sync consistently', () => {
+  it('explains initial source approval and owner-managed sync separately from legacy review', () => {
     const review = getPageHelp('/configurations/config-id/review').steps.join(' ')
-    expect(review).toContain('approval gabungan')
-    expect(review).toContain('metadata PENDING')
-    expect(review).toContain('tidak ada approval sebagian')
+    expect(review).toContain('owner workflow')
+    expect(review).toContain('release kedua tidak diperlukan')
+    expect(review).toContain('Konfigurasi legacy')
+    expect(review).not.toContain('approval gabungan')
     for (const route of ['/sources', '/workspace']) {
       const help = getPageHelp(route)
       const content = [...help.steps, ...(help.notes || [])].join(' ')
@@ -64,12 +65,26 @@ describe('page help registry', () => {
       expect(content).toContain('baris asli')
       expect(content).toContain('NEEDS_INPUT')
     }
+    expect(getPageHelp('/workspace').steps.join(' ')).toContain('Approval awal sumber')
   })
   it('explains source tracking and safe unlink/restore flow', () => {
     const help = getPageHelp('/sources')
     expect(help.title).toContain('Sumber')
     expect(help.steps.join(' ')).toContain('pagination')
     expect(help.notes?.join(' ')).toContain('dua konfirmasi')
+  })
+
+  it('separates initial source approval from owner-managed ETL and legacy release review', () => {
+    const batch = getPageHelp('/import-reviews').steps.join(' ')
+    expect(batch).toContain('approval awal sumber')
+    expect(batch).toContain('owner-managed')
+    expect(batch).toContain('legacy')
+
+    const releases = getPageHelp('/release-approvals')
+    const content = [...releases.steps, ...(releases.notes || [])].join(' ')
+    expect(content).toContain('Approval awal sumber/tab')
+    expect(content).toContain('tidak memerlukan approval konfigurasi/rilis berulang')
+    expect(content).toContain('konfigurasi legacy')
   })
 
   it('points ETL reviewers to guidance for each wizard step', () => {

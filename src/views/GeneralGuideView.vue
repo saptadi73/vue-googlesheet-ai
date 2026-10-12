@@ -112,19 +112,18 @@ const stages = [
   },
   {
     number: 7,
-    title: 'Review, approve, dan deploy',
-    owner: 'TECHNICAL_APPROVER lalu editor',
+    title: 'Validasi dan deploy',
+    owner: 'Data owner / steward',
     to: '/workspace',
     action: 'Buka konfigurasi',
     purpose:
-      'Memastikan konfigurasi aman dan disetujui sebelum membuat target atau menjalankan pemuatan.',
+      'Memastikan konfigurasi aman melalui pemeriksaan sistem, lalu owner mengaktifkan target dan menjalankan pemuatan.',
     steps: [
-      'Editor submit konfigurasi setelah preview dan checklist lengkap.',
-      'Approver yang berbeda memeriksa diff, DQ, sensitivitas, target, dan semantic metadata.',
-      'Approver membaca ringkasan metadata dan memilih policy SOURCE APPROVED, lalu menyetujui konfigurasi dan akses dalam satu transaksi. Jika ada blocker, tidak ada approval sebagian; baca helper approval gabungan.',
-      'Jika aturan siap tayang aktif, IT dan setiap unit terkait menyetujui revisi yang sama di Persetujuan tayang.',
-      'Setelah semua persetujuan lengkap, editor menjalankan deploy dan mengaktifkan konfigurasi.',
-      'Tidak perlu kembali ke approval metadata satu per satu setelah approval gabungan berhasil. Jika metadata diubah lagi, akses dicabut dan perlu approval gabungan baru atau jalur review metadata admin yang tetap tersedia.',
+      'Pemilik menyimpan draft dan menjalankan validasi; backend memeriksa snapshot, mapping, kualitas, akses, key, dan rencana schema.',
+      'Perbaiki blocker yang ditampilkan. Konfirmasi hanya diperlukan untuk perubahan schema atau konflik bisnis yang berdampak, bukan untuk setiap bagian konfigurasi.',
+      'Persetujuan manusia dilakukan satu kali ketika sumber dan tab didaftarkan. Approval konfigurasi dan release IT/unit tidak diulang.',
+      'Data owner atau steward yang tercatat menjalankan deploy setelah validasi lulus.',
+      'Jalankan sync setelah job deploy SUCCEEDED; audit mencatat pelaku dan revisi konfigurasi.',
     ],
     done: 'Konfigurasi ACTIVE, target/semantic view tersedia, dan produk data lolos kebijakan akses.',
   },
@@ -138,11 +137,11 @@ const stages = [
       'Memuat data valid sesuai konfigurasi aktif yang disetujui, tanpa approval batch tambahan pada sync langsung NON_MASTER.',
     steps: [
       'Gunakan Sync manual per sumber di Sumber & tracking atau Workspace. Konfirmasi pembacaan/biaya AI, pantau job dan hasil per tab; tidak perlu menunggu jadwal mingguan.',
-      'NON_MASTER ACTIVE dengan approval reviewer berbeda, akses POLICY_APPROVED dan rilis siap langsung dimuat jika validasi teknis, AI dan preview konflik lolos.',
+      'Konfigurasi owner-managed aktif dengan akses POLICY_APPROVED langsung divalidasi dan dimuat. Incremental maupun FULL_REFRESH dapat berjalan tanpa approval rutin; konflik, stale source, dan baris invalid tetap menghentikan proses.',
       'Periksa status serta Baris dimuat per tab. Job sync induk berhasil belum membuktikan semua tab sudah dimuat.',
       'Menunggu tindakan berarti berhenti. Tekan Lihat detail berikon mata untuk kode, keterangan, nomor baris asli Sheet dan kolom. Selesaikan temuan dengan verifikasi pemilik data.',
       'Setelah batch sync langsung siap tanpa blocker, Sync manual kembali dapat melanjutkan pemuatan. Jika snapshot/dependency berubah, gunakan batch terbaru; revalidate tidak mengganti dependency lama.',
-      'Master, FULL_REFRESH, jadwal dan batch biasa tidak memakai jalur langsung. Batch biasa/master tetap preview, approval reviewer, lalu Apply.',
+      'FULL_REFRESH mengganti seluruh baris target hanya setelah validasi penuh; jika gagal, data lama tetap utuh. Perubahan schema dan konflik bisnis tetap perlu ditangani di Workspace.',
     ],
     done: 'Batch per tab SUCCEEDED; Baris dimuat dan waktu pemuatan tersedia.',
   },
@@ -181,7 +180,7 @@ const stages = [
 ]
 
 const workflowTransitionNotice =
-  'Rancangan penyederhanaan sedang ditinjau. Saat ini aplikasi masih dapat meminta review metadata sumber, review konfigurasi, approval rilis, approval batch, serta approval master/binding. Ikuti status dan blocker yang tampil di aplikasi sampai rollout perubahan diumumkan.'
+  'Approval manusia dilakukan saat registrasi awal sumber. Setelah itu pemilik menyelesaikan konfigurasi, validasi, deploy, dan sync; sistem menghentikan hanya masalah validitas, akses, kualitas, atau integritas yang perlu diperbaiki.'
 </script>
 
 <template>

@@ -123,8 +123,9 @@ watch(sheetId, () => {
     ><p class="eyebrow">IMPORT REVIEW</p>
     <h1>Review batch import</h1>
     <p class="notice">
-      Batch memakai snapshot tersimpan. Setelah blocker selesai, gunakan preview, approval, lalu
-      apply dari detail batch.
+      Batch memakai snapshot tersimpan. Buka detail untuk memeriksa temuan dan tindakan yang sesuai:
+      pemilik dapat melanjutkan batch owner-managed yang valid; batch legacy mengikuti review yang
+      ditampilkan.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <section v-if="editor" class="panel">

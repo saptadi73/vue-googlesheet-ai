@@ -11,6 +11,18 @@ Contohnya meliputi `jenis_biaya`, `jatim`, metadata sumber, business key master,
 pertanyaan bahasa alami. Konten ini mengikuti [contoh pengisian aplikasi](CONTOH_ISIAN_APLIKASI.md)
 dan tetap dapat dibaca tanpa memanggil AI.
 
+Navigasi review ETL menampilkan status masing-masing dari enam bagian checklist dan langkah validasi
+terakhir. Tanda centang berarti bagian sudah dicentang untuk revisi saat ini; tanda seru berarti
+draft berubah sehingga pemeriksaan perlu diulang. Langkah terakhir membedakan job gagal, validasi
+siap, pengajuan review legacy, dan konfigurasi aktif. Pesan di atas navigasi menampilkan blocker
+atau tindakan berikutnya. Status ini membantu steward melanjutkan pekerjaan dan tidak menggantikan
+dry-run, validasi backend, atau pemeriksaan sumber terbaru.
+
+Pada tabel Sumber & tracking, petunjuk kolom Approval IT menjelaskan pemeriksaan awal registrasi
+sumber/tab. Persetujuan itu bukan approval berulang untuk setiap konfigurasi. Batch import dan
+Persetujuan tayang membedakan aksi owner-managed dari kompatibilitas legacy; owner-managed yang
+valid dilanjutkan pemilik, sementara baris legacy tetap mengikuti review yang memang ditampilkan.
+
 Bantuan Administrasi juga menerangkan pilihan multi-unit eksplisit dan reviewer per sumber.
 Unit induk tidak otomatis membuka unit bawahan. Reviewer metadata, konfigurasi, dan import
 ditunjuk terpisah; penunjukan tidak memberi hak membaca data.
@@ -29,6 +41,13 @@ nullable memakai approval definisi dan deploy-storage ulang; perubahan yang tida
 memerlukan migrasi khusus. Label bulan/minggu tanpa tahun bukan tanggal transaksi.
 Tanggal kejadian dan batas rekap periode harus dijelaskan terpisah dengan kalender bisnis
 yang eksplisit. Detail: [perubahan sumber dan periode](PANDUAN_REVIEW_ETL.md#perubahan-sumber-kolom-dan-periode-waktu).
+
+Petunjuk Sumber & tracking menjelaskan pemantauan perubahan file: polling metadata Drive
+mengubah status menjadi CHANGE_DETECTED, mencatat actor Sistem, lalu memicu discovery dan
+profiling. Notifikasi Job & ETL membuka sumber terkait. Pemilik memperbarui draft dan
+mengajukan review baru bila snapshot lama menjadi stale; notifikasi tertutup sesudah
+profiling otomatis menyelesaikan perubahan yang tidak memerlukan revisi atau review baru
+lolos validasi. Google Drive modifiedTime tidak mengungkap identitas editor eksternal.
 
 Bantuan **Persetujuan tayang** menjelaskan keputusan IT dan setiap unit terkait untuk
 revisi konfigurasi approved. Administrasi menyediakan pilihan akun/unit bernama;

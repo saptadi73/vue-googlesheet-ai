@@ -24,7 +24,7 @@ type TrackedSource = Source & {
   sheets: SourceSheetTracking[]
 }
 type StageFailure = { stage: string; status: string; code?: string | null; message?: string | null; occurred_at?: string | null; job_kind?: string }
-type StageKey = 'discovery' | 'profiling' | 'configuration' | 'database'
+type StageKey = 'discovery' | 'profiling' | 'configuration' | 'registrationApproval' | 'database'
 type HistoryEvent = { id: string; occurred_at: string; stage: string; status: string; event: string; summary: string; actor_name?: string | null; error_code?: string | null; error_message?: string | null; details?: Record<string, unknown>; attention?: ProcessAttention | null }
 const rows = ref<TrackedSource[]>([])
 const total = ref(0)
@@ -69,8 +69,9 @@ const columns = [
 const stageGuides: Record<StageKey, { title: string; steps: string[] }> = {
   discovery: { title: 'Discovery: menemukan tab Google Sheet', steps: ['Pastikan URL spreadsheet benar dan file sudah dibagikan ke service account backend sebagai Viewer.', 'Pilih sumber di Workspace ETL lalu tekan Temukan tab atau jalankan Hubungkan & profiling untuk sumber baru.', 'Tunggu job selesai. Jika gagal, buka monitor job dan tindak lanjuti pesan/kode error sebelum mencoba lagi.'] },
   profiling: { title: 'Profiling: membaca header dan contoh struktur data', steps: ['Pilih sumber dan tab di Workspace ETL setelah discovery menemukan tab. Edit data/header di Google Sheet; adapter hanya membaca.', 'Pastikan baris header benar, setiap nama kolom terisi, dan tidak ada header yang sama setelah normalisasi.', 'Setelah tambah/rename header, tekan Profiling ulang pada sumber yang sama, bukan daftarkan ulang. Muat ulang tampilan tidak membaca Sheet. Pengaturan header/range/enabled terkunci jika konfigurasi aktif (CONFIGURATION_CONFLICT).'] },
-  configuration: { title: 'Konfigurasi atau binding master', steps: ['Konfirmasi klasifikasi tab sebagai MASTER atau NON_MASTER.', 'Untuk NON_MASTER, petakan source_column persis header profil. Clone konfigurasi approved/active/rejected ke draft; bila header lama hilang dan clone gagal, buat draft baru. Untuk MASTER, pilih master approved lalu review binding field wajib.', 'Validasi, simpan, ajukan review, dan tunggu approval. Target NON_MASTER existing hanya CREATE_ONLY_OR_IDENTICAL; tambah/rename kolom, tipe atau nullability memerlukan migrasi manual yang direview (SCHEMA_CHANGE_UNSAFE).'] },
-  database: { title: 'Pemuatan data ke database', steps: ['Pastikan konfigurasi aktif atau binding master sudah approved dan dependency siap.', 'Untuk NON_MASTER dengan konfigurasi aktif yang disetujui, Sync manual langsung memuat data jika semua validasi lolos.', 'Menunggu tindakan berarti pemuatan berhenti pada temuan, bukan masih berjalan. Tekan Lihat detail untuk melihat penyebab dan buka batch untuk tindak lanjut. Master dan batch biasa tetap melalui review.'] },
+  configuration: { title: 'Konfigurasi atau binding master', steps: ['Konfirmasi klasifikasi tab sebagai MASTER atau NON_MASTER.', 'Untuk NON_MASTER, petakan source_column persis header profil. Clone konfigurasi immutable ke draft; jika header lama sudah hilang, buat draft baru dari profil terbaru. Untuk MASTER, pilih master tujuan lalu lengkapi binding field dan business key.', 'Pada konfigurasi owner-managed, pemilik menjalankan validasi dan deploy tanpa approval konfigurasi kedua. Konfigurasi legacy tetap mengikuti status review yang ditampilkan. Preview schema tetap wajib diperiksa dan blocker keamanan/integritas tidak dapat dilewati.'] },
+  registrationApproval: { title: 'Approval IT sumber: pemeriksaan awal', steps: ['Status ini merujuk pada persetujuan awal registrasi sumber, bukan approval setiap konfigurasi ETL atau setiap deploy.', 'Buka daftar tab yang menunggu dan periksa nama tab serta klasifikasi MASTER/NON_MASTER untuk mencegah sumber/tab tidak valid atau tabel berulang.', 'Setelah persetujuan sumber, pemilik mengelola profiling, konfigurasi, validasi, deploy, dan sync. Perubahan sumber/tab yang material dapat meminta pemeriksaan ulang.'] },
+  database: { title: 'Pemuatan data ke database', steps: ['Periksa status konfigurasi/tab dan pesan blocker. Konfigurasi owner-managed harus lolos validasi dan deploy sebelum sync; binding master saja belum berarti record dimuat.', 'Untuk NON_MASTER aktif, pemilik dapat memakai Sync manual bila statusnya mengizinkan. Batch import digunakan untuk preview dan penanganan temuan; ikuti kontrol yang tersedia untuk batch owner-managed atau legacy.', 'Menunggu tindakan berarti pemuatan berhenti pada temuan, bukan masih berjalan. Buka hasil job atau detail batch untuk melihat error terakhir sebelum mencoba ulang.'] },
 }
 const stageModal = ref<{ source?: TrackedSource; stage: StageKey } | null>(null)
 const historySource = ref<TrackedSource | null>(null)
@@ -171,7 +172,8 @@ function pendingApprovalTabs(row: Record<string, unknown>): string[] {
 function stageStatus(source: TrackedSource, stage: StageKey) {
   const key: Record<StageKey, keyof TrackedSource> = {
     discovery: 'discovery_status', profiling: 'profiling_status',
-    configuration: 'configuration_status', database: 'database_status',
+    configuration: 'configuration_status', registrationApproval: 'it_approval_status',
+    database: 'database_status',
   }
   return statusLabel(String(source[key[stage]] || 'NOT_STARTED'))
 }
@@ -353,7 +355,7 @@ function restoreRow(row: Record<string, unknown>) {
         <span class="stage-cell"><span class="status-symbol" :class="`status-symbol--${statusKind(row.profiling_status)}`" :title="String(value)" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.profiling_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.profiling_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span class="sr-only">{{ value }}</span></span><button v-if="stageFailure(row, 'profiling')" class="icon-button failure-icon" type="button" :aria-label="`Kegagalan profiling terakhir ${row.name}`" title="Lihat kegagalan terakhir" @click="openStageFailure('profiling', row)"><FileText :size="16"/></button></span>
       </template>
       <template #header-it_approval_label="{ column }">
-        <span class="table-header-help">{{ column.label }}<button class="icon-button help-icon" type="button" aria-label="Petunjuk approval IT" title="Petunjuk approval IT" @click="openStageHelp('configuration')"><CircleHelp :size="16" /></button></span>
+        <span class="table-header-help">{{ column.label }}<button class="icon-button help-icon" type="button" aria-label="Petunjuk approval IT" title="Petunjuk approval IT" @click="openStageHelp('registrationApproval')"><CircleHelp :size="16" /></button></span>
       </template>
       <template #cell-it_approval_label="{ row, value }">
         <span class="stage-cell" :title="pendingApprovalTabs(row).length ? `Menunggu IT_APPROVER: ${pendingApprovalTabs(row).join(', ')}` : String(value)"><span class="status-symbol" :class="`status-symbol--${statusKind(row.it_approval_status)}`" :aria-label="String(value)"><CircleCheck v-if="statusKind(row.it_approval_status) === 'success'" :size="17"/><CircleX v-else-if="statusKind(row.it_approval_status) === 'failure'" :size="17"/><CircleMinus v-else :size="17"/><span>{{ value }}</span></span><button v-if="pendingApprovalTabs(row).length" class="icon-button" type="button" :aria-label="`Lihat tab yang menunggu IT_APPROVER untuk ${row.name}`" title="Lihat tab menunggu approval" @click="showTabs(row)"><FileText :size="16"/></button></span>

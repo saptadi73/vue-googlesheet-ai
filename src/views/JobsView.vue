@@ -265,6 +265,12 @@ onBeforeUnmount(stop)
             to="/access-requests"
             >Tinjau permintaan akses</RouterLink
           >
+          <RouterLink
+            v-if="notification.resource_type === 'SOURCE'"
+            class="button"
+            :to="'/workspace?source_id=' + encodeURIComponent(notification.resource_id)"
+            >Buka sumber &amp; tracking</RouterLink
+          >
           <button
             v-if="notification.resource_type === 'JOB'"
             :disabled="busy"

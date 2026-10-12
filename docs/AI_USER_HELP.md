@@ -40,6 +40,19 @@ tidak berlaku. Penolakan memerlukan versi konfigurasi baru atau revisi aturan ya
 diaudit. Persetujuan tayang berbeda dari review batch import dan tidak otomatis
 memberikan akses membaca data.
 
+Di halaman review ETL, navigasi tujuh langkah menampilkan checklist tahap yang telah diperiksa,
+perubahan yang membuat pemeriksaan lama perlu diulang, dan status validasi/deploy. Pesan di atasnya
+menunjukkan blocker atau langkah berikutnya. Job gagal ditandai terpisah; buka hasil proses untuk
+kode dan pesan error. Status ini adalah panduan progres, bukan bukti bahwa dry-run atau pemeriksaan
+backend telah lulus. Pada workflow owner-managed langkah terakhir mengarahkan pemilik ke validasi
+lalu deploy; jalur konfigurasi legacy tetap mengikuti status review yang tampak di halaman.
+
+Di Sumber & tracking, status **Approval IT** berarti pemeriksaan awal registrasi sumber/tab untuk
+memeriksa daftar dan klasifikasi tab; ini bukan approval konfigurasi berulang. Halaman Batch import
+menjelaskan bahwa pemilik melanjutkan batch owner-managed yang valid, sedangkan batch legacy
+mengikuti review yang tampil. Persetujuan tayang tetap tersedia untuk konfigurasi legacy/gate lama;
+workflow owner-managed yang sudah tervalidasi tidak memerlukan approval rilis kedua.
+
 Jika dropdown pendaftaran sumber kosong, bantuan Workspace menjelaskan bahwa
 unit, domain bisnis, dan yurisdiksi harus menjadi assignment aktif akun pendaftar.
 Membuat atribut di registry tidak otomatis memberi assignment; admin lain perlu

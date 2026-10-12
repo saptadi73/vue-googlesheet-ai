@@ -30,6 +30,7 @@ import {
   Upload,
 } from '@lucide/vue'
 import { classificationEvidenceMatches } from '@/lib/classification'
+import { buildEtlStepProgress } from '@/lib/etlProgress'
 import { downloadFile, getApiErrorMessage } from '@/lib/api'
 import {
   call,
@@ -118,9 +119,9 @@ const stepGuides = [
     example: 'Dimensi: bulan dan cabang · Metrik: total_penjualan = SUM(sales_amount), unit IDR.',
   },
   {
-    title: '7. Validasi dan persetujuan',
+    title: '7. Validasi dan langkah berikutnya',
     purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
-    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: kolom/tipe/nullability/key lama dan baru, dampak view/dependency, operasi, record lama, validasi dan contoh tanggal serta blocker. Centang konfirmasi schema bila target/view berubah. SCHEMA_MIGRATION_STALE meminta preview/review baru; versi approved lama tanpa bukti schema perlu clone/review.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu validasi lagi. Centang setiap bagian dan mapping kolom setelah diperiksa, kemudian Ajukan review. Reviewer berbeda menyetujui atau menolak.', 'Approval mengikat fingerprint schema/data. Deploy tetap terpisah; gate IT/unit tetap berlaku. Worker menjalankan perubahan aman secara transaksional dan memperbarui hash; kegagalan transaksi migrasi membatalkan DDL/konversi. Aktivasi, audit sukses dan status job ikut transaksi DDL; gagal sebelum commit mempertahankan kondisi sebelumnya. Audit gagal tersedia setelah rollback; retry memeriksa fingerprint review.', 'Cocokkan configuration_id job dengan versi APPROVED, bukan URL draft lama. Setelah deploy SUCCEEDED, sync baru memuat data.'],
+    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: kolom/tipe/nullability/key lama dan baru, dampak view/dependency, operasi, validasi, dan blocker. Konfirmasi perubahan schema yang ditampilkan; perubahan berbahaya tetap diblokir.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu jalankan validasi ulang. Periksa dan centang setiap bagian serta mapping kolom setelah ditinjau; perubahan draft membatalkan checklist.', 'Pada workflow owner-managed, simpan validasi pemilik lalu deploy bila konfigurasi siap. Approval rutin konfigurasi atau approval rilis IT/unit tidak diperlukan. Konfigurasi legacy tetap mengikuti jalur review yang ditampilkan aplikasi.', 'Setelah deploy SUCCEEDED, jalankan sync untuk memuat data. Jika job gagal, buka hasil proses untuk melihat kode dan pesan kegagalan; perbaiki sebabnya sebelum mencoba lagi.'],
     example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
   },
 ]
@@ -143,7 +144,7 @@ const activeStepGuide = computed(() => {
       instructions: [
         'Jalankan Dry-run dan baca jumlah baris, temuan, serta lokasi baris/field bila ada error. Perbaiki sumber atau mapping, lalu validasi ulang.',
         'Periksa Preview perubahan schema, dampak view, key, dan blocker. Konfirmasi perubahan yang ditampilkan; perubahan berbahaya tetap ditolak.',
-        'Periksa kembali checklist dan mapping yang sudah ditinjau. Tekan Validasi & setujui konfigurasi untuk menyimpan hasil validasi pemilik pada snapshot terbaru.',
+        'Pastikan mapping dan hasil validasi sudah benar. Tekan Validasi pemilik untuk menyimpan hasil terhadap snapshot terbaru; checklist persetujuan kedua tidak diperlukan.',
         'Setelah status konfigurasi siap, Deploy mengaktifkan tabel. Sync data baru dapat dijalankan setelah job Deploy berhasil.',
         'Alur owner-managed tidak memerlukan approval konfigurasi atau approval rilis IT/unit kedua. Perubahan snapshot, mapping invalid, konflik schema, dan aturan kualitas tetap memblokir deploy.',
       ],
@@ -247,8 +248,7 @@ const ready = computed(
     !dirty.value &&
     details.value?.validation.ready_for_review === true &&
     !!details.value.validation.snapshot_hash &&
-    checkedColumns.value.length === draft.value?.columns.length &&
-    checkedSections.value.length === sections.length &&
+    (ownerWorkflow.value || (checkedColumns.value.length === draft.value?.columns.length && checkedSections.value.length === sections.length)) &&
     (!schemaMigration.value?.operations.some(op => op.action !== 'CREATE_TABLE') || schemaReviewed.value),
 )
 const submitBlockers = computed(() => {
@@ -261,11 +261,42 @@ const submitBlockers = computed(() => {
     blockers.push('Dry-run belum lulus atau masih ada pertanyaan/temuan yang wajib diselesaikan.')
   if (!details.value.validation.snapshot_hash)
     blockers.push('Snapshot belum tersedia; jalankan dry-run ulang.')
-  if (checkedSections.value.length !== sections.length)
+  if (!ownerWorkflow.value && checkedSections.value.length !== sections.length)
     blockers.push(`Periksa dan centang seluruh bagian (${checkedSections.value.length}/${sections.length}).`)
-  if (checkedColumns.value.length !== draft.value.columns.length)
+  if (!ownerWorkflow.value && checkedColumns.value.length !== draft.value.columns.length)
     blockers.push(`Periksa dan centang seluruh mapping kolom (${checkedColumns.value.length}/${draft.value.columns.length}).`)
   return blockers
+})
+const stepProgress = computed(() => buildEtlStepProgress({
+  labels: sectionLabels,
+  finalLabel: finalStepLabel.value,
+  sectionKeys: sections,
+  checkedSections: checkedSections.value,
+  activeStep: step.value,
+  dirty: dirty.value,
+  validationReady: ready.value,
+  submitted: submitted.value,
+  ownerWorkflow: ownerWorkflow.value,
+  active: record.value?.status === 'ACTIVE',
+  jobStatus: job.value?.status,
+}))
+const finalStepProgress = computed(() => stepProgress.value[6] || {
+  label: finalStepLabel.value,
+  state: 'PENDING',
+  status: 'Belum siap',
+})
+const progressMessage = computed(() => {
+  if (job.value?.status === 'FAILED') return `Gagal terakhir: ${job.value.error_code || job.value.status}${job.value.error_message ? ` — ${job.value.error_message}` : ''}`
+  if (error.value) return `Gagal terakhir: ${error.value}`
+  if (dirty.value) return 'Perubahan draft belum disimpan. Simpan lalu jalankan dry-run agar hasil pemeriksaan sesuai revisi terbaru.'
+  if (submitted.value) return ownerWorkflow.value
+    ? 'Validasi pemilik tersimpan untuk revisi ini. Lanjutkan deploy jika konfigurasi sudah siap.'
+    : 'Revisi sudah diajukan. Pantau keputusan di halaman Persetujuan tayang.'
+  if (submitBlockers.value.length) return `Tindakan berikutnya: ${submitBlockers.value[0]}`
+  if (record.value?.status === 'ACTIVE') return 'Konfigurasi aktif. Gunakan kontrol deploy atau sync untuk pekerjaan berikutnya.'
+  return ownerWorkflow.value
+    ? 'Pemeriksaan lengkap. Simpan validasi pemilik, lalu deploy jika status konfigurasi sudah siap.'
+    : 'Pemeriksaan lengkap. Ajukan revisi untuk ditinjau.'
 })
 const appendPolicyAvailable = computed(
   () =>
@@ -394,8 +425,9 @@ function payload() {
 async function save() {
   await call('PATCH', base.value, payload())
   await load()
-  notice.value =
-    'Draft tersimpan. Periksa hasil validasi dan centang bagian yang sudah diverifikasi.'
+  notice.value = ownerWorkflow.value
+    ? 'Draft tersimpan. Jalankan validasi untuk memeriksa snapshot, kualitas, akses, dan schema.'
+    : 'Draft tersimpan. Periksa hasil validasi dan checklist review.'
 }
 async function validate() {
   if (dirty.value) throw new Error('Simpan perubahan sebelum dry-run.')
@@ -403,11 +435,12 @@ async function validate() {
   if (!details.value) return
   details.value.validation = { valid: false, ready_for_review: false }
   details.value.validation = await call<Validation>('POST', `${base.value}/validate`)
-  notice.value =
-    'Validasi diperbarui terhadap snapshot profiling terakhir. Periksa kembali checklist.'
+  notice.value = ownerWorkflow.value
+    ? 'Validasi diperbarui terhadap snapshot profiling terakhir. Selesaikan blocker yang ditampilkan.'
+    : 'Validasi diperbarui terhadap snapshot profiling terakhir. Periksa kembali checklist review.'
 }
 async function submit() {
-  if (!ready.value || !record.value) throw new Error('Lengkapi pemeriksaan semua bagian dan kolom.')
+  if (!ready.value || !record.value) throw new Error(ownerWorkflow.value ? 'Selesaikan blocker validasi terlebih dahulu.' : 'Lengkapi pemeriksaan semua bagian dan kolom.')
   const result = await call<Config>('POST', `${base.value}/submit-review`, {
     revision_no: record.value.revision_no,
     snapshot_hash: details.value?.validation.snapshot_hash,
@@ -804,20 +837,40 @@ onBeforeRouteUpdate(confirmLeave)
         review. Untuk versi approved/superseded, clone ke draft sebelum review ulang. Jika header
         lama sudah hilang dan clone gagal, buat draft baru dari profil terbaru di Workspace.
       </p>
+      <p class="notice etl-progress-message" role="status" aria-live="polite">{{ progressMessage }}</p>
       <nav class="steps" aria-label="Tahapan review">
-        <div v-for="(label, i) in sectionLabels" :key="label" class="step-control">
+        <div v-for="(progress, i) in stepProgress.slice(0, 6)" :key="progress.label" class="step-control">
           <button
             class="step-tab"
-            :class="{ active: step === i }"
+            :class="[{ active: step === i }, `step-${progress.state.toLowerCase()}`]"
             :aria-current="step === i ? 'step' : undefined"
+            :aria-label="`Langkah ${i + 1}, ${progress.label}: ${progress.status}`"
+            :title="progress.status"
             @click="step = i"
-          >{{ i + 1 }}. {{ label }}</button>
-          <button class="step-help" type="button" :aria-label="`Petunjuk langkah ${i + 1}: ${label}`" :title="`Petunjuk ${label}`" @click="helpStep = i">
+          >
+            {{ i + 1 }}. {{ progress.label }}
+            <span class="step-status" aria-hidden="true">
+              {{ progress.state === 'CHECKED' || progress.state === 'DONE' ? '✓' : progress.state === 'STALE' || progress.state === 'FAILED' ? '!' : progress.state === 'READY' || progress.state === 'SUBMITTED' ? '●' : '○' }}
+            </span>
+          </button>
+          <button class="step-help" type="button" :aria-label="`Petunjuk langkah ${i + 1}: ${progress.label}`" :title="`Petunjuk ${progress.label}`" @click="helpStep = i">
             <CircleHelp :size="16" aria-hidden="true" />
           </button>
         </div>
         <div class="step-control">
-          <button class="step-tab" :class="{ active: step === 6 }" :aria-current="step === 6 ? 'step' : undefined" @click="step = 6">7. {{ finalStepLabel }}</button>
+          <button
+            class="step-tab"
+            :class="[{ active: step === 6 }, `step-${finalStepProgress.state.toLowerCase()}`]"
+            :aria-current="step === 6 ? 'step' : undefined"
+            :aria-label="`Langkah 7, ${finalStepLabel}: ${finalStepProgress.status}`"
+            :title="finalStepProgress.status"
+            @click="step = 6"
+          >
+            7. {{ finalStepLabel }}
+            <span class="step-status" aria-hidden="true">
+              {{ finalStepProgress.state === 'DONE' ? '✓' : finalStepProgress.state === 'FAILED' || finalStepProgress.state === 'STALE' ? '!' : finalStepProgress.state === 'READY' || finalStepProgress.state === 'SUBMITTED' ? '●' : '○' }}
+            </span>
+          </button>
           <button class="step-help" type="button" :aria-label="`Petunjuk langkah 7: ${finalStepLabel}`" :title="`Petunjuk ${finalStepLabel}`" @click="helpStep = 6">
             <CircleHelp :size="16" aria-hidden="true" />
           </button>
@@ -1602,12 +1655,13 @@ onBeforeRouteUpdate(confirmLeave)
           <pre>{{ JSON.stringify(details.validation.deployment_plan, null, 2) }}</pre>
         </details>
         <fieldset v-if="!isMasterTab" :disabled="!canEdit || dirty || busy">
-          <h3>Pernyataan verifikasi</h3>
+          <h3>{{ ownerWorkflow ? 'Validasi konfigurasi' : 'Pernyataan verifikasi' }}</h3>
           <p class="muted">
-            Centang setelah memeriksa setiap bagian dan kolom. Perubahan draft membatalkan checklist
-            ini.
+            {{ ownerWorkflow
+              ? 'Sistem memeriksa konfigurasi terhadap snapshot sumber, aturan kualitas, key, akses, dan rencana schema. Tidak perlu checklist persetujuan berulang.'
+              : 'Centang setelah memeriksa setiap bagian dan kolom. Perubahan draft membatalkan checklist ini.' }}
           </p>
-          <div class="grid">
+          <div v-if="!ownerWorkflow" class="grid">
             <div>
               <label v-for="(s, i) in sections" :key="s" class="check"
                 ><input type="checkbox" v-model="checkedSections" :value="s" />{{
@@ -1626,7 +1680,7 @@ onBeforeRouteUpdate(confirmLeave)
             </div>
           </div>
           <button class="primary" :disabled="!ready" @click="run(submit)">
-            {{ ownerWorkflow ? 'Simpan validasi pemilik' : `Ajukan review revisi ${record.revision_no}` }}
+            {{ ownerWorkflow ? 'Validasi & siapkan deploy' : `Ajukan review revisi ${record.revision_no}` }}
           </button>
         </fieldset>
         <p v-if="submitted && !isMasterTab" class="success">

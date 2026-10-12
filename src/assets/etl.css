@@ -315,6 +315,32 @@
   color: var(--brand-dark);
   box-shadow: var(--shadow-sm);
 }
+.etl .steps .step-status {
+  display: inline-grid;
+  min-width: 1.1em;
+  height: 1.1em;
+  margin-left: 3px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 0.82em;
+  font-weight: 700;
+  color: #64756c;
+}
+.etl .steps .step-checked .step-status,
+.etl .steps .step-done .step-status {
+  color: #087443;
+}
+.etl .steps .step-ready .step-status,
+.etl .steps .step-submitted .step-status {
+  color: #1769aa;
+}
+.etl .steps .step-stale .step-status,
+.etl .steps .step-failed .step-status {
+  color: #b42318;
+}
+.etl .etl-progress-message {
+  margin: 18px 0 8px;
+}
 .etl .error {
   border: 1px solid #efb5a9;
   border-left: 4px solid #c94f40;
