@@ -284,6 +284,8 @@ Lihat [panduan aturan dan formula](PANDUAN_ATURAN_ANALITIK.md) serta [lima templ
 
 Baca [Panduan khusus binding master](PANDUAN_BINDING_MASTER.md): Registry, approval definisi, deploy storage, mapping tab MASTER, Simpan binding & dry-run, approval binding, batch import, Preview, approval dan Apply. Panduan membedakan binding tab dengan binding kolom referensi serta menyediakan contoh BISNIS/is_active, troubleshooting dan checklist record kanonis. Di aplikasi: Panduan penggunaan > Binding master (/guide#binding-master) atau Bantuan > Panduan khusus binding master.
 
+Jika konfigurasi lama berasal dari tab yang sekarang diklasifikasikan MASTER, langkah 7 menampilkan **Persetujuan tab MASTER** dengan tautan Registry, binding tab dan panduan. Preview schema ETL, peringatan bukti schema ETL serta tombol keputusan konfigurasi tidak berlaku untuk tab ini. Status NEEDS_REVIEW pada konfigurasi ETL lama tidak menggantikan pengajuan definisi atau approval binding master. Untuk NON_MASTER, peringatan schema berubah/belum direview tetap memerlukan preview terkini dan pengajuan review ulang oleh editor sebelum approval.
+
 
 ## Koreksi sebelum storage pertama
 

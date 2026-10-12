@@ -215,6 +215,42 @@ test('stale classification evidence disables deployment and source-wide sync cat
   expect(mock.errors).toEqual([])
 })
 
+test('master ETL review directs approvers to registry and binding instead of stale schema approval', async ({ page }) => {
+  const mock = await setup(page)
+  mock.sheet.dataset_kind = 'MASTER'
+  mock.record.status = 'NEEDS_REVIEW'
+  mock.validation.deployment_plan = { migration: {
+    fingerprint: 'new-schema', requires_migration: true, operations: [{ operation: 'CREATE_TABLE' }],
+  } }
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page, 'approver')
+  await page.getByRole('button', { name: '7. Validasi & persetujuan' }).click()
+  const guidance = page.getByRole('region', { name: 'Langkah persetujuan master' })
+  await expect(guidance).toBeVisible()
+  await expect(guidance.getByRole('link', { name: 'Buka Registry master' })).toHaveAttribute('href', '/masters')
+  await expect(guidance.getByRole('link', { name: 'Buka binding master tab ini' })).toHaveAttribute('href', `/sources/${sourceId}/sheets/${sheetId}/master-binding`)
+  await expect(page.getByText('Rencana schema berubah atau belum direview.', { exact: false })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Setujui konfigurasi' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Preview perubahan schema', exact: true })).toHaveCount(0)
+  expect(mock.errors).toEqual([])
+})
+
+test('non-master ETL review still blocks approval when schema evidence is stale', async ({ page }) => {
+  const mock = await setup(page)
+  mock.record.status = 'NEEDS_REVIEW'
+  mock.validation.deployment_plan = { migration: {
+    fingerprint: 'new-schema', requires_migration: true, operations: [],
+    target: {}, current: {}, desired: {}, column_changes: [], blockers: [], warnings: [],
+  } }
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page, 'approver')
+  await page.getByRole('button', { name: '7. Validasi & persetujuan' }).click()
+  await expect(page.getByText('Rencana schema berubah atau belum direview.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Setujui konfigurasi' })).toBeDisabled()
+  await expect(page.getByRole('region', { name: 'Langkah persetujuan master' })).toHaveCount(0)
+  expect(mock.errors).toEqual([])
+})
+
 test('new master requires candidate review, explicit policy and separate approval revisions', async ({
   page,
 }) => {

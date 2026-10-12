@@ -133,7 +133,7 @@ function schemaChangeLabel(change: string) {
 function schemaKeysLabel(keys: string[][]) {
   return keys.map(key => key.filter(name => !name.startsWith('_')).join(', ')).filter(Boolean).join(' / ') || 'Identitas record otomatis'
 }
-const schemaReviewStale = computed(() => record.value?.status === 'NEEDS_REVIEW' &&
+const schemaReviewStale = computed(() => !isMasterTab.value && record.value?.status === 'NEEDS_REVIEW' &&
   schemaMigration.value &&
   (record.value.review_state?.schema_migration || schemaMigration.value.requires_migration) &&
   record.value.review_state?.schema_migration?.fingerprint !== schemaMigration.value.fingerprint)
@@ -1440,7 +1440,19 @@ onBeforeRouteUpdate(confirmLeave)
         </template>
       </fieldset>
       <section v-if="step === 6" class="panel">
-        <section v-if="schemaMigration" aria-label="Preview perubahan schema">
+        <section v-if="isMasterTab" class="notice" aria-label="Langkah persetujuan master">
+          <h2>Persetujuan tab MASTER</h2>
+          <p>Review konfigurasi ETL ini tidak dapat digunakan untuk menyetujui atau memuat tab MASTER.
+            Periksa dan ajukan definisi di Registry master, lalu gunakan akun approver berbeda untuk
+            menyetujui definisi dan menyiapkan storage. Setelah itu, simpan mapping dan dry-run binding,
+            minta persetujuan binding, lalu lanjutkan preview, approval dan apply Batch import master.</p>
+          <div class="toolbar">
+            <RouterLink to="/masters">Buka Registry master</RouterLink>
+            <RouterLink :to="masterBindingPath">Buka binding master tab ini</RouterLink>
+            <RouterLink to="/guide#binding-master">Panduan binding master</RouterLink>
+          </div>
+        </section>
+        <section v-else-if="schemaMigration" aria-label="Preview perubahan schema">
           <h2>Preview perubahan schema database</h2>
           <p>{{ schemaMigration.rows_existing }} record lama · {{ schemaMigration.allowed ? 'Rencana dapat dijalankan setelah review.' : 'Rencana ditahan; selesaikan blocker.' }}</p>
           <p class="muted">Worker memeriksa ulang rencana yang disetujui, mengubah tabel/view dalam transaksi, menjaga grant dan menghitung ulang hash record bila bentuk data berubah. Tidak menghapus kolom atau memakai DROP CASCADE.</p>
@@ -1540,7 +1552,7 @@ onBeforeRouteUpdate(confirmLeave)
             )
           }}</pre>
         </details>
-        <details>
+        <details v-if="!isMasterTab">
           <summary>Rencana tabel &amp; view</summary>
           <pre>{{ JSON.stringify(details.validation.deployment_plan, null, 2) }}</pre>
         </details>
@@ -1573,7 +1585,7 @@ onBeforeRouteUpdate(confirmLeave)
           </button>
         </fieldset>
         <p v-if="submitted && !isMasterTab" class="success">Revisi ini sudah diajukan untuk review.</p>
-        <div v-if="reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
+        <div v-if="!isMasterTab && reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
           <h3>Keputusan approver</h3>
           <p class="muted">
             Periksa seluruh tahapan dan hasil dry-run sebelum memberikan keputusan.
