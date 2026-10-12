@@ -49,13 +49,14 @@ describe('page help registry', () => {
     expect(review).toContain('Preview perubahan schema')
     expect(review).toContain('SCHEMA_MIGRATION_STALE')
     expect(review).toContain('Worker mendukung nullable baru')
-    expect(review).toContain('Dry-run lulus tidak menjamin')
+    expect(review).toContain('Preview perubahan schema')
+    expect(review).toContain('Serial Google Sheets')
   })
   it('explains initial source approval and owner-managed sync separately from legacy review', () => {
     const review = getPageHelp('/configurations/config-id/review').steps.join(' ')
-    expect(review).toContain('owner workflow')
-    expect(review).toContain('release kedua tidak diperlukan')
-    expect(review).toContain('Konfigurasi legacy')
+    expect(review).toContain('owner-managed')
+    expect(review).toContain('approval tayang rutin tidak diperlukan')
+    expect(review).toContain('Konfigurasi lama')
     expect(review).not.toContain('approval gabungan')
     for (const route of ['/sources', '/workspace']) {
       const help = getPageHelp(route)
@@ -88,9 +89,12 @@ describe('page help registry', () => {
   })
 
   it('points ETL reviewers to guidance for each wizard step', () => {
-    expect(getPageHelp('/configurations/config-id/review').notes?.join(' ')).toContain(
+    const help = getPageHelp('/configurations/config-id/review')
+    expect(help.notes?.join(' ')).toContain(
       'ikon bantuan di samping setiap tahap wizard',
     )
+    expect(help.purpose).toContain('kesiapan deploy')
+    expect(help.steps.join(' ')).toContain('checklist persetujuan tidak diperlukan')
   })
 
   it.each(routes)('provides specific guidance for %s', (path) => {

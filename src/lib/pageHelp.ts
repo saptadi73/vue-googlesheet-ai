@@ -175,22 +175,23 @@ const entries: PageHelpEntry[] = [
       'Saran metadata bersifat pemeriksaan kelengkapan, bukan AI yang mengubah konfigurasi secara otomatis.',
       'Relasi join bersifat opsional; buat hanya jika ada kebutuhan analitik lintas dataset dan kolom kunci serta kardinalitasnya sudah dipastikan.',
       'Katalog hanya menampilkan Data Product aktif yang memang dapat ditemukan oleh akun Anda.',
-      'Perubahan target NON_MASTER ditinjau pada Preview perubahan schema di Validasi & persetujuan. Konfirmasi dan approval mengikat fingerprint schema/data; worker menjalankan perubahan aman saat deploy. Rename/drop fisik, key dan dependency tidak aman tetap diblokir.',
+      'Perubahan target NON_MASTER ditampilkan pada Preview perubahan schema. Pemilik memeriksa rencana sebelum validasi dan deploy; worker hanya menjalankan perubahan yang aman. Rename/drop fisik, key dan dependency tidak aman tetap diblokir.',
     ],
   },
   {
     matches: pattern(/^\/configurations\/[^/]+\/review$/),
     title: 'Verifikasi konfigurasi ETL',
     purpose:
-      'Memeriksa mapping kolom, transformasi, aturan kualitas, target, semantic metadata, dan lifecycle approval konfigurasi.',
+      'Memeriksa mapping kolom, pembersihan data, kualitas, tabel tujuan, dan kesiapan deploy.',
     steps: [
       'Periksa identitas sumber dan fingerprint profil yang menjadi dasar draft.',
       'Gunakan nama file dan tab mengisi saran identitas tanpa menyimpan/menimpa otomatis. Nama bisnis mempertahankan tanda baca valid (200 karakter); kode diawali huruf, memakai ASCII/angka/underscore (63 karakter). Profiling ulang menangkap nama file asli; profil lama memakai nama sumber.',
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
       'Lengkapi aturan kualitas, business key, strategi load, metrik, dan visualisasi.',
-      'Jalankan dry-run, periksa preview schema, selesaikan blocker, lalu tandai bagian dan mapping yang sudah diperiksa.',
-      'Pada owner workflow, data owner/steward menyimpan validasi revisi dan deploy setelah pemeriksaan lulus. Approval konfigurasi atau release kedua tidak diperlukan.',
-      'Konfigurasi legacy tetap dapat meminta reviewer atau gate IT/unit; ikuti status yang ditampilkan. Setelah konfigurasi ACTIVE dan akses mengizinkan, pemilik menjalankan sync.',
+      'Jalankan validasi dan perbaiki blocker yang ditampilkan. Pada konfigurasi owner-managed, checklist persetujuan tidak diperlukan.',
+      'Setelah validasi siap, pemilik menekan Deploy. Approval konfigurasi dan approval tayang rutin tidak diperlukan pada workflow owner-managed.',
+      'Setelah deploy berhasil, jalankan Sync data dan periksa status serta jumlah baris yang dimuat.',
+      'Konfigurasi lama mungkin masih meminta checklist dan reviewer; ikuti status pada halaman tersebut.',
     ],
     notes: [
       'Gunakan ikon bantuan di samping setiap tahap wizard untuk melihat tujuan, urutan kerja, dan contoh khusus tahap tersebut.',
@@ -203,7 +204,7 @@ const entries: PageHelpEntry[] = [
       'Untuk start_date/end_date, target date tetap membutuhkan parse_date_id pada Cleansing bila sumber adalah angka serial Sheets, misalnya 46023 menjadi 2026-01-01. Pola tanggal kosong untuk serial; text tanggal memakai pola strptime sesuai sumber. TYPE_OR_NULL_ERROR: periksa kolom dan baris asli, jangan menghapus data atau menandai nullable untuk menutupi format salah.',
       'SCHEMA_MIGRATION_STALE: muat preview baru pada draft dan validasi ulang; SCHEMA_REVIEW_REQUIRED: selesaikan bukti schema yang diminta; SCHEMA_MIGRATION_BLOCKED: selesaikan blocker. Nama view mengikuti ID tab, bukan nama tabel; perpindahan/proyeksi juga direview. Cocokkan configuration_id job DEPLOY dengan revisi yang divalidasi; /guide#review-ulang-tanggal.',
       'Kegagalan dalam transaksi migrasi membatalkan DDL/konversi. Aktivasi, audit sukses dan status job ikut transaksi DDL; gagal sebelum commit mempertahankan kondisi sebelumnya. Audit gagal tersedia setelah rollback; retry memeriksa fingerprint review.',
-      'Transaksi memakai tanggal kejadian nyata; agregat w1/w2/januari perlu tahun dan batas periode yang disepakati. Simpan draft, dry-run sampai valid tanpa blocker, isi checklist, lalu jalankan aksi validasi/deploy sesuai workflow. Dry-run lulus tidak menjamin schema deployment kompatibel.',
+      'Transaksi memakai tanggal kejadian nyata; agregat w1/w2/januari perlu tahun dan batas periode yang disepakati. Validasi memeriksa data dan konfigurasi; preview schema tetap perlu diperiksa sebelum deploy.',
     ],
   },
   {

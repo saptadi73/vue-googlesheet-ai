@@ -11,12 +11,13 @@ Contohnya meliputi `jenis_biaya`, `jatim`, metadata sumber, business key master,
 pertanyaan bahasa alami. Konten ini mengikuti [contoh pengisian aplikasi](CONTOH_ISIAN_APLIKASI.md)
 dan tetap dapat dibaca tanpa memanggil AI.
 
-Navigasi review ETL menampilkan status masing-masing dari enam bagian checklist dan langkah validasi
-terakhir. Tanda centang berarti bagian sudah dicentang untuk revisi saat ini; tanda seru berarti
-draft berubah sehingga pemeriksaan perlu diulang. Langkah terakhir membedakan job gagal, validasi
-siap, pengajuan review legacy, dan konfigurasi aktif. Pesan di atas navigasi menampilkan blocker
-atau tindakan berikutnya. Status ini membantu steward melanjutkan pekerjaan dan tidak menggantikan
-dry-run, validasi backend, atau pemeriksaan sumber terbaru.
+Navigasi review ETL menampilkan progres tujuh langkah dan tindakan berikutnya. Owner-managed dapat
+melanjutkan setelah validasi teknis lulus tanpa checklist persetujuan berulang; konfigurasi legacy
+tetap menampilkan bukti review yang diminta. Tanda seru berarti draft atau snapshot berubah dan
+perlu divalidasi ulang. Helper tiap langkah menjelaskan tugas inti dengan bahasa singkat; detail
+teknis tetap berada di panduan format dan error. Pesan di atas navigasi menampilkan blocker atau
+tindakan berikutnya. Status ini membantu steward melanjutkan pekerjaan dan tidak menggantikan
+validasi backend atau pemeriksaan sumber terbaru.
 
 Pada tabel Sumber & tracking, petunjuk kolom Approval IT menjelaskan pemeriksaan awal registrasi
 sumber/tab. Persetujuan itu bukan approval berulang untuk setiap konfigurasi. Batch import dan

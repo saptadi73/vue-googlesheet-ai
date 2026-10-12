@@ -31,6 +31,7 @@ import {
 } from '@lucide/vue'
 import { classificationEvidenceMatches } from '@/lib/classification'
 import { buildEtlStepProgress } from '@/lib/etlProgress'
+import { getEtlStepGuide } from '@/lib/etlStepGuides'
 import { downloadFile, getApiErrorMessage } from '@/lib/api'
 import {
   call,
@@ -81,50 +82,6 @@ const error = ref(''),
   step = ref(0),
   helpStep = ref<number | null>(null),
   comment = ref('')
-const stepGuides = [
-  {
-    title: '1. Identitas dataset',
-    purpose: 'Memberi nama dan arti bisnis pada dataset agar pengguna memahami satu baris data mewakili apa.',
-    instructions: ['Gunakan nama file dan tab untuk mengisi saran Nama bisnis dan Kode produk data, lalu periksa atau edit. Nama tersimpan tidak ditimpa otomatis. Profil lama memakai nama sumber; profiling ulang menangkap nama file asli.', 'Kode hanya huruf ASCII/angka/underscore, diawali huruf, maksimal 63 karakter. Karakter lain pada saran diganti underscore; nama bisnis mempertahankan tanda baca yang valid dan maksimal 200 karakter.', 'Jelaskan isi dataset, sumbernya, dan batas cakupannya.', 'Tulis makna satu baris (grain) secara spesifik; ini membantu menghindari hitung ganda.'],
-    example: 'Nama: Penjualan Cabang · Grain: satu baris per transaksi per produk.',
-  },
-  {
-    title: '2. Kolom dan sensitivitas',
-    purpose: 'Memetakan setiap header sumber menjadi field database dan menentukan tipe serta perlindungan datanya.',
-    instructions: ['Periksa Nama bisnis, Kolom database, dan Tipe untuk setiap header. source_column harus persis header profil; edit/tambah/rename di Google Sheet lalu Profiling ulang pada sumber yang sama.', 'Tandai nullable hanya jika nilai boleh kosong; business key harus stabil, unik, dan tidak nullable untuk UPSERT.', 'Tandai primary key hanya bila kolom sumber memang berisi identitas record yang stabil. Atur sensitivitas sesuai isi nyata kolom.', 'Gunakan bagian taxonomy atau referensi master pada kolom bila nilai harus mengacu pada daftar terkendali atau record master.', 'Approved/active/rejected immutable: clone ke draft; jika header lama hilang dan clone gagal, buat draft baru dari profil terbaru. Struktur target existing tidak berubah otomatis.'],
-    example: 'Kode Produk → product_code (text, wajib); Nilai Penjualan → sales_amount (numeric).',
-  },
-  {
-    title: '3. Cleansing',
-    purpose: 'Menormalkan nilai sumber sebelum validasi dan pemuatan, dengan transformasi yang urutannya terlihat.',
-    instructions: ['Text/varchar mendapat trim otomatis sebelum transformasi: spasi tepi dibuang, spasi tengah dan nol depan tetap. Spasi saja menjadi NULL jika nullable; kolom wajib tetap error.', 'Tambahkan hanya transformasi yang diperlukan, lalu susun dari atas ke bawah sesuai urutan eksekusi.', 'Untuk start_date/end_date bertipe date dengan angka serial Google Sheets, tambahkan parse_date_id dan pilih Format nilai tanggal = Serial Google Sheets pada masing-masing kolom. Pola tanggal boleh kosong untuk serial; 46023 menjadi 2026-01-01. Mengubah tipe saja tidak cukup.', 'Untuk text tanggal, gunakan parse_date_id dan pola strptime sesuai sumber bila perlu, misalnya %d/%m/%Y. Simpan draft lalu Dry-run ulang; periksa baris asli dan kolom TYPE_OR_NULL_ERROR.', 'Jangan memakai transformasi untuk menutupi kesalahan sumber atau mengubah makna bisnis. Label w1/w2/januari tanpa tahun/batas periode bukan tanggal; jangan mengarang tanggal atau memakai expression bebas.'],
-    example: 'Kolom kode bertipe text: trim tepi otomatis, nol depan tetap; normalize_whitespace hanya bila spasi tengah juga perlu dirapikan.',
-  },
-  {
-    title: '4. Kualitas data',
-    purpose: 'Menetapkan pemeriksaan agar nilai tidak sesuai dapat diperingatkan, ditolak, atau diminta untuk ditinjau.',
-    instructions: ['Pilih kolom tujuan dan aturan yang sesuai, seperti min/max, format, allowed_values, atau taxonomy.', 'Pilih tindakan saat gagal: WARN untuk catatan, REJECT_ROW untuk menolak baris, STOP_BATCH untuk menghentikan batch, atau REQUIRE_REVIEW untuk meminta keputusan.', 'Atur severity, threshold, dan owner bila diperlukan. Tipe, nullability, dan key tetap diperiksa otomatis.'],
-    example: 'sales_amount minimal 0; jika format kode salah, gunakan REQUIRE_REVIEW bila perlu koreksi steward.',
-  },
-  {
-    title: '5. Pemuatan',
-    purpose: 'Memilih tabel tujuan dan cara data baru digabungkan dengan data yang sudah ada.',
-    instructions: ['Periksa schema dan nama dasar tabel. Untuk revisi dataset yang sama, pertahankan target lama kecuali perpindahan tabel memang direncanakan dan direview.', 'Pilih UPSERT untuk memperbarui baris berdasarkan business key, APPEND untuk menambahkan baris, atau FULL_REFRESH untuk mengganti isi target dengan snapshot lengkap.', 'Pastikan strategi sesuai bentuk sumber. UPSERT perlu business key unik; FULL_REFRESH hanya aman bila sumber memuat seluruh data yang harus dipertahankan.', 'Tinjau Preview perubahan schema pada langkah 7. Nullable baru didukung (record lama null), tipe pada tabel kosong, dan bigint serial menjadi date dengan parse_date_id dan pilihan Format nilai tanggal = Serial Google Sheets pada tabel berisi data. Rename/drop fisik, key, dan dependency tidak aman diblokir.', 'Nama view mengikuti ID tab. Perpindahan target/proyeksi ikut direview; worker menjaga data dan ACL dalam transaksi tanpa CASCADE saat deploy setelah approval.'],
-    example: 'Spreadsheet transaksi bertambah setiap hari: APPEND. Snapshot katalog produk lengkap: FULL_REFRESH atau UPSERT dengan product_code.',
-  },
-  {
-    title: '6. Analitik dan akses',
-    purpose: 'Menentukan field yang dapat dipakai untuk pencarian dan chart, serta role yang boleh mengakses produk data.',
-    instructions: ['Pilih dimensi untuk pengelompokan, misalnya tanggal, cabang, atau kategori.', 'Buat metrik dengan kolom, agregasi, definisi bisnis, unit, dan sinonim yang jelas.', 'Pilih role yang memang perlu akses. Kolom MEDIUM/HIGH tidak tersedia untuk produk analitik.', 'Agregat minggu/bulan perlu tahun eksplisit serta batas periode dengan kalender minggu yang disepakati. Jangan menyebut tanggal acuan sebagai tanggal transaksi; analisis overlap periode dan expression metrik bebas belum didukung.'],
-    example: 'Dimensi: bulan dan cabang · Metrik: total_penjualan = SUM(sales_amount), unit IDR.',
-  },
-  {
-    title: '7. Validasi dan langkah berikutnya',
-    purpose: 'Memeriksa hasil terhadap snapshot sumber, menyelesaikan temuan, dan mengajukan revisi untuk approval.',
-    instructions: ['Jalankan Dry-run ulang dan periksa jumlah baris valid/bermasalah, contoh sebelum-sesudah, serta temuan.', 'Periksa Preview perubahan schema: kolom/tipe/nullability/key lama dan baru, dampak view/dependency, operasi, validasi, dan blocker. Konfirmasi perubahan schema yang ditampilkan; perubahan berbahaya tetap diblokir.', 'Kembali ke langkah terkait untuk memperbaiki blocker, simpan draft, lalu jalankan validasi ulang. Periksa dan centang setiap bagian serta mapping kolom setelah ditinjau; perubahan draft membatalkan checklist.', 'Pada workflow owner-managed, simpan validasi pemilik lalu deploy bila konfigurasi siap. Approval rutin konfigurasi atau approval rilis IT/unit tidak diperlukan. Konfigurasi legacy tetap mengikuti jalur review yang ditampilkan aplikasi.', 'Setelah deploy SUCCEEDED, jalankan sync untuk memuat data. Jika job gagal, buka hasil proses untuk melihat kode dan pesan kegagalan; perbaiki sebabnya sebelum mencoba lagi.'],
-    example: 'Jika sumber berubah, Profiling ulang pada sumber yang sama; buat draft sesuai header terbaru lalu validasi snapshot. Sync review memprofilkan dan membuat batch, bukan memperbaiki mapping lama.',
-  },
-]
 const ownerWorkflow = computed(() => {
   const result = details.value
   if (!result?.owner_workflow_enabled) return false
@@ -134,23 +91,7 @@ const ownerWorkflow = computed(() => {
 const finalStepLabel = computed(() => ownerWorkflow.value ? 'Validasi & deploy' : 'Validasi & persetujuan')
 const activeStepGuide = computed(() => {
   if (helpStep.value === null) return null
-  const guide = stepGuides[helpStep.value]
-  if (!guide) return null
-  if (helpStep.value === 6 && ownerWorkflow.value) {
-    return {
-      ...guide,
-      title: '7. Validasi dan deploy',
-      purpose: 'Memastikan konfigurasi dan data valid sebelum pemilik mengaktifkan tabel.',
-      instructions: [
-        'Jalankan Dry-run dan baca jumlah baris, temuan, serta lokasi baris/field bila ada error. Perbaiki sumber atau mapping, lalu validasi ulang.',
-        'Periksa Preview perubahan schema, dampak view, key, dan blocker. Konfirmasi perubahan yang ditampilkan; perubahan berbahaya tetap ditolak.',
-        'Pastikan mapping dan hasil validasi sudah benar. Tekan Validasi pemilik untuk menyimpan hasil terhadap snapshot terbaru; checklist persetujuan kedua tidak diperlukan.',
-        'Setelah status konfigurasi siap, Deploy mengaktifkan tabel. Sync data baru dapat dijalankan setelah job Deploy berhasil.',
-        'Alur owner-managed tidak memerlukan approval konfigurasi atau approval rilis IT/unit kedua. Perubahan snapshot, mapping invalid, konflik schema, dan aturan kualitas tetap memblokir deploy.',
-      ],
-    }
-  }
-  return guide
+  return getEtlStepGuide(helpStep.value, ownerWorkflow.value)
 })
 const schemaReviewed = ref(false)
 const schemaMigration = computed(() => details.value?.validation.deployment_plan?.migration)
