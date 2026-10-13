@@ -491,7 +491,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
           ><input v-model="deactivate" type="checkbox" :disabled="busy" />Saya memahami penonaktifan
           membuat binding tidak ready.</label
         ><button
-          :disabled="busy || dirty || !deactivate || !comment.trim()"
+          :disabled="busy || dirty || !deactivate || comment.trim().length < 3"
           @click="run(() => action('deactivate'))"
         >
           Nonaktifkan master

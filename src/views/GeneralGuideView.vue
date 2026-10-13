@@ -71,7 +71,7 @@ const stages = [
       'Preview kandidat serupa agar tidak membuat master duplikat.',
       'Submit dan approve definisi menggunakan reviewer berbeda.',
       'Deploy storage master, lalu buat binding tab MASTER ke definisi tersebut.',
-      'Untuk dataset lain, buat binding kolom referensi ke field master approved.',
+      'Untuk dataset non-master, pilih relasi master langsung pada mapping kolom atau gunakan binding tab lama. Pilih field master yang nilainya benar-benar sama dengan sumber; target menyimpan UUID record kanonis.',
     ],
     done: 'Definisi dan binding approved, storage siap, serta record master dapat dimuat dan dicari.',
     optional: true,

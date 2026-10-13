@@ -208,7 +208,16 @@ export interface TransformParameter {
   value: string
   replacement: string | null
 }
+export interface MasterReferenceMapping {
+  master_definition_id: string
+  master_field: string
+  required: boolean
+  cardinality: 'MANY_TO_ONE' | 'ONE_TO_ONE'
+  normalization: 'TRIM_CASEFOLD'
+  aliases: Record<string, string>
+}
 export interface Column {
+  master_reference?: MasterReferenceMapping | null
   taxonomy_id?: string | null
   taxonomy_version?: number | null
   taxonomy_required?: boolean

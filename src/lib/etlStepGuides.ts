@@ -21,6 +21,7 @@ const guides: EtlStepGuide[] = [
     instructions: [
       'Periksa nama kolom dan tipe data. Petakan kolom yang berguna; hapus mapping yang memang tidak perlu.',
       'Tandai key hanya jika nilainya stabil dan unik. Key untuk UPSERT harus terisi pada setiap baris.',
+      'Jika kolom merujuk data master, pilih master aktif dan field pencocok. Target relasi memakai UUID record master; nilai yang tidak ditemukan atau ambigu harus diselesaikan saat review batch.',
       'Atur sensitivitas sesuai isi kolom. Informasi pribadi atau rahasia tidak boleh dibuka untuk analitik umum.',
     ],
     example: 'Kode Produk → product_code (text, wajib); Harga → price (numeric).',

@@ -174,6 +174,7 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Saran metadata bersifat pemeriksaan kelengkapan, bukan AI yang mengubah konfigurasi secara otomatis.',
       'Relasi join bersifat opsional; buat hanya jika ada kebutuhan analitik lintas dataset dan kolom kunci serta kardinalitasnya sudah dipastikan.',
+      'Relasi master pada konfigurasi non-master berbeda dari join analitik: relasi menyimpan UUID record master dan memvalidasi referensi saat preview/apply. Field master harus menjadi nilai pencocok yang sesuai sumber.',
       'Katalog hanya menampilkan Data Product aktif yang memang dapat ditemukan oleh akun Anda.',
       'Perubahan target NON_MASTER ditampilkan pada Preview perubahan schema. Pemilik memeriksa rencana sebelum validasi dan deploy; worker hanya menjalankan perubahan yang aman. Rename/drop fisik, key dan dependency tidak aman tetap diblokir.',
     ],
@@ -187,6 +188,7 @@ const entries: PageHelpEntry[] = [
       'Periksa identitas sumber dan fingerprint profil yang menjadi dasar draft.',
       'Gunakan nama file dan tab mengisi saran identitas tanpa menyimpan/menimpa otomatis. Nama bisnis mempertahankan tanda baca valid (200 karakter); kode diawali huruf, memakai ASCII/angka/underscore (63 karakter). Profiling ulang menangkap nama file asli; profil lama memakai nama sumber.',
       'Tinjau setiap mapping kolom, tipe target, transformasi, dan klasifikasi sensitivitas.',
+      'Untuk kolom yang merujuk master, pilih relasi master pada mapping kolom dan field pencocok yang berisi kode/nilai sumber. Target harus UUID; nilai tidak ditemukan atau ambigu tidak dipilih otomatis dan harus diselesaikan saat review batch.',
       'Lengkapi aturan kualitas, business key, strategi load, metrik, dan visualisasi.',
       'Jalankan validasi dan perbaiki blocker yang ditampilkan. Pada konfigurasi owner-managed, checklist persetujuan tidak diperlukan.',
       'Setelah validasi siap, pemilik menekan Deploy. Approval konfigurasi dan approval tayang rutin tidak diperlukan pada workflow owner-managed.',

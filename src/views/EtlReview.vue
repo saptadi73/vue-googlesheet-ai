@@ -68,6 +68,14 @@ const route = useRoute(),
   router = useRouter()
 const details = ref<Review | null>(null),
   draft = ref<ETL | null>(null),
+  referenceMasters = ref<Array<{
+    id: string
+    code: string
+    name: string
+    is_active: boolean
+    status: string
+    approved_definition_json: { fields: Array<{ name: string; type: string; pii_classification: string }>; label_field: string } | null
+  }>>([]),
   preview = ref<Preview | null>(null),
   parameterCatalog = ref<{
     schema_version: string
@@ -306,9 +314,10 @@ async function run(action: () => Promise<void>) {
 }
 async function load() {
   const epoch = generation
-  const [result, catalog] = await Promise.all([
+  const [result, catalog, masters] = await Promise.all([
     call<Review>('GET', `${base.value}/review`),
     call<typeof parameterCatalog.value>('GET', '/configurations/parameter-catalog'),
+    call<typeof referenceMasters.value>('GET', '/master-definitions?offset=0&limit=100'),
   ])
   if (epoch !== generation) return
   const config = result.configuration
@@ -322,6 +331,9 @@ async function load() {
   if (epoch !== generation) return
   details.value = result
   parameterCatalog.value = catalog
+  referenceMasters.value = masters.filter(
+    (master) => master.is_active && master.status === 'APPROVED' && master.approved_definition_json,
+  )
   releaseStatus.value = release
   defaultInputs.value.clear()
   draft.value = copy(result.configuration.configuration_json)
@@ -528,6 +540,36 @@ function addColumn() {
     currency_conversion: null,
   })
   selectedHeader.value = ''
+}
+function setMasterReference(column: Column, masterId: string) {
+  if (!masterId) {
+    column.master_reference = null
+    return
+  }
+  const master = referenceMasters.value.find((item) => item.id === masterId)
+  if (!master?.approved_definition_json) return
+  column.target_type = 'uuid'
+  column.is_business_key = false
+  column.is_primary_key = false
+  column.master_reference = {
+    master_definition_id: master.id,
+    master_field: master.approved_definition_json.label_field,
+    required: false,
+    cardinality: 'MANY_TO_ONE',
+    normalization: 'TRIM_CASEFOLD',
+    aliases: {},
+  }
+}
+function referenceFields(column: Column) {
+  const master = referenceMasters.value.find(
+    (item) => item.id === column.master_reference?.master_definition_id,
+  )
+  return master?.approved_definition_json?.fields || []
+}
+function setMasterReferenceRequired(column: Column, value: boolean) {
+  if (!column.master_reference) return
+  column.master_reference.required = value
+  if (value) column.nullable = false
 }
 function addQuality() {
   draft.value?.data_quality_rules.push({
@@ -885,6 +927,48 @@ onBeforeRouteUpdate(confirmLeave)
                 Hapus mapping
               </button>
             </div>
+            <div class="grid">
+              <label
+                >Relasi master (opsional)<select
+                  :value="c.master_reference?.master_definition_id || ''"
+                  @change="setMasterReference(c, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Tidak berelasi dengan master</option>
+                  <option v-for="master in referenceMasters" :key="master.id" :value="master.id">
+                    {{ master.name }} ({{ master.code }})
+                  </option>
+                </select></label
+              >
+              <template v-if="c.master_reference">
+                <label
+                  >Field master untuk mencocokkan nilai<select v-model="c.master_reference.master_field">
+                    <option
+                      v-for="field in referenceFields(c)"
+                      :key="field.name"
+                      :value="field.name"
+                    >
+                      {{ field.name }} ({{ field.type }})
+                    </option>
+                  </select></label
+                ><label
+                  >Kardinalitas<select v-model="c.master_reference.cardinality">
+                    <option value="MANY_TO_ONE">Banyak baris ke satu record master</option>
+                    <option value="ONE_TO_ONE">Satu baris ke satu record master</option>
+                  </select></label
+                ><label class="check"
+                  ><input
+                    type="checkbox"
+                    :checked="c.master_reference.required"
+                    @change="setMasterReferenceRequired(c, ($event.target as HTMLInputElement).checked)"
+                  />Relasi wajib ada</label
+                >
+              </template>
+            </div>
+            <p v-if="c.master_reference" class="muted">
+              Target akan memakai UUID record master, bukan teks label. Nilai sumber dicari melalui
+              field master terpilih; kecocokan tidak ditemukan atau ambigu harus diselesaikan saat
+              review batch. Relasi wajib membuat kolom target tidak boleh kosong.
+            </p>
             <label>Catatan / alasan<textarea v-model="c.reason" rows="2" /></label>
             <TaxonomyMapping
               :column="c"
@@ -1627,7 +1711,15 @@ onBeforeRouteUpdate(confirmLeave)
         <p v-if="submitted && !isMasterTab" class="success">
           {{ ownerWorkflow ? 'Validasi pemilik tersimpan. Lanjutkan ke Deploy setelah status siap.' : 'Revisi ini sudah diajukan untuk review.' }}
         </p>
-        <div v-if="!isMasterTab && reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
+        <p
+          v-if="!isMasterTab && ownerWorkflow && reviewer && !editor && record.status === 'NEEDS_REVIEW'"
+          class="notice"
+        >
+          Konfigurasi ini mengikuti alur owner-managed dan tidak memerlukan approval konfigurasi.
+          Data owner atau steward perlu menjalankan “Validasi &amp; siapkan deploy” pada revisi ini.
+          Policy akses sumber tetap dikelola terpisah.
+        </p>
+        <div v-if="!isMasterTab && !ownerWorkflow && reviewer && record.status === 'NEEDS_REVIEW'" class="card-row">
           <h3>Keputusan approver</h3>
           <p class="muted">
             Periksa seluruh tahapan dan hasil dry-run sebelum memberikan keputusan.
