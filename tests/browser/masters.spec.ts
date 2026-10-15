@@ -159,6 +159,27 @@ async function masterSetup(page: Page) {
   }
 }
 
+test('master relationship keeps the readable source text when saving a configuration', async ({ page }) => {
+  const mock = await masterSetup(page)
+  mock.sheet.dataset_kind = 'NON_MASTER'
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+  const column = page.locator('.card-row').filter({ has: page.getByRole('heading', { name: /Cabang/ }) }).first()
+  await column.getByRole('combobox', { name: 'Relasi master (opsional)' }).selectOption('master-1')
+  await expect(column.getByRole('combobox', { name: 'Tipe', exact: true })).toHaveValue('text')
+  await expect(column.getByRole('combobox', { name: 'Field master untuk mencocokkan nilai' })).toHaveValue('branch_code')
+  await expect(column.getByText(/Anda tidak perlu mencari atau mengetik UUID/)).toBeVisible()
+  await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
+  await expect(page.getByText(/Draft tersimpan/)).toBeVisible()
+  const saved = mock.requests.find(r => r.method === 'PATCH' && r.path === `/configurations/${configId}`)?.body.configuration.columns[0]
+  expect(saved.target_type).toBe('text')
+  expect(saved.source_column).toBe('Cabang')
+  expect(saved.target_column).toBe('branch_name')
+  expect(saved.master_reference.master_field).toBe('branch_code')
+  expect(mock.errors).toEqual([])
+})
+
 test('classification uses its own revision and valid data cannot submit before confirmation', async ({
   page,
 }) => {

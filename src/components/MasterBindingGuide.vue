@@ -62,6 +62,7 @@ import guide from '@/content/masterBindingGuide.json'
       <ol>
         <li v-for="step in guide.reference_steps" :key="step">{{ step }}</li>
       </ol>
+      <p>{{ guide.reference_configuration_help }}</p>
     </details>
     <details>
       <summary>Jika binding atau pemuatan belum bisa dilanjutkan</summary>

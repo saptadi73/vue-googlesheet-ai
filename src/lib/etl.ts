@@ -432,6 +432,7 @@ export interface SchemaMigration {
   policy: string
 }
 export interface Validation {
+  reference_issues?: { code: string; message: string }[]
   valid: boolean
   ready_for_review: boolean
   classification?: SheetClassification
@@ -452,6 +453,15 @@ export interface Validation {
   }
 }
 export interface Review {
+  legacy_reference_bindings?: {
+    source_column: string
+    master_definition_id: string
+    master_field: string
+    required: boolean
+    cardinality: 'MANY_TO_ONE' | 'ONE_TO_ONE'
+    normalization: 'TRIM_CASEFOLD'
+    aliases_json: Record<string, string>
+  }[]
   configuration: Config
   source: Source
   sheet: Sheet

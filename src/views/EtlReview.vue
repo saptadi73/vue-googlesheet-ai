@@ -337,6 +337,21 @@ async function load() {
   releaseStatus.value = release
   defaultInputs.value.clear()
   draft.value = copy(result.configuration.configuration_json)
+  if (['AI_DRAFT', 'NEEDS_REVIEW'].includes(config.status)) {
+    for (const binding of result.legacy_reference_bindings || []) {
+      const column = draft.value.columns.find(c => c.source_column === binding.source_column)
+      if (!column || column.master_reference) continue
+      column.master_reference = {
+        master_definition_id: binding.master_definition_id,
+        master_field: binding.master_field,
+        required: binding.required,
+        cardinality: binding.cardinality,
+        normalization: binding.normalization,
+        aliases: binding.aliases_json,
+      }
+      if (!['text', 'varchar', 'uuid'].includes(column.target_type)) column.target_type = 'text'
+    }
+  }
   answers.value = {}
   resolved.value = []
   preview.value = null
@@ -548,9 +563,17 @@ function setMasterReference(column: Column, masterId: string) {
   }
   const master = referenceMasters.value.find((item) => item.id === masterId)
   if (!master?.approved_definition_json) return
-  column.target_type = 'uuid'
-  column.is_business_key = false
-  column.is_primary_key = false
+  if (!['text', 'varchar'].includes(column.target_type)) column.target_type = 'text'
+  column.numeric_precision = null
+  column.numeric_scale = null
+  column.date_format = null
+  column.date_input_format = null
+  column.number_locale = null
+  column.source_timezone = null
+  column.unit_conversion = null
+  column.currency_conversion = null
+  column.transformation_codes = column.transformation_codes.filter(t =>
+    !['parse_date_id', 'parse_decimal_id'].includes(t))
   column.master_reference = {
     master_definition_id: master.id,
     master_field: master.approved_definition_json.label_field,
@@ -905,7 +928,7 @@ onBeforeRouteUpdate(confirmLeave)
               ><label>Kolom database<input v-model="c.target_column" maxlength="63" /></label
               ><label
                 >Tipe<select v-model="c.target_type">
-                  <option v-for="t in types" :key="t">{{ t }}</option>
+                  <option v-for="t in types" :key="t" :disabled="!!c.master_reference && !['text', 'varchar', ...(c.target_type === 'uuid' ? ['uuid'] : [])].includes(t)">{{ t }}</option>
                 </select></label
               ><label
                 >Sensitivitas<select v-model="c.pii_classification">
@@ -965,9 +988,10 @@ onBeforeRouteUpdate(confirmLeave)
               </template>
             </div>
             <p v-if="c.master_reference" class="muted">
-              Target akan memakai UUID record master, bukan teks label. Nilai sumber dicari melalui
-              field master terpilih; kecocokan tidak ditemukan atau ambigu harus diselesaikan saat
-              review batch. Relasi wajib membuat kolom target tidak boleh kosong.
+              Isi Sheet tetap memakai kode atau nama, misalnya BC06 atau BSP. Aplikasi mencocokkan
+              field master terpilih dan menyimpan identitas relasi secara otomatis. Kolom teks tetap
+              tersedia untuk tampilan dan analitik. Nilai tidak ditemukan atau ambigu ditampilkan
+              pada validasi; Anda tidak perlu mencari atau mengetik UUID.
             </p>
             <label>Catatan / alasan<textarea v-model="c.reason" rows="2" /></label>
             <TaxonomyMapping
@@ -1563,6 +1587,7 @@ onBeforeRouteUpdate(confirmLeave)
         </template>
       </fieldset>
       <section v-if="step === 6" class="panel">
+        <p v-for="issue in details.validation.reference_issues || []" :key="issue.code" class="error" role="alert">{{ issue.message }}</p>
         <section v-if="isMasterTab" class="notice" aria-label="Langkah persetujuan master">
           <h2>Persetujuan tab MASTER</h2>
           <p>Review konfigurasi ETL ini tidak dapat digunakan untuk menyetujui atau memuat tab MASTER.

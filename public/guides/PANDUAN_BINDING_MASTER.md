@@ -94,7 +94,7 @@ Halaman: **Storage & record master → Sumber master terikat**. Pelaksana: Sourc
 
 Hasil sebelum lanjut: **Batch master tersedia untuk pemeriksaan dan keputusan.**.
 
-### 8. Review batch, approve dan Apply
+### 8. Validasi batch dan Apply
 
 Halaman: **Batch import → batch master yang baru dibuat**. Pelaksana: Source Owner / Data Steward pada owner workflow; reviewer pada workflow legacy.
 
@@ -136,6 +136,8 @@ Jika Sheet saat ini hanya memiliki BISNIS dan is_active, petakan BISNIS ke field
 5. Pilih MANY_TO_ONE bila banyak transaksi boleh merujuk satu bisnis. Centang Referensi wajib ada jika semua baris harus memiliki rujukan.
 6. Simpan binding kolom dan periksa validasinya. Owner workflow tidak memerlukan approval rutin kedua; legacy mengikuti review yang ditampilkan. Lanjutkan konfigurasi/pemuatan NON_MASTER dengan target referensi yang sesuai.
 7. Nilai tidak ditemukan/ambigu dihentikan untuk review. Binding referensi tidak membuat record master baru secara otomatis. Master dengan key gabungan memerlukan satu field kode rujukan unik untuk resolver kolom.
+
+Konfigurasi ETL non-master menerima `master_reference` langsung pada mapping kolom. Di Workspace ETL, langkah Kolom menyediakan pilihan master, field kode/nama untuk pencocokan, kardinalitas, dan apakah relasi wajib. Isi Sheet serta kolom target tetap text/varchar: misalnya BISNIS berisi BSP atau BISNIS_CODE berisi BC06. Aplikasi mencari record aktif secara otomatis dan menyimpan identitasnya pada kolom internal terpisah; pengguna tidak perlu mengetik atau mencari UUID. Preview dan analitik tetap menampilkan kode/nama sumber. Nilai tidak ditemukan/ambigu, field sensitif tanpa izin, dan pelanggaran satu-ke-satu ditolak sebelum pemuatan. Binding tab lama yang identik digunakan sebagai relasi yang sama; aturan yang berbeda harus disamakan, bukan dipilih diam-diam. Konfigurasi UUID lama tetap kompatibel. Penambahan relasi tidak menebak isi record historis: kolom internal baru nullable; record lama belum memiliki referensi sampai diproses ulang melalui strategi yang sesuai.
 
 ## Jika proses belum bisa dilanjutkan
 
