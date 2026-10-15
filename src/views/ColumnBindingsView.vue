@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, editRoles, reviewRoles, user, type Profile, type Sheet } from '@/lib/etl'
+import { call, editRoles, reviewRoles, user, type Profile, type Sheet, type Config } from '@/lib/etl'
 import { type ColumnBinding, type ColumnBindingRecommendations, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 
 const route = useRoute()
+const router = useRouter()
 const { busy, error, notice, run } = useTask()
 const sourceId = computed(() => String(route.params.sourceId))
 const sheetId = computed(() => String(route.params.sheetId))
@@ -141,6 +142,24 @@ async function decide(binding: ColumnBinding, decision: 'approve' | 'reject') {
   await load()
 }
 
+async function removeRelation(binding: ColumnBinding) {
+  const configurations = await call<Config[]>('GET', `/source-sheets/${sheetId.value}/configurations`)
+  if (!configurations.length || binding.disabled_by_configuration) {
+    await call('POST', `/column-bindings/${binding.id}/remove`, { revision_no: binding.revision_no })
+    await load()
+    notice.value = 'Binding lama diarsipkan. Data sumber dan record master tetap tersedia.'
+    return
+  }
+  const latest = [...configurations].sort((a, b) => b.version_no - a.version_no)
+  let draft = latest.find(c => ['AI_DRAFT', 'NEEDS_REVIEW'].includes(c.status))
+  if (!draft) {
+    const base = latest.find(c => c.status === 'ACTIVE') || latest[0]!
+    draft = await call<Config>('POST', `/configurations/${base.id}/clone`)
+  }
+  await router.push({ path: `/configurations/${draft.id}/review`,
+    query: { remove_master_reference: binding.source_column } })
+}
+
 watch(
   [sheetId, user],
   () => {
@@ -225,6 +244,7 @@ watch(
         </p>
         <div class="toolbar">
           <button v-if="editor" :disabled="busy" @click="run(() => edit(binding))">Edit</button>
+          <button v-if="editor && binding.status !== 'REVOKED'" class="danger" :disabled="busy" @click="run(() => removeRelation(binding))">{{ binding.disabled_by_configuration ? 'Arsipkan binding lama' : 'Hapus relasi' }}</button>
           <template v-if="reviewer && binding.status === 'DRAFT'">
             <button
               class="primary"
@@ -236,6 +256,7 @@ watch(
             <button :disabled="busy" @click="run(() => decide(binding, 'reject'))">Tolak</button>
           </template>
         </div>
+        <p v-if="binding.disabled_by_configuration" class="muted">Relasi sudah dilepas pada konfigurasi aktif. Binding disimpan untuk riwayat.</p>
       </article>
     </section>
 

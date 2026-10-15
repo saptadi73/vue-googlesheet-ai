@@ -97,6 +97,7 @@ export interface MasterSourceBindings {
   }>
 }
 export interface ColumnBinding {
+  disabled_by_configuration?: boolean
   id: string
   source_sheet_id: string
   source_column: string
@@ -107,7 +108,7 @@ export interface ColumnBinding {
   normalization: string
   cardinality: 'MANY_TO_ONE' | 'ONE_TO_ONE'
   revision_no: number
-  status: 'DRAFT' | 'APPROVED' | 'REJECTED'
+  status: 'DRAFT' | 'APPROVED' | 'REJECTED' | 'REVOKED'
   created_by: string
   approved_by: string | null
   approved_at: string | null

@@ -217,6 +217,7 @@ export interface MasterReferenceMapping {
   aliases: Record<string, string>
 }
 export interface Column {
+  master_reference_disabled?: boolean
   master_reference?: MasterReferenceMapping | null
   taxonomy_id?: string | null
   taxonomy_version?: number | null

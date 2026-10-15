@@ -340,7 +340,7 @@ async function load() {
   if (['AI_DRAFT', 'NEEDS_REVIEW'].includes(config.status)) {
     for (const binding of result.legacy_reference_bindings || []) {
       const column = draft.value.columns.find(c => c.source_column === binding.source_column)
-      if (!column || column.master_reference) continue
+      if (!column || column.master_reference || column.master_reference_disabled) continue
       column.master_reference = {
         master_definition_id: binding.master_definition_id,
         master_field: binding.master_field,
@@ -356,6 +356,12 @@ async function load() {
     for (const column of draft.value.columns) {
       if (column.master_reference && column.target_type === 'uuid') column.target_type = 'text'
     }
+  }
+  const removeSource = route.query.remove_master_reference
+  if (typeof removeSource === 'string' && ['AI_DRAFT', 'NEEDS_REVIEW'].includes(config.status)) {
+    const column = draft.value.columns.find(c => c.source_column === removeSource)
+    if (column) setMasterReference(column, '')
+    await router.replace({ query: { ...route.query, remove_master_reference: undefined } })
   }
   answers.value = {}
   resolved.value = []
@@ -563,11 +569,16 @@ function addColumn() {
 }
 function setMasterReference(column: Column, masterId: string) {
   if (!masterId) {
+    const original = record.value?.configuration_json.columns.find(c => c.source_column === column.source_column)
+    column.master_reference_disabled = !!(original?.master_reference || original?.master_reference_disabled ||
+      details.value?.legacy_reference_bindings?.some(b => b.source_column === column.source_column))
     column.master_reference = null
+    if (column.master_reference_disabled && column.target_type === 'uuid') column.target_type = 'text'
     return
   }
   const master = referenceMasters.value.find((item) => item.id === masterId)
   if (!master?.approved_definition_json) return
+  column.master_reference_disabled = false
   if (!['text', 'varchar'].includes(column.target_type)) column.target_type = 'text'
   column.numeric_precision = null
   column.numeric_scale = null
@@ -773,7 +784,7 @@ function confirmLeave() {
   return !dirty.value || window.confirm('Perubahan draft belum disimpan. Tinggalkan halaman ini?')
 }
 onBeforeRouteLeave(confirmLeave)
-onBeforeRouteUpdate(confirmLeave)
+onBeforeRouteUpdate((to, from) => to.params.id === from.params.id ? true : confirmLeave())
 </script>
 
 <template>
@@ -998,6 +1009,8 @@ onBeforeRouteUpdate(confirmLeave)
               tersedia untuk tampilan dan analitik. Nilai tidak ditemukan atau ambigu ditampilkan
               pada validasi; Anda tidak perlu mencari atau mengetik UUID.
             </p>
+            <button v-if="c.master_reference" type="button" class="danger" @click="setMasterReference(c, '')">Hapus relasi</button>
+            <p v-if="c.master_reference_disabled" class="notice" role="status">Relasi dilepas pada draft ini. Simpan, validasi, lalu deploy agar berlaku. Binding lama tidak akan dimuat kembali pada konfigurasi ini. Data sumber, record master dan kolom internal yang sudah ada tetap dipertahankan.</p>
             <label>Catatan / alasan<textarea v-model="c.reason" rows="2" /></label>
             <TaxonomyMapping
               :column="c"

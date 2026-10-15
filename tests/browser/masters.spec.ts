@@ -199,6 +199,100 @@ test('existing UUID reference drafts are presented as readable text before savin
   expect(mock.record.configuration_json.columns[0].target_type).toBe('text')
 })
 
+test('removing a relation persists across reload even when a legacy binding still exists', async ({ page }) => {
+  const mock = await masterSetup(page)
+  mock.sheet.dataset_kind = 'NON_MASTER'
+  Object.assign(mock.record.configuration_json.columns[0], {
+    master_reference: { master_definition_id: 'master-1', master_field: 'branch_code',
+      required: false, cardinality: 'MANY_TO_ONE', normalization: 'TRIM_CASEFOLD', aliases: {} },
+  })
+  await page.route(`**/api/v1/configurations/${configId}/review`, route => route.fulfill({ json: {
+    status: 'success', data: { configuration: mock.record, source: mock.source, sheet: mock.sheet,
+      classification: mock.classification(), validation: mock.validation, profile: { columns: [] },
+      capabilities: { unsupported: [], max_workbook_bytes: 2_000_000 },
+      legacy_reference_bindings: [{ source_column: 'Cabang', master_definition_id: 'master-1',
+        master_field: 'branch_code', required: false, cardinality: 'MANY_TO_ONE',
+        normalization: 'TRIM_CASEFOLD', aliases_json: {} }],
+    }, meta: {}, errors: [],
+  } }))
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+  const column = page.locator('.card-row').filter({ has: page.getByRole('heading', { name: /Cabang/ }) }).first()
+  await column.getByRole('button', { name: 'Hapus relasi', exact: true }).click()
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('')
+  await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
+  await expect(page.getByText(/Draft tersimpan/)).toBeVisible()
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('')
+  expect(mock.record.configuration_json.columns[0].master_reference).toBeNull()
+  expect(mock.record.configuration_json.columns[0].master_reference_disabled).toBe(true)
+  await page.reload()
+  await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('')
+  await expect(column.getByText(/Relasi dilepas pada draft ini/)).toBeVisible()
+})
+
+test('binding removal handoff is consumed once and allows enabling a relation again', async ({ page }) => {
+  const mock = await masterSetup(page)
+  mock.sheet.dataset_kind = 'NON_MASTER'
+  Object.assign(mock.record.configuration_json.columns[0], {
+    master_reference: { master_definition_id: 'master-1', master_field: 'branch_code',
+      required: false, cardinality: 'MANY_TO_ONE', normalization: 'TRIM_CASEFOLD', aliases: {} },
+  })
+  await page.goto(`/configurations/${configId}/review?remove_master_reference=Cabang`)
+  await login(page)
+  await expect(page).toHaveURL(new RegExp(`/configurations/${configId}/review$`))
+  await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+  const column = page.locator('.card-row').filter({ has: page.getByRole('heading', { name: /Cabang/ }) }).first()
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('')
+  await column.getByRole('combobox', { name: 'Relasi master (opsional)' }).selectOption('master-1')
+  await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
+  await expect(page.getByText(/Draft tersimpan/)).toBeVisible()
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('master-1')
+  expect(mock.record.configuration_json.columns[0].master_reference_disabled).toBe(false)
+})
+
+for (const unused of [false, true]) test(`binding page removes relation through ${unused ? 'archival' : 'a configuration draft'}`, async ({ page }) => {
+  const mock = await masterSetup(page)
+  mock.sheet.dataset_kind = 'NON_MASTER'
+  Object.assign(mock.record.configuration_json.columns[0], {
+    master_reference: { master_definition_id: 'master-1', master_field: 'branch_code',
+      required: false, cardinality: 'MANY_TO_ONE', normalization: 'TRIM_CASEFOLD', aliases: {} },
+  })
+  const binding = { id: 'legacy-binding', source_sheet_id: sheetId, source_column: 'Cabang',
+    master_definition_id: 'master-1', master_field: 'branch_code', master_version: 1,
+    required: false, normalization: 'TRIM_CASEFOLD', cardinality: 'MANY_TO_ONE',
+    revision_no: 5, status: 'APPROVED', created_by: 'editor-id' }
+  let removals = 0
+  await page.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '')
+    const ok = (data: unknown) => route.fulfill({ json: { status: 'success', data, meta: {}, errors: [] } })
+    if (path === `/source-sheets/${sheetId}/column-bindings`) return ok([binding])
+    if (path === `/source-sheets/${sheetId}/configurations`) return ok(unused ? [] : [mock.record])
+    if (path === '/column-bindings/legacy-binding/remove') {
+      expect(route.request().postDataJSON().revision_no).toBe(5)
+      binding.status = 'REVOKED'
+      binding.revision_no++
+      removals++
+      return ok(binding)
+    }
+    return route.fallback()
+  })
+  await page.goto(`/sources/${sourceId}/sheets/${sheetId}/column-bindings`)
+  await login(page)
+  await page.getByRole('button', { name: 'Hapus relasi', exact: true }).click()
+  if (unused) {
+    await expect(page.getByText(/Binding lama diarsipkan/)).toBeVisible()
+    expect(removals).toBe(1)
+  } else {
+    await expect(page).toHaveURL(new RegExp(`/configurations/${configId}/review$`))
+    await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+    await expect(page.getByText(/Relasi dilepas pada draft ini/)).toBeVisible()
+    expect(removals).toBe(0)
+  }
+  expect(mock.master().status).toBe('APPROVED')
+})
+
 test('classification uses its own revision and valid data cannot submit before confirmation', async ({
   page,
 }) => {
