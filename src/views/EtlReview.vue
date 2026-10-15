@@ -351,6 +351,11 @@ async function load() {
       }
       if (!['text', 'varchar', 'uuid'].includes(column.target_type)) column.target_type = 'text'
     }
+    // Repair drafts created by the older form, which exposed the identity type
+    // as the source field type. Persist only after the editor saves the draft.
+    for (const column of draft.value.columns) {
+      if (column.master_reference && column.target_type === 'uuid') column.target_type = 'text'
+    }
   }
   answers.value = {}
   resolved.value = []

@@ -180,6 +180,25 @@ test('master relationship keeps the readable source text when saving a configura
   expect(mock.errors).toEqual([])
 })
 
+test('existing UUID reference drafts are presented as readable text before saving', async ({ page }) => {
+  const mock = await masterSetup(page)
+  mock.sheet.dataset_kind = 'NON_MASTER'
+  Object.assign(mock.record.configuration_json.columns[0], {
+    target_type: 'uuid',
+    master_reference: { master_definition_id: 'master-1', master_field: 'branch_code',
+      required: false, cardinality: 'MANY_TO_ONE', normalization: 'TRIM_CASEFOLD', aliases: {} },
+  })
+  await page.goto(`/configurations/${configId}/review`)
+  await login(page)
+  await page.getByRole('button', { name: /^Langkah 2, Kolom:/ }).click()
+  const column = page.locator('.card-row').filter({ has: page.getByRole('heading', { name: /Cabang/ }) }).first()
+  await expect(column.getByRole('combobox', { name: 'Tipe', exact: true })).toHaveValue('text')
+  await expect(column.getByRole('combobox', { name: 'Relasi master (opsional)' })).toHaveValue('master-1')
+  await page.getByRole('button', { name: 'Simpan draft', exact: true }).click()
+  await expect(page.getByText(/Draft tersimpan/)).toBeVisible()
+  expect(mock.record.configuration_json.columns[0].target_type).toBe('text')
+})
+
 test('classification uses its own revision and valid data cannot submit before confirmation', async ({
   page,
 }) => {
