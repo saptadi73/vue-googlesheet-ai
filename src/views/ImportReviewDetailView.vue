@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
 import { call, editRoles, reviewRoles, user } from '@/lib/etl'
@@ -48,6 +48,7 @@ const closureRows = computed(() =>
 watch(closeOpenPeriods, () => {
   preview.value = null
 })
+const router = useRouter()
 const route = useRoute(),
   id = computed(() => String(route.params.id)),
   { busy, error, notice, run } = useTask()
@@ -442,6 +443,11 @@ async function action(kind: 'cancel' | 'revalidate' | 'resume') {
     comment: comment.value.trim(),
   })
   if (epoch !== generation) return
+  if (result.replacement_review_id) {
+    notice.value = 'Batch terkini dibuka. Tunggu validasi selesai, lalu periksa preview sebelum apply.'
+    await router.push(`/import-reviews/${result.replacement_review_id}`)
+    return
+  }
   review.value = result
   preview.value = null
   appliedRows.value = null
@@ -603,6 +609,14 @@ onBeforeUnmount(() => {
           Snapshot {{ review.snapshot_hash }} Â· dependency
           {{ review.dependencies_current === false ? 'berubah' : 'terkini' }}
         </p>
+        <p v-if="review.status === 'STALE_REVIEW'" class="notice">
+          Data, konfigurasi, atau relasi berubah sejak batch dibuat. Klik Validasi ulang untuk
+          membuat atau membuka batch terkini. Jika header berubah, sesuaikan konfigurasi terlebih dahulu.
+        </p>
+        <p v-if="review.checkpoint.replacement_review_id">
+          Batch ini sudah digantikan.
+          <RouterLink :to="`/import-reviews/${review.checkpoint.replacement_review_id}`">Buka batch pengganti</RouterLink>
+        </p>
         <p v-if="review.configuration_id">
           Konfigurasi {{ review.configuration_id }} Â· revisi {{ review.configuration_revision }}
         </p>
@@ -655,7 +669,7 @@ onBeforeUnmount(() => {
             "
             @click="run(() => action('revalidate'))"
           >
-            Revalidate</button
+            Validasi ulang</button
           ><button
             :disabled="
               busy || review.status !== 'NEEDS_INPUT' || !!review.checkpoint.blocking_codes?.length
@@ -666,7 +680,8 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <p v-if="['READY_FOR_APPROVAL', 'APPROVED'].includes(review.status)" class="muted">
-          Revalidate mencabut approval dan preview lama. Tunggu validasi selesai, lalu preview dan
+          Validasi ulang mencabut approval dan preview lama. Jika dependency berubah, aplikasi membuka
+          batch pengganti dengan snapshot terakhir dan konfigurasi aktif. Tunggu validasi selesai, lalu preview dan
           {{ review.owner_workflow_enabled ? 'apply ulang setelah meninjau preview.' : 'approve ulang.' }}
         </p>
       </section>

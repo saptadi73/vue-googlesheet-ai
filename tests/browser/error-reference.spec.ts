@@ -37,7 +37,7 @@ test('page helper exposes the same table on a narrow screen and restores focus',
   await expect(dialog.getByRole('row')).toHaveCount(2)
   await expect(dialog.getByRole('region', { name: 'Tabel error response' })).toBeVisible()
   await expect(
-    dialog.getByRole('cell', { name: /Profiling ulang, buat draft terbaru/ }),
+    dialog.getByRole('cell', { name: /Temukan tab dan profiling ulang/ }),
   ).toBeAttached()
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()

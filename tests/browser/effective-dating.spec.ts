@@ -61,8 +61,9 @@ test('period closure preview is opt-in, approved mode is locked, stale apply req
   await page.getByRole('button', { name: 'Apply batch', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Revalidate')
   await expect(page.getByRole('button', { name: 'Apply batch', exact: true })).toBeDisabled()
-  expect(bodies.at(-1)?.body).toEqual({ revision_no: 1, preview_token: 'token-1' })
-  await page.getByRole('button', { name: 'Revalidate', exact: true }).click()
+  expect(bodies.at(-1)?.body).toEqual({ revision_no: 1, preview_token: 'token-1',
+    preview_hash: 'hash', accept_source_conflicts: false, approval_comment: '' })
+  await page.getByRole('button', { name: 'Validasi ulang', exact: true }).click()
   await expect(option).toBeEnabled()
   await option.check()
   await preview.click()

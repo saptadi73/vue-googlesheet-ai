@@ -25,6 +25,7 @@ export type ImportQuestionAction =
   'APPLY_CORRECTION' | 'CORRECT_SOURCE' | 'PROPOSE_MASTER' | 'KEEP_ORIGINAL' | 'SELECT_RECORD'
 
 export interface ImportCheckpoint {
+  replacement_review_id?: string
   close_open_periods?: boolean
   effective_plan_hash?: string
   periods_to_close?: number
@@ -66,6 +67,10 @@ export interface ImportReview {
   dependencies_current?: boolean
   execution_ready: boolean
   owner_workflow_enabled?: boolean
+  stored_status?: ImportStatus
+  replacement_review_id?: string
+  replacement_review?: ImportReview
+  replacement_reused?: boolean
 }
 
 export interface Finding {

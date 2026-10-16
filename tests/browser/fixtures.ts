@@ -676,6 +676,7 @@ export async function setup(page: Page) {
         sensitivities: ['LOW', 'MEDIUM', 'HIGH'],
       })
     if (path === '/sources/google-sheets' && method === 'POST') return ok({ source, job_id: jobId })
+    if (path === '/master-definitions' && method === 'GET') return ok([])
     if (path === '/access/resources' && method === 'GET') return ok([])
     if (path === '/access/attributes' && method === 'GET') return ok([])
     if (path === '/access/permission-bundles' && method === 'GET') return ok([])

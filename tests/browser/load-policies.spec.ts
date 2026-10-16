@@ -36,7 +36,8 @@ for (const code of [
         })
       if (path.endsWith('/apply')) {
         applies++
-        expect(route.request().postDataJSON()).toEqual({ revision_no: 2, preview_token: 'token' })
+        expect(route.request().postDataJSON()).toEqual({ revision_no: 2, preview_token: 'token',
+          preview_hash: 'hash', accept_source_conflicts: false, approval_comment: '' })
         return route.fulfill({
           status: 409,
           json: {
@@ -64,7 +65,7 @@ for (const code of [
       code === 'APPEND_IDENTICAL_REJECTED' ? 'review ulang' : 'Revalidate',
     )
     await expect(page.getByRole('button', { name: 'Apply batch', exact: true })).toBeDisabled()
-    await page.getByRole('button', { name: 'Revalidate', exact: true }).click()
+    await page.getByRole('button', { name: 'Validasi ulang', exact: true }).click()
     await expect(page.getByRole('heading', { name: /READY_FOR_APPROVAL/ })).toBeVisible()
     expect(applies).toBe(1)
     expect(state.errors).toEqual([])
@@ -112,7 +113,6 @@ test('APPEND duplicate blocks approval and actual zero writes survive reload', a
     '0 baris ditulis',
   )
   await page.reload()
-  await login(page, 'admin')
   await expect(page.getByText('Batch sudah selesai diaplikasikan', { exact: false })).toContainText(
     '0 baris ditulis',
   )
