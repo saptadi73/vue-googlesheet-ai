@@ -125,13 +125,13 @@ const entries: PageHelpEntry[] = [
       'Jika tab dihapus dari spreadsheet, Muat ulang data tersimpan hanya memperbarui tampilan aplikasi. Tekan Temukan tab untuk memeriksa Google Sheet; tab yang hilang akan dinonaktifkan dan dikeluarkan dari pilihan. Riwayat tetap tersimpan. Setelah tab dipulihkan dan discovery dijalankan, aktifkan kembali tab secara manual bila ingin memprosesnya.',
       'Pilih sumber dan tab, lalu konfirmasi klasifikasi MASTER atau NON_MASTER.',
       'Buat draft manual dari template profiling sebagai jalur yang paling mudah dikendalikan; rekomendasi AI opsional bila tersedia. Buka halaman konfigurasi dan validasi.',
-      'Approval awal sumber memeriksa daftar dan klasifikasi tab saat registrasi. Setelah sumber lolos pemeriksaan itu, pemilik mengelola konfigurasi dan deployment tanpa approval konfigurasi berulang pada owner workflow.',
+      'Pada owner workflow, SOURCE_OWNER dan DATA_STEWARD satu unit memvalidasi sumber, konfigurasi, deploy dan sync tanpa approver terpisah; berlaku juga untuk item lama.',
       'Tabel hasil ETL memakai pencarian dan pagination seperti katalog. Data product/kode, semantic/versi, sumber/tab dan status/baris/waktu pemuatan digabung; buka Tabel database untuk melihat nama fisik lengkap. Ikon tindakan membuka Sheet, sumber dan revisi konfigurasi; Lihat detail menjelaskan blocker.',
       'Setelah konfigurasi owner-managed ACTIVE dan akses mengizinkan, pemilik dapat menjalankan Sync manual. Lihat detail berikon mata menampilkan alasan berhenti, baris asli Sheet dan kolom; Buka Google Sheet/Buka sumber memudahkan perbaikan.',
     ],
     notes: [
       'Kode sumber dan seluruh UUID dibuat atau dipilih otomatis oleh sistem.',
-      'Dropdown unit, domain, dan yurisdiksi hanya memuat assignment aktif akun pendaftar. Membuat atribut di Administrasi belum otomatis menugaskannya ke pengguna.',
+      'Unit wajib berasal dari assignment aktif akun. Domain, yurisdiksi dan purpose opsional pada owner workflow. Membuat unit belum otomatis menugaskannya ke pengguna.',
       'Jika pilihan kosong, minta admin lain memberikan assignment kepada akun Anda di Administrasi → Pengguna, lalu tekan Muat ulang pilihan. Admin tidak dapat memberikan assignment untuk akunnya sendiri.',
       'Jika sumber lama tidak muncul pada pilihan, buka menu Sumber & tracking, cari sumber, lalu pilih Buka sumber. Pilihan Workspace hanya memuat sebagian daftar.',
       'Jika sumber sudah terdaftar tetapi discovery/profiling gagal, jangan daftarkan Sheet yang sama lagi. Buka monitor job dan perbaiki tahap yang gagal.',
@@ -141,7 +141,7 @@ const entries: PageHelpEntry[] = [
       'Kolom baru start_date/end_date: profiling ulang, map target date, lalu tambahkan parse_date_id dan pilih Format nilai tanggal = Serial Google Sheets pada Cleansing jika nilai berupa angka serial Sheets. Pola tanggal boleh kosong untuk serial; tipe date saja tidak mengubah angka menjadi tanggal.',
       'Jaga nama tabel tujuan bila ini revisi dataset yang sama. Mengganti nama tabel tidak menghindari migrasi view semantic. Cocokkan versi/ID konfigurasi dengan payload job DEPLOY, bukan URL draft lama; baca /guide#review-ulang-tanggal.',
       'Range, baris header/awal data, dan enabled tab dengan konfigurasi aktif terkunci (CONFIGURATION_CONFLICT). Jangan mencoba melewati penguncian; perubahan memerlukan penanganan lifecycle/migrasi yang direview.',
-      'Sync manual membaca sumber terbaru lalu memvalidasi dan memuat. NEEDS_INPUT berarti Menunggu tindakan, bukan proses aktif. Master memakai batch, Preview, dan Apply oleh pemilik; workflow legacy dapat menampilkan approval.',
+      'Sync manual membaca sumber terbaru lalu memvalidasi dan memuat. NEEDS_INPUT berarti Menunggu tindakan, bukan proses aktif. Master memakai batch, Preview, dan Apply oleh pemilik; reviewer hanya diperlukan bila owner workflow dimatikan.',
     ],
     examples: [
       { label: 'Nama sumber', value: 'Penjualan Cabang Jawa Timur' },
@@ -198,7 +198,7 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Gunakan ikon bantuan di samping setiap tahap wizard untuk melihat tujuan, urutan kerja, dan contoh khusus tahap tersebut.',
       'Perubahan yang belum disimpan dapat hilang saat meninggalkan halaman.',
-      'Approval awal registrasi sumber/tab berbeda dari approval konfigurasi legacy. Perubahan sumber atau snapshot dapat membuat profiling dan bukti validasi perlu diperbarui.',
+      'Perubahan sumber atau snapshot dapat memerlukan profiling dan validasi baru, tetapi tidak mengulang approval akses unit sumber.',
       'source_column harus persis header profil. Tambah/rename header di Google Sheet lalu Profiling ulang sumber yang sama; Muat ulang review tidak menggantikan profiling.',
       'Approved, active, dan rejected tidak dapat diedit; clone ke draft baru. Jika header lama sudah hilang dan clone gagal, buat draft baru dari profil terbaru.',
       'Preview perubahan schema menampilkan kolom/tipe/nullability/key lama dan baru, dampak view/dependency, operasi, validasi dan blocker. Konfirmasi preview sebelum validasi/deploy; backend mengikat pemeriksaan pada fingerprint schema/data. Worker mendukung nullable baru (record lama null), tipe pada tabel kosong, dan bigint serial menjadi date dengan parse_date_id serta Format nilai tanggal = Serial Google Sheets pada kondisi aman. Tidak menghapus record atau memakai DROP CASCADE.',
@@ -266,7 +266,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Untuk field nullable baru: revisi dan approve definisi, redeploy storage, lalu review binding. Record lama tetap null sampai pemuatan yang disetujui.',
-      'Jika storage sudah ada atau pernah dideploy, field wajib baru, key, tipe, rename/drop, dan perubahan nullability perlu migrasi yang direview. Jika storage belum dibuat dan belum pernah dideploy, koreksi definisi dapat diajukan dan disetujui reviewer berbeda; binding lama perlu review ulang.',
+      'Jika storage sudah ada atau pernah dideploy, field wajib baru, key, tipe, rename/drop, dan perubahan nullability perlu migrasi yang direview. Jika storage belum dibuat dan belum pernah dideploy, koreksi definisi dapat divalidasi pengelola pada owner workflow; binding lama perlu validasi ulang.',
     ],
   },
   {
@@ -356,11 +356,11 @@ const entries: PageHelpEntry[] = [
     title: 'Review batch import',
     purpose: 'Membuat dan memantau batch yang akan memuat snapshot sumber ke target terpercaya.',
     steps: [
-      'Cari sumber di tabel; status menunjukkan discovery, profiling, konfigurasi/binding, approval awal sumber, dan pemuatan. Approval IT pada tracking adalah pemeriksaan registrasi sumber/tab, bukan approval konfigurasi berulang.',
+      'Cari sumber di tabel; status menunjukkan discovery, profiling, konfigurasi/binding, validasi akses unit dan pemuatan. Label Approval IT adalah kompatibilitas status lama; pada owner workflow pengelola melakukan validasi akses unit tanpa orang kedua.',
       'Pilih tab yang sudah diklasifikasikan. NON_MASTER memerlukan konfigurasi yang sesuai; MASTER memakai binding master bila jalur itu tersedia untuk tab tersebut.',
       'Gunakan batch untuk melihat snapshot, preview, atau menyelesaikan temuan/konflik yang memerlukan tindakan. Untuk NON_MASTER owner-managed yang sudah active, sync langsung dapat dilakukan dari Workspace/Sumber bila status mengizinkan.',
       'Buka detail batch untuk memeriksa blocker, dependency, pertanyaan, serta pesan kegagalan terakhir. Perbaiki sumber atau konfigurasi lalu buat batch baru jika snapshot lama sudah stale.',
-      'Pada batch owner-managed, pemilik mengikuti aksi validasi dan apply yang ditampilkan; batch legacy mengikuti review/approval yang tercantum. Approval rutin konfigurasi dan release kedua tidak berlaku pada workflow owner-managed.',
+      'Pada batch owner-managed, pemilik mengikuti aksi validasi dan apply yang ditampilkan; item lama mengikuti alur pengelola saat owner workflow aktif. Approval rutin konfigurasi dan release kedua tidak berlaku pada workflow owner-managed.',
       'Apply hanya setelah preview dan seluruh blocker sesuai. Memuat ulang halaman tidak menjalankan ulang batch.',
     ],
   },
@@ -414,9 +414,9 @@ const entries: PageHelpEntry[] = [
       'Mengelola atribut akses, assignment, permission bundle, policy, audit, dan penggunaan AI.',
     steps: [
       'Buat atribut organisasi seperti departemen, domain, yurisdiksi, clearance, dan purpose.',
-      'Berikan assignment unit/departemen, domain bisnis, dan yurisdiksi wilayah kepada akun pendaftar yang sama, dengan masa berlaku yang tepat.',
+      'Berikan role pengelola dan assignment unit/departemen aktif. Domain, yurisdiksi dan purpose opsional pada owner workflow.',
       'Untuk akses lintas unit, pilih setiap unit yang diizinkan pada Akses multi-unit; unit induk tidak otomatis membuka bawahan.',
-      'Tunjuk approver untuk pemeriksaan registrasi sumber/tab. Setelah itu pemilik data mengelola konfigurasi dan batch owner-managed.',
+      'Tidak perlu menunjuk approver pada owner workflow. Pengelola satu unit dapat menyelesaikan sumber, konfigurasi dan batch milik rekan satu unit.',
       'Konfigurasikan pemeriksaan rilis tambahan hanya bila workflow legacy membutuhkannya; owner workflow tidak memakai approval rilis rutin kedua.',
       'Buat policy resource sebagai draft, submit, lalu approve menggunakan admin yang berbeda.',
       'Gunakan Preview keputusan untuk menguji akses sebelum rollout.',
@@ -459,7 +459,7 @@ const entries: PageHelpEntry[] = [
       'Halaman ini menangani konfigurasi legacy atau gate rilis lama yang masih muncul pada akun Anda. Workflow owner-managed yang sudah tervalidasi tidak memerlukan approval konfigurasi/rilis berulang.',
       'Jika ada baris, cari sumber, produk, revisi, dan kelompok reviewer lalu buka ringkasannya. Periksa apakah baris memang legacy dan masih berstatus menunggu pada revisi yang sama.',
       'Untuk item legacy yang ditugaskan, periksa konfigurasi, hasil validasi, sumber, dan checklist kelompok yang menjadi tanggung jawab Anda sebelum memberi keputusan.',
-      'Jika tidak ada item, tidak perlu membuat approval di sini. Approval awal sumber/tab dilakukan pada proses registrasi sumber; sesudah itu pemilik melanjutkan ETL owner-managed melalui Workspace.',
+      'Jika tidak ada item, tidak perlu membuat approval di sini. Validasi akses unit dilakukan melalui Workspace; tidak perlu approver terpisah pada owner workflow.',
       'Jika owner-managed masih tertahan oleh halaman ini, periksa status workflow konfigurasi serta pesan blocker. Jangan membuat keputusan release sebagai pengganti validasi, deploy, atau sinkronisasi pemilik.',
     ],
     examples: [

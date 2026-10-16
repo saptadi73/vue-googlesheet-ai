@@ -91,7 +91,7 @@ const examples = computed(() => {
           produk data aktif; contoh query ada di BACA_DULU dan folder rules dalam ZIP.
         </li>
         <li>
-          Preview dan approval reviewer berbeda diperlukan sebelum evaluate. 50% ditulis 0.50 pada
+          Preview dan validasi pengelola diperlukan sebelum evaluasi. 50% ditulis 0.50 pada
           RATIO. Formula kosong atau penyebut nol tidak memicu tindakan. Hasil berupa usulan
           PROPOSED dengan bukti angka; perubahan tab kontrol atau semantic memerlukan review ulang.
         </li>

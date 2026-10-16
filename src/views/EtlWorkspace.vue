@@ -9,6 +9,7 @@ import {
   user,
   editRoles,
   reviewRoles,
+  ownerManagedWorkflow,
   type Source,
   type Sheet,
   type Config,
@@ -46,7 +47,7 @@ const route = useRoute()
 function emptyAccessMetadata() {
   return {
     owner_unit_id: '', business_domain_id: '', jurisdiction_id: '', purpose_id: '',
-    data_owner_user_id: '', data_steward_user_id: '', sensitivity: '',
+    data_owner_user_id: '', data_steward_user_id: '', sensitivity: 'LOW',
   }
 }
 const registration = ref({
@@ -56,7 +57,7 @@ const registration = ref({
   sync_schedule: '',
   access_metadata: emptyAccessMetadata(),
 })
-type RegistrationCheck = { registered: boolean; owned_by_me: boolean; source_id: string | null; source_name: string | null }
+type RegistrationCheck = { registered: boolean; owned_by_me: boolean; can_manage?: boolean; source_id: string | null; source_name: string | null }
 const registrationCheck = ref<RegistrationCheck | null>(null)
 const registrationChecking = ref(false)
 const registrationBusy = ref(false)
@@ -121,11 +122,11 @@ const missingRegistrationScopes = computed(() => [
   ['DEPARTMENT', 'unit/departemen'],
   ['BUSINESS_DOMAIN', 'domain bisnis'],
   ['JURISDICTION', 'yurisdiksi'],
-].filter(([kind]) => !scopeOptions(kind as AccessKind).length).map(([, label]) => label))
+].filter(([kind]) => (!ownerManagedWorkflow.value || kind === 'DEPARTMENT') && !scopeOptions(kind as AccessKind).length).map(([, label]) => label))
 const registrationReady = computed(() => Boolean(
   registrationOptions.value && !missingRegistrationScopes.value.length &&
-  registrationOptions.value.purposes.length && registrationOptions.value.people.length &&
-  registrationOptions.value.sensitivities.length,
+  (ownerManagedWorkflow.value || (registrationOptions.value.purposes.length && registrationOptions.value.people.length &&
+  registrationOptions.value.sensitivities.length)),
 ))
 const profiles = ref<Profile[]>([])
 const migrationPreview = ref<Record<string, unknown> | null>(null)
@@ -242,18 +243,28 @@ async function loadRegistrationOptions() {
     if (user.value?.id === accountId) registrationOptionsLoading.value = false
   }
 }
+function metadataPayload(value: ReturnType<typeof emptyAccessMetadata>) {
+  if (!ownerManagedWorkflow.value) return value as SourceAccessMetadata
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, item || null]))
+}
+async function validateUnitAccess() {
+  if (!selectedSource.value) return
+  const updated = await call<Source>('POST', `/sources/${selectedSource.value.id}/validate-access`)
+  sources.value = sources.value.map(item => item.id === updated.id ? updated : item)
+  notice.value = 'Akses unit tervalidasi. Tidak perlu approver terpisah.'
+}
 async function saveAccessMetadata() {
   const source = selectedSource.value
   const accountId = user.value?.id
   if (!source || source.access_revision === undefined) return
   const updated = await call<Source>('PATCH', `/sources/${source.id}/access-metadata`, {
     revision_no: source.access_revision,
-    access_metadata: metadataEdit.value as SourceAccessMetadata,
+    access_metadata: metadataPayload(metadataEdit.value),
   })
   if (sourceId.value !== source.id || user.value?.id !== accountId) return
   sources.value = sources.value.map((item) => item.id === updated.id ? { ...item, ...updated } : item)
   notice.value = updated.access_status === 'POLICY_APPROVED'
-    ? 'Metadata tersimpan. Akses default mengikuti domain dan unit pemilik.'
+    ? 'Metadata tersimpan. Akses default mengikuti unit pemilik pada alur pengelola.'
     : 'Metadata akses sumber tersimpan. Policy akses perlu ditinjau.'
 }
 async function loadReviewContext() {
@@ -538,7 +549,7 @@ async function submitRegistration() {
     const checked = await checkRegistration()
     if (!checked) { registrationMessage.value = ''; return }
     if (checked.registered) {
-      if (checked.owned_by_me && checked.source_id) {
+      if ((checked.owned_by_me || checked.can_manage) && checked.source_id) {
         await openDuplicateSource(checked.source_id)
         registrationMessage.value = `Spreadsheet sudah terdaftar sebagai ${checked.source_name}. Sumber yang ada telah dibuka.`
       } else {
@@ -551,6 +562,7 @@ async function submitRegistration() {
     const result = await call<{ job_id: string; source: Source; already_registered: boolean; duplicate_source_ids: string[] }>('POST', '/sources/google-sheets', {
       ...registration.value,
       sync_schedule: registration.value.sync_schedule.trim() || null,
+      access_metadata: metadataPayload(registration.value.access_metadata),
     })
     registrationSourceId.value = result.source.id
     registrationReused.value = result.already_registered
@@ -653,6 +665,7 @@ onBeforeUnmount(() => {
     <p v-if="notice" role="status" class="success">{{ notice }}</p>
     <details v-if="canEdit" class="panel">
       <summary>Hubungkan Google Sheet baru</summary>
+      <p v-if="ownerManagedWorkflow" class="notice">Pilih unit pemilik aktif. Domain, yurisdiksi dan purpose opsional. Owner/steward dapat otomatis memakai akun Anda. Tidak perlu approver terpisah.</p>
       <form @submit.prevent="submitRegistration" @invalid.capture="registrationError = 'Lengkapi semua field wajib sebelum menghubungkan Sheet.'">
         <div class="grid">
           <label>Nama sumber<input v-model="registration.name" required maxlength="200" /></label>
@@ -708,31 +721,31 @@ onBeforeUnmount(() => {
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Domain bisnis<select v-model="registration.access_metadata.business_domain_id" required>
+          <label>Domain bisnis<select v-model="registration.access_metadata.business_domain_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih domain</option>
             <option v-for="scope in scopeOptions('BUSINESS_DOMAIN')" :key="scope.id" :value="scope.id">
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Yurisdiksi<select v-model="registration.access_metadata.jurisdiction_id" required>
+          <label>Yurisdiksi<select v-model="registration.access_metadata.jurisdiction_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih yurisdiksi</option>
             <option v-for="scope in scopeOptions('JURISDICTION')" :key="scope.id" :value="scope.id">
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Purpose<select v-model="registration.access_metadata.purpose_id" required>
+          <label>Purpose<select v-model="registration.access_metadata.purpose_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih purpose</option>
             <option v-for="purpose in registrationOptions?.purposes || []" :key="purpose.id" :value="purpose.id">
               {{ purpose.code }} · {{ purpose.label }}
             </option>
           </select></label>
-          <label>Data owner<select v-model="registration.access_metadata.data_owner_user_id" required>
+          <label>Data owner<select v-model="registration.access_metadata.data_owner_user_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih owner</option>
             <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
               {{ person.username }} · {{ person.role }}
             </option>
           </select></label>
-          <label>Data steward<select v-model="registration.access_metadata.data_steward_user_id" required>
+          <label>Data steward<select v-model="registration.access_metadata.data_steward_user_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih steward</option>
             <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
               {{ person.username }} · {{ person.role }}
@@ -812,7 +825,7 @@ onBeforeUnmount(() => {
         <div class="tab-tracking-scroll">
           <table class="tab-tracking-table">
             <thead>
-              <tr><th>Tab</th><th>Discovery</th><th>Profiling</th><th>Klasifikasi</th><th>Konfigurasi / binding</th><th>Approval IT</th><th>Database</th><th>Keikutsertaan</th><th>Catatan kegagalan</th><th>Tindakan</th></tr>
+              <tr><th>Tab</th><th>Discovery</th><th>Profiling</th><th>Klasifikasi</th><th>Konfigurasi / binding</th><th>{{ ownerManagedWorkflow ? 'Validasi pengelola' : 'Approval IT' }}</th><th>Database</th><th>Keikutsertaan</th><th>Catatan kegagalan</th><th>Tindakan</th></tr>
             </thead>
             <tbody>
               <tr v-for="sheet in sheets" :key="sheet.id" :class="{ 'tab-row-selected': sheet.id === sheetId }">
@@ -880,6 +893,8 @@ onBeforeUnmount(() => {
     </section>
     <section v-if="selectedSource && canEdit" class="panel">
       <h2>Metadata akses sumber</h2>
+      <p v-if="ownerManagedWorkflow" class="notice">Unit pemilik menentukan akses otomatis. SOURCE_OWNER dan DATA_STEWARD satu unit dapat mengelola sumber tanpa approver terpisah. Domain, yurisdiksi, dan purpose bersifat opsional.</p>
+      <button v-if="ownerManagedWorkflow && selectedSource.access_status !== 'POLICY_APPROVED'" :disabled="busy" @click="run(validateUnitAccess)">Validasi akses unit</button>
       <form @submit.prevent="run(saveAccessMetadata)">
         <div class="grid">
           <label>Unit pemilik sumber<select v-model="metadataEdit.owner_unit_id" required>
@@ -888,31 +903,31 @@ onBeforeUnmount(() => {
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Domain bisnis sumber<select v-model="metadataEdit.business_domain_id" required>
+          <label>Domain bisnis sumber<select v-model="metadataEdit.business_domain_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih domain</option>
             <option v-for="scope in scopeOptions('BUSINESS_DOMAIN')" :key="scope.id" :value="scope.id">
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Yurisdiksi sumber<select v-model="metadataEdit.jurisdiction_id" required>
+          <label>Yurisdiksi sumber<select v-model="metadataEdit.jurisdiction_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih yurisdiksi</option>
             <option v-for="scope in scopeOptions('JURISDICTION')" :key="scope.id" :value="scope.id">
               {{ scope.code }} · {{ scope.label }}
             </option>
           </select></label>
-          <label>Purpose sumber<select v-model="metadataEdit.purpose_id" required>
+          <label>Purpose sumber<select v-model="metadataEdit.purpose_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih purpose</option>
             <option v-for="purpose in registrationOptions?.purposes || []" :key="purpose.id" :value="purpose.id">
               {{ purpose.code }} · {{ purpose.label }}
             </option>
           </select></label>
-          <label>Data owner sumber<select v-model="metadataEdit.data_owner_user_id" required>
+          <label>Data owner sumber<select v-model="metadataEdit.data_owner_user_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih owner</option>
             <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
               {{ person.username }} · {{ person.role }}
             </option>
           </select></label>
-          <label>Data steward sumber<select v-model="metadataEdit.data_steward_user_id" required>
+          <label>Data steward sumber<select v-model="metadataEdit.data_steward_user_id" :required="!ownerManagedWorkflow">
             <option value="" disabled>Pilih steward</option>
             <option v-for="person in registrationOptions?.people || []" :key="person.id" :value="person.id">
               {{ person.username }} · {{ person.role }}
@@ -930,7 +945,7 @@ onBeforeUnmount(() => {
         </button>
       </form>
     </section>
-    <section v-if="selectedSource && reviewRoles.includes(user?.role || '')" class="panel">
+    <section v-if="!ownerManagedWorkflow && selectedSource && reviewRoles.includes(user?.role || '')" class="panel">
       <h2>Review registrasi sumber</h2>
       <p v-if="reviewContext?.registration_review_mode" class="muted">
         Periksa metadata pemilik dan seluruh tab yang ditemukan. Ringkasan menampilkan struktur tanpa
@@ -999,7 +1014,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <div v-if="user?.role === 'PLATFORM_ADMIN' && selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
+      <div v-if="!ownerManagedWorkflow && user?.role === 'PLATFORM_ADMIN' && selectedSource.access_review_status === 'APPROVED' && selectedSource.access_status !== 'POLICY_APPROVED'" class="toolbar">
         <button :disabled="busy" @click="run(loadPolicyOptions)">Muat policy SOURCE</button>
         <label v-if="policyOptions">Policy sumber<select v-model="selectedPolicyId">
           <option value="">Pilih policy approved</option>

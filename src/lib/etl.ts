@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   api,
   clearSession,
@@ -16,6 +16,7 @@ export interface User {
   role: string
   full_name?: string
   is_active?: boolean
+  workflow_policy?: { owner_managed: boolean; unit_default_access: boolean; shared_unit_management: boolean; separate_approver_required: boolean }
   row_scope?: Record<string, Record<string, unknown[]>>
 }
 export type AccessKind = 'DEPARTMENT' | 'BUSINESS_DOMAIN' | 'JURISDICTION' | 'CLEARANCE' | 'PURPOSE'
@@ -125,6 +126,7 @@ export interface EffectiveAccess {
   permission_grants: PermissionGrant[]
 }
 export const user = ref<User | null>(null)
+export const ownerManagedWorkflow = computed(() => user.value?.workflow_policy?.owner_managed === true)
 onSessionCleared(() => {
   user.value = null
 })

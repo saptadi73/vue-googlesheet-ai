@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, editRoles, reviewRoles, user, type Profile, type Sheet, type Config } from '@/lib/etl'
+import { call, editRoles, reviewRoles, ownerManagedWorkflow, user, type Profile, type Sheet, type Config } from '@/lib/etl'
 import { type ColumnBinding, type ColumnBindingRecommendations, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 
@@ -27,7 +27,7 @@ const cardinality = ref<ColumnBinding['cardinality']>('MANY_TO_ONE')
 const comment = ref('')
 
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const headers = computed(
   () => profile.value?.profile_json.columns.map((column) => column.source_column) || [],
 )
@@ -129,7 +129,7 @@ async function save() {
     normalization: normalization.value,
     cardinality: cardinality.value,
   })
-  notice.value = 'Binding kolom disimpan sebagai draft dan menunggu keputusan reviewer.'
+  notice.value = ownerManagedWorkflow.value ? 'Binding kolom tervalidasi dan aktif.' : 'Binding kolom disimpan sebagai draft dan menunggu keputusan reviewer.'
   await load()
 }
 

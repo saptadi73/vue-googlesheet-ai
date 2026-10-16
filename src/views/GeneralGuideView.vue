@@ -62,14 +62,14 @@ const stages = [
   {
     number: 4,
     title: 'Siapkan master data bila diperlukan',
-    owner: 'DATA_STEWARD + TECHNICAL_APPROVER',
+    owner: 'SOURCE_OWNER / DATA_STEWARD satu unit',
     to: '/masters',
     action: 'Buka Registry master',
     purpose: 'Membuat sumber rujukan baku dan identitas record stabil untuk relasi antardataset.',
     steps: [
       'Buat definisi master: field, tipe, business key, label, sensitivitas, dan policy perubahan.',
       'Preview kandidat serupa agar tidak membuat master duplikat.',
-      'Submit dan approve definisi menggunakan reviewer berbeda.',
+      'Validasi dan sahkan definisi sebagai pengelola; pada owner workflow tidak perlu akun reviewer lain.',
       'Deploy storage master, lalu buat binding tab MASTER ke definisi tersebut.',
       'Untuk dataset non-master, pilih relasi master langsung pada mapping kolom atau gunakan binding tab lama. Pilih field master yang nilainya benar-benar sama dengan sumber; target menyimpan UUID record kanonis.',
     ],
@@ -79,7 +79,7 @@ const stages = [
   {
     number: 5,
     title: 'Siapkan taxonomy untuk kategori baku',
-    owner: 'DATA_STEWARD + TECHNICAL_APPROVER',
+    owner: 'SOURCE_OWNER / DATA_STEWARD satu unit',
     to: '/taxonomies',
     action: 'Buka Registry taxonomy',
     purpose: 'Menyeragamkan kode kategori, label, sinonim, dan hierarki yang muncul dalam data.',
@@ -292,13 +292,13 @@ const workflowTransitionNotice =
         Konfirmasi nilai asli sah dengan alasan wajib yang diaudit. Error teknis tidak dapat
         dilewati. Setelah semua blocker selesai dan cakupan AI lengkap, Sync manual kembali dapat
         memuat batch NON_MASTER siap sesuai konfigurasi aktif. Batch biasa/master tetap preview,
-        approval reviewer terpisah dan Apply. Menjawab temuan saja belum memuat data. Dugaan data
+        approval pengelola berwenang dan Apply. Menjawab temuan saja belum memuat data. Dugaan data
         pribadi atau salah mapping harus diverifikasi pemilik data, bukan diterima otomatis.
       </p>
       <p>
         Data yang terlihat di Sheet belum tentu sudah dimuat. Tekan Sync manual lalu Jalankan sync
         sekarang untuk langsung memuat tab NON_MASTER yang lolos validasi teknis, pemeriksaan AI,
-        dan preview konflik, berdasarkan konfigurasi ACTIVE yang telah disetujui reviewer terpisah.
+        dan preview konflik, berdasarkan konfigurasi ACTIVE yang telah disetujui pengelola berwenang.
         Konfigurasi dan akses/rilis sumber harus tetap berlaku. Tidak meminta approval batch ulang
         untuk data yang lolos. Master, perubahan konfigurasi, konflik, atau dugaan keamanan/PII
         berhenti tanpa pemuatan.
@@ -373,7 +373,7 @@ const workflowTransitionNotice =
           sensitivitas.
         </li>
         <li>
-          Siapkan approver berbeda untuk tindakan yang membutuhkan pemisahan editor dan reviewer.
+          Siapkan pengelola berwenang untuk tindakan yang membutuhkan pemisahan editor dan reviewer.
         </li>
       </ul>
     </section>

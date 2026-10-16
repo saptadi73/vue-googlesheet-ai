@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
-import { call, user, editRoles, reviewRoles } from '@/lib/etl'
+import { call, user, editRoles, reviewRoles, ownerManagedWorkflow } from '@/lib/etl'
 import { createImportReview } from '@/lib/importReviews'
 import type { MasterSourceBindings } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
@@ -27,7 +27,7 @@ interface RecordsPage {
 const route = useRoute()
 const router = useRouter()
 const id = computed(() => String(route.params.id))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const reader = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const { busy, error, notice, run } = useTask()
 const plan = ref<StoragePlan | null>(null)

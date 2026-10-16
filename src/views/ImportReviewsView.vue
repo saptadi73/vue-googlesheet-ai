@@ -5,7 +5,7 @@ import EtlShell from '@/components/EtlShell.vue'
 import FormActionRow from '@/components/ui/FormActionRow.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
 import { api, type ApiEnvelope } from '@/lib/api'
-import { call, editRoles, reviewRoles, user, type Config, type Sheet, type Source } from '@/lib/etl'
+import { call, ownerManagedWorkflow, editRoles, reviewRoles, user, type Config, type Sheet, type Source } from '@/lib/etl'
 import { createImportReview, type ImportReview } from '@/lib/importReviews'
 import { useTask } from '@/lib/tasks'
 const router = useRouter(),
@@ -38,15 +38,15 @@ const offset = ref(0),
 const selectedSheet = computed(() => sheets.value.find((s) => s.id === sheetId.value) || null)
 const sourceTableRows = computed(() => sources.value as unknown as Record<string, unknown>[])
 let sourceSearchTimer: ReturnType<typeof setTimeout> | undefined
-const sourceColumns = [
+const sourceColumns = computed(() => [
   { key: 'source', label: 'Sumber' },
   { key: 'discovery_status', label: 'Discovery' },
   { key: 'profiling_status', label: 'Profiling' },
   { key: 'configuration_status', label: 'Konfigurasi / binding' },
-  { key: 'it_approval_status', label: 'Approval IT' },
+  { key: 'it_approval_status', label: ownerManagedWorkflow.value ? 'Validasi pengelola' : 'Approval IT' },
   { key: 'database_status', label: 'Database' },
   { key: 'select', label: 'Pilih' },
-]
+])
 async function loadSources() {
   const response = await api.get<ApiEnvelope<TrackedSource[]>>('/sources/tracking', {
     params: { offset: sourceOffset.value, limit: sourceLimit, search: sourceSearch.value.trim(), include_unlinked: false },

@@ -8,6 +8,7 @@ import {
   user,
   editRoles,
   reviewRoles,
+  ownerManagedWorkflow,
   transforms,
   type Profile,
   type Sheet,
@@ -33,7 +34,7 @@ const mapping = ref<Record<string, { source: string; transforms: string[] }>>({}
   baseline = ref(''),
   comment = ref('')
 const editor = computed(() => editRoles.includes(user.value?.role || '')),
-  reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+  reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const approved = computed(() => master.value?.approved_definition_json)
 const selectionReady = computed(
   () =>
@@ -49,10 +50,9 @@ const headers = computed(
 const approvalReady = computed(
   () =>
     !dirty.value &&
-    !detail.value?.owner_workflow_enabled &&
     detail.value?.binding?.status === 'DRAFT' &&
     detail.value.validation?.valid === true &&
-    detail.value.binding.created_by !== user.value?.id &&
+    (ownerManagedWorkflow.value || detail.value.binding.created_by !== user.value?.id) &&
     detail.value.binding.classification_revision === classification.value?.revision_no &&
     detail.value.binding.master_version === master.value?.approved_version &&
     master.value?.is_active &&
@@ -385,8 +385,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
     <section v-if="reviewer && detail?.binding?.status === 'DRAFT'" class="panel">
       <h2>Keputusan binding</h2>
       <p class="muted">
-        Approver harus berbeda dari editor. Snapshot, versi master, dan klasifikasi diperiksa ulang
-        oleh server.
+        {{ ownerManagedWorkflow ? 'Pengelola memvalidasi binding tanpa akun approver lain.' : 'Approver harus berbeda dari editor.' }} Snapshot, versi master, dan klasifikasi diperiksa ulang oleh server.
       </p>
       <label
         >Catatan keputusan binding<textarea v-model="comment" maxlength="2000" :disabled="busy" />

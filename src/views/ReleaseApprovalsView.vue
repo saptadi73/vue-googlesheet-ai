@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
-import { call, user } from '@/lib/etl'
+import { call, user, ownerManagedWorkflow } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 
 type Group = {
@@ -104,10 +104,11 @@ watch(user, () => {
   <EtlShell>
     <p class="eyebrow">PERSETUJUAN RILIS DATA</p>
     <h1>Persetujuan sebelum tayang</h1>
+    <p v-if="ownerManagedWorkflow" class="notice">Approval terpisah tidak diperlukan. Lanjutkan validasi dan deploy melalui <RouterLink to="/workspace">Workspace ETL</RouterLink>, termasuk untuk konfigurasi lama.</p>
     <p class="muted">Cari sumber atau data product, lalu pilih revisi untuk memeriksa keputusan IT dan unit terkait. Daftar hanya menampilkan konfigurasi yang ditugaskan kepada akun Anda.</p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>
-    <section class="panel">
+    <section v-if="!ownerManagedWorkflow" class="panel">
       <div class="toolbar">
         <h2>Daftar konfigurasi menunggu keputusan</h2>
         <button :disabled="busy" @click="run(load)">Muat ulang</button>

@@ -93,8 +93,7 @@ const error = ref(''),
 const ownerWorkflow = computed(() => {
   const result = details.value
   if (!result?.owner_workflow_enabled) return false
-  return result.configuration.review_state?.owner_managed === true ||
-    ['AI_DRAFT', 'NEEDS_REVIEW'].includes(result.configuration.status)
+  return true
 })
 const finalStepLabel = computed(() => ownerWorkflow.value ? 'Validasi & deploy' : 'Validasi & persetujuan')
 const activeStepGuide = computed(() => {
@@ -164,15 +163,13 @@ const isDraft = computed(
 )
 const editor = computed(() => !!user.value && editRoles.includes(user.value.role))
 const canEdit = computed(() => editor.value && isDraft.value)
-const reviewer = computed(() => !!user.value && reviewRoles.includes(user.value.role))
+const reviewer = computed(() => !!user.value && (ownerWorkflow.value ? editRoles : reviewRoles).includes(user.value.role))
 const canRollbackOwnerManaged = computed(() => {
   const actor = user.value
-  const metadata = details.value?.source.access_metadata
-  if (!actor || !details.value?.configuration.review_state?.owner_managed) return false
+  if (!actor || !ownerWorkflow.value) return false
   if (actor.role === 'PLATFORM_ADMIN') return true
   return (
-    editRoles.includes(actor.role) &&
-    [metadata?.data_owner_user_id, metadata?.data_steward_user_id].includes(actor.id)
+    editRoles.includes(actor.role)
   )
 })
 const dirty = computed(
@@ -277,7 +274,7 @@ const accessBlockers = computed(() => {
   const context = accessReview.value
   if (!context) return ['Metadata akses belum dimuat. Muat ulang ringkasan approval.']
   const blockers: string[] = []
-  if (context.reviewer_is_editor) blockers.push('Anda editor terakhir metadata. Gunakan approver lain yang berwenang.')
+  if (!ownerWorkflow.value && context.reviewer_is_editor) blockers.push('Anda editor terakhir metadata. Gunakan approver lain yang berwenang.')
   if (context.review_status === 'REJECTED') blockers.push('Metadata ditolak. Editor perlu memperbaiki metadata di Workspace terlebih dahulu.')
   if (Object.values(context.attributes).some((item) => !item?.is_active) ||
       Object.values(context.people).some((item) => !item?.is_active) || !context.sensitivity)
@@ -321,10 +318,7 @@ async function load() {
   ])
   if (epoch !== generation) return
   const config = result.configuration
-  const pendingOwnerPath = result.owner_workflow_enabled &&
-    (config.review_state?.owner_managed === true || ['AI_DRAFT', 'NEEDS_REVIEW'].includes(config.status))
-  const releaseRequired = !pendingOwnerPath &&
-    (!result.owner_workflow_enabled || ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(config.status))
+  const releaseRequired = !result.owner_workflow_enabled
   const release = releaseRequired
     ? await call<typeof releaseStatus.value>('GET', `/release-approvals/configurations/${configId.value}`)
     : null
@@ -1958,7 +1952,7 @@ onBeforeRouteUpdate((to, from) => to.params.id === from.params.id ? true : confi
           ><input v-model="rollbackAcknowledged" type="checkbox" :disabled="busy" />Saya sudah
           memeriksa versi yang akan diaktifkan kembali.</label
         ><button
-          :disabled="busy || !rollbackAcknowledged || !evidenceReady || (!record.review_state?.owner_managed && releaseStatus?.configured && !releaseStatus.ready)"
+          :disabled="busy || !rollbackAcknowledged || !evidenceReady || (!ownerWorkflow && releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/rollback`))"
         >
           Antrekan rollback versi ini
@@ -1978,7 +1972,7 @@ onBeforeRouteUpdate((to, from) => to.params.id === from.params.id ? true : confi
           <pre>{{ JSON.stringify(job.result, null, 2) }}</pre>
         </details>
       </Card>
-      <Card v-if="!record.review_state?.owner_managed && releaseStatus?.configured && ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(record.status)" title="Persetujuan siap tayang">
+      <Card v-if="!ownerWorkflow && releaseStatus?.configured && ['APPROVED', 'ACTIVE', 'SUPERSEDED'].includes(record.status)" title="Persetujuan siap tayang">
         <p :class="releaseStatus.ready ? 'success' : 'notice'">{{ releaseStatus.ready ? 'Semua persetujuan IT dan unit terkait lengkap.' : 'Deployment menunggu persetujuan IT dan unit terkait.' }}</p>
         <div v-for="group in releaseStatus.groups" :key="group.key" class="toolbar"><strong>{{ group.label }}</strong><span>{{ group.status }}</span></div>
         <RouterLink class="button" to="/release-approvals">Buka kotak masuk persetujuan</RouterLink>
@@ -2003,9 +1997,9 @@ onBeforeRouteUpdate((to, from) => to.params.id === from.params.id ? true : confi
           <Copy class="icon" :size="14" />Clone untuk perbaikan
         </button>
         <button
-          v-if="(reviewer || (editor && record.review_state?.owner_managed)) && record.status === 'APPROVED'"
+          v-if="(reviewer || (editor && ownerWorkflow)) && record.status === 'APPROVED'"
           class="primary"
-          :disabled="busy || !evidenceReady || (!record.review_state?.owner_managed && releaseStatus?.configured && !releaseStatus.ready)"
+          :disabled="busy || !evidenceReady || (!ownerWorkflow && releaseStatus?.configured && !releaseStatus.ready)"
           @click="run(() => queue(`${base}/deploy`))"
         >
           <Rocket class="icon" :size="14" />Deploy konfigurasi

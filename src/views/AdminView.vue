@@ -6,7 +6,7 @@ import PagedDataTable from '@/components/ui/PagedDataTable.vue'
 import { api, type ApiEnvelope } from '@/lib/api'
 import ScopeEditor from '@/components/ScopeEditor.vue'
 import {
-  call,
+  call, ownerManagedWorkflow,
   copy,
   roles,
   user,
@@ -962,7 +962,7 @@ watch(evaluationResourceSearch, () => {
         </button>
       </div>
     </section>
-    <section class="panel">
+    <section v-if="!ownerManagedWorkflow" class="panel">
       <h2>Approver per sumber data</h2>
       <p class="muted">
         Pilih reviewer untuk masing-masing keputusan. Penunjukan ini tidak memberi izin membaca
@@ -1018,7 +1018,7 @@ watch(evaluationResourceSearch, () => {
         </fieldset>
       </form>
     </section>
-    <section class="panel">
+    <section v-if="!ownerManagedWorkflow" class="panel">
       <h2>Persetujuan sebelum data tayang</h2>
       <p class="muted">
         Gunakan sumber yang dipilih di atas. Satu pemeriksa IT dan satu approver dari setiap unit

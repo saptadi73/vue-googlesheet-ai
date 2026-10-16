@@ -52,7 +52,7 @@ describe('page help registry', () => {
     expect(review).toContain('Preview perubahan schema')
     expect(review).toContain('Serial Google Sheets')
   })
-  it('explains initial source approval and owner-managed sync separately from legacy review', () => {
+  it('explains unit-managed validation and sync without a second approver', () => {
     const review = getPageHelp('/configurations/config-id/review').steps.join(' ')
     expect(review).toContain('owner-managed')
     expect(review).toContain('approval tayang rutin tidak diperlukan')
@@ -66,7 +66,7 @@ describe('page help registry', () => {
       expect(content).toContain('baris asli')
       expect(content).toContain('NEEDS_INPUT')
     }
-    expect(getPageHelp('/workspace').steps.join(' ')).toContain('Approval awal sumber')
+    expect(getPageHelp('/workspace').steps.join(' ')).toContain('tanpa approver terpisah')
   })
   it('explains source tracking and safe unlink/restore flow', () => {
     const help = getPageHelp('/sources')
@@ -75,15 +75,15 @@ describe('page help registry', () => {
     expect(help.notes?.join(' ')).toContain('dua konfirmasi')
   })
 
-  it('separates initial source approval from owner-managed ETL and legacy release review', () => {
+  it('explains owner-managed batches and limits legacy release gates to legacy mode', () => {
     const batch = getPageHelp('/import-reviews').steps.join(' ')
-    expect(batch).toContain('approval awal sumber')
+    expect(batch).toContain('validasi akses unit')
     expect(batch).toContain('owner-managed')
-    expect(batch).toContain('legacy')
+    expect(batch).toContain('item lama mengikuti alur pengelola')
 
     const releases = getPageHelp('/release-approvals')
     const content = [...releases.steps, ...(releases.notes || [])].join(' ')
-    expect(content).toContain('Approval awal sumber/tab')
+    expect(content).toContain('Validasi akses unit')
     expect(content).toContain('tidak memerlukan approval konfigurasi/rilis berulang')
     expect(content).toContain('konfigurasi legacy')
   })

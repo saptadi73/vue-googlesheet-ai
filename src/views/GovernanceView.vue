@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, editRoles, reviewRoles, user, type Source } from '@/lib/etl'
+import { call, ownerManagedWorkflow, editRoles, reviewRoles, user, type Source } from '@/lib/etl'
 import type { Product } from '@/lib/catalog'
 import type { Taxonomy } from '@/lib/taxonomies'
 import {
@@ -30,7 +30,7 @@ const comment = ref('')
 
 const allowed = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const joinAdmin = computed(() =>
-  ['PLATFORM_ADMIN', 'DATA_STEWARD'].includes(user.value?.role || ''),
+  (ownerManagedWorkflow.value ? editRoles : ['PLATFORM_ADMIN', 'DATA_STEWARD']).includes(user.value?.role || ''),
 )
 const policyEditor = computed(() => editRoles.includes(user.value?.role || ''))
 const policyReviewer = computed(() => reviewRoles.includes(user.value?.role || ''))

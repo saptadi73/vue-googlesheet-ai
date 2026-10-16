@@ -2,7 +2,7 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import { onBeforeRouteLeave } from 'vue-router'
-import { call, editRoles, reviewRoles, user } from '@/lib/etl'
+import { call, editRoles, reviewRoles, ownerManagedWorkflow, user } from '@/lib/etl'
 import {
   diffVersionTerms,
   validateVersionTerms,
@@ -47,7 +47,7 @@ function handleConflict(failure: unknown) {
 }
 
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const editable = computed(
   () => editor.value && props.taxonomy.is_active && selected.value?.status === 'DRAFT',
 )

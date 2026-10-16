@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
 import DataTable from '@/components/DataTable.vue'
-import { call, editRoles, reviewRoles, user } from '@/lib/etl'
+import { call, editRoles, reviewRoles, ownerManagedWorkflow, user } from '@/lib/etl'
 import {
   answerImportReviewQuestion,
   dismissImportAISuggestions,
@@ -137,7 +137,7 @@ const questionItems = computed(() =>
   }),
 )
 const canEdit = computed(() => editRoles.includes(user.value?.role || ''))
-const canReview = computed(() => reviewRoles.includes(user.value?.role || ''))
+const canReview = computed(() => ownerManagedWorkflow.value ? canEdit.value : reviewRoles.includes(user.value?.role || ''))
 watch(canWriteReference, (allowed) => {
   if (!allowed) {
     referenceQuestionId.value = ''

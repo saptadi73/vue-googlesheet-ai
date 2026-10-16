@@ -8,6 +8,7 @@ import {
   user,
   editRoles,
   reviewRoles,
+  ownerManagedWorkflow,
   type Job,
   type OperationalNotification,
   type OperationalSummary,
@@ -49,7 +50,7 @@ const editor = computed(() => editRoles.includes(user.value?.role || ''))
 const retryAllowed = computed(
   () =>
     selected.value?.status === 'FAILED' &&
-    (['DEPLOY', 'ROLLBACK'].includes(selected.value.kind || '') ? reviewRoles : editRoles).includes(
+    (!ownerManagedWorkflow.value && ['DEPLOY', 'ROLLBACK'].includes(selected.value.kind || '') ? reviewRoles : editRoles).includes(
       user.value?.role || '',
     ),
 )

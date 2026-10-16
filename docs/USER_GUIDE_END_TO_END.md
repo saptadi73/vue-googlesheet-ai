@@ -158,7 +158,7 @@ pesan error dan nilai tidak tersedia, bukan angka 0 yang seolah-olah sudah diver
 
 Untuk pemuatan awal NON_MASTER, pilih **Sync manual** di Sumber & tracking atau
 **Sync manual data** di tabel hasil ETL Workspace, lalu **Jalankan sync sekarang**.
-Konfigurasi harus ACTIVE dengan approval reviewer berbeda, akses sumber POLICY_APPROVED,
+Konfigurasi harus ACTIVE dengan validasi pengelola; reviewer berbeda hanya bila owner workflow dimatikan, akses sumber POLICY_APPROVED,
 dan gate rilis lengkap. Validasi teknis, AI dan preview konflik berjalan sebelum pemuatan
 otomatis; data yang lolos tidak meminta approval batch tambahan. FULL_REFRESH dan master
 tidak memakai jalur langsung. Master, jadwal, endpoint sync-review lama dan batch biasa
@@ -295,7 +295,7 @@ Lihat [Contoh data analitik](CONTOH_DATA_ANALITIK.md): keluhan pelanggan, sebara
 
 ## Formula analitik dan aturan action plan
 
-Lima contoh Excel memuat Formula_Analitik dan Aturan_Action_Plan. Kedua tab kontrol Dikecualikan dari ETL; produk data utamanya harus ACTIVE. Backend menerima impor melalui API analytics-rules/import-sheet, menyediakan preview, approval reviewer berbeda, evaluate berbasis metrik yang diizinkan dan REVOKE untuk menghentikan aturan. Hasil berupa usulan PROPOSED dengan bukti angka, periode dan versi; unit, sampel serta hipotesis diperiksa manusia. Workflow aturan saat ini melalui API, belum terhubung otomatis ke wizard ETL atau chat AI.
+Lima contoh Excel memuat Formula_Analitik dan Aturan_Action_Plan. Kedua tab kontrol Dikecualikan dari ETL; produk data utamanya harus ACTIVE. Backend menerima impor melalui API analytics-rules/import-sheet, menyediakan preview, validasi pengelola pada owner workflow (reviewer berbeda hanya pada mode legacy), evaluate berbasis metrik yang diizinkan dan REVOKE untuk menghentikan aturan. Hasil berupa usulan PROPOSED dengan bukti angka, periode dan versi; unit, sampel serta hipotesis diperiksa manusia. Workflow aturan saat ini melalui API, belum terhubung otomatis ke wizard ETL atau chat AI.
 
 Lihat [panduan aturan dan formula](PANDUAN_ATURAN_ANALITIK.md) serta [lima template Excel](CONTOH_DATA_ANALITIK.md).
 
@@ -307,4 +307,4 @@ Baca [Panduan khusus binding master](PANDUAN_BINDING_MASTER.md): Registry, appro
 
 ## Koreksi sebelum storage pertama
 
-Definisi approved dapat dikoreksi sebelum storage pertama dibuat melalui revisi dan approval reviewer berbeda. Backend memeriksa bahwa tabel/relation belum ada dan audit tidak mencatat deployment storage sebelumnya. Key, tipe atau field wajib baru pada fase ini tidak memigrasikan data. Approval menyimpan versi lama dan menandai initial_schema_correction; binding versi lama perlu review ulang. Jika storage sudah ada atau pernah dideploy, perubahan tidak kompatibel tetap memerlukan migrasi yang direview, termasuk pada tabel kosong atau tabel yang pernah dihapus. Jangan hapus/buat ulang storage untuk melewati pemeriksaan.
+Definisi approved dapat dikoreksi sebelum storage pertama dibuat melalui revisi dan validasi pengelola; reviewer berbeda hanya bila owner workflow dimatikan. Backend memeriksa bahwa tabel/relation belum ada dan audit tidak mencatat deployment storage sebelumnya. Key, tipe atau field wajib baru pada fase ini tidak memigrasikan data. Approval menyimpan versi lama dan menandai initial_schema_correction; binding versi lama perlu review ulang. Jika storage sudah ada atau pernah dideploy, perubahan tidak kompatibel tetap memerlukan migrasi yang direview, termasuk pada tabel kosong atau tabel yang pernah dihapus. Jangan hapus/buat ulang storage untuk melewati pemeriksaan.

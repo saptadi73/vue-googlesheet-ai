@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, copy, editRoles, reviewRoles, types, user, type Sheet, type Source } from '@/lib/etl'
+import { call, copy, editRoles, reviewRoles, ownerManagedWorkflow, types, user, type Sheet, type Source } from '@/lib/etl'
 import { blankDefinition, validateDefinition, type Candidate, type Master } from '@/lib/masters'
 import { useTask } from '@/lib/tasks'
 const route = useRoute(),
@@ -36,7 +36,7 @@ async function loadAuthoritativeSheets() {
   )
 }
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const storageState = ref<{
   initial_definition_correction_allowed: boolean
   storage_exists: boolean
@@ -86,9 +86,9 @@ const previewReady = computed(
 )
 const separate = computed(
   () =>
-    !!record.value &&
+    !!record.value && (ownerManagedWorkflow.value || (
     user.value?.id !== record.value.created_by &&
-    user.value?.id !== record.value.submitted_by,
+    user.value?.id !== record.value.submitted_by)),
 )
 function accept(master: Master) {
   record.value = master
@@ -229,7 +229,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
     <p v-if="dirty" class="notice">Perubahan belum disimpan.</p>
     <p v-if="storageState?.initial_definition_correction_allowed" class="notice" role="status">
       Storage belum dibuat dan belum pernah dideploy. Koreksi key, tipe atau field wajib sebelum
-      deployment pertama dapat diajukan melalui review definisi dan approval reviewer berbeda.
+      deployment pertama dapat diajukan melalui review definisi dan validasi pengelola.
       Binding versi sebelumnya perlu diperiksa ulang.
     </p>
     <p v-else-if="storageState" class="notice" role="status">
@@ -421,7 +421,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
             bukan key; null berarti tanpa batas akhir. Versi tersimpan immutable. Jika storage sudah
             ada atau pernah dideploy, perubahan key atau policy master approved memerlukan migrasi
             yang direview. Sebelum storage pertama dibuat, koreksi definisi tetap melalui review dan
-            approval reviewer berbeda.
+            validasi pengelola.
           </p>
         </div>
         <button>Preview kandidat master</button>

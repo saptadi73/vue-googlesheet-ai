@@ -21,7 +21,7 @@ const product = {
   freshness_version: 2,
 }
 
-export async function setup(page: Page) {
+export async function setup(page: Page, ownerManaged = false) {
   const errors: string[] = [],
     unexpected: string[] = []
   const requests: { method: string; path: string; body: any }[] = []
@@ -230,6 +230,7 @@ export async function setup(page: Page) {
         full_name: username,
         is_active: true,
         row_scope: {},
+        workflow_policy: { owner_managed: ownerManaged, shared_unit_management: ownerManaged, unit_default_access: ownerManaged, separate_approver_required: !ownerManaged },
       })
     if (path === '/auth/logout' || path === '/auth/change-password') return ok({ message: 'OK' })
     if (path === '/data-products')

@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { CircleCheck, CircleHelp, CircleMinus, CircleX, Eye, FileText, Trash2 } from '@lucide/vue'
 import { api, type ApiEnvelope } from '@/lib/api'
-import { call, editRoles, user, type Source, type SourceSheetTracking, type ProcessAttention } from '@/lib/etl'
+import { call, editRoles, ownerManagedWorkflow, user, type Source, type SourceSheetTracking, type ProcessAttention } from '@/lib/etl'
 import SourceSync from '@/components/SourceSync.vue'
 import ProcessAttentionButton from '@/components/ProcessAttentionButton.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
@@ -50,7 +50,7 @@ const deleteReason = ref('')
 const deleteCode = ref('')
 const deletePreview = ref<{ can_delete: boolean; blockers: string[]; will_delete: Record<string, number> } | null>(null)
 const canonicalOptions = ref<Source[]>([])
-const columns = [
+const columns = computed(() => [
   { key: 'name', label: 'Nama sumber' },
   { key: 'spreadsheet_link', label: 'Google Sheet' },
   { key: 'source_identity', label: 'Identitas sumber' },
@@ -58,21 +58,21 @@ const columns = [
   { key: 'discovery_label', label: 'Discovery' },
   { key: 'profiling_label', label: 'Profiling' },
   { key: 'configuration_label', label: 'Konfigurasi' },
-  { key: 'it_approval_label', label: 'Approval IT' },
+  { key: 'it_approval_label', label: ownerManagedWorkflow.value ? 'Validasi pengelola' : 'Approval IT' },
   { key: 'database_label', label: 'Database' },
   { key: 'responsibility_details', label: 'Penanggung jawab' },
-  { key: 'access_review_status', label: 'Review akses' },
+  { key: 'access_review_status', label: ownerManagedWorkflow.value ? 'Validasi akses unit' : 'Review akses' },
   { key: 'link_status', label: 'Status link' },
   { key: 'created_at', label: 'Terdaftar' },
   { key: 'actions', label: 'Tindakan' },
-]
-const stageGuides: Record<StageKey, { title: string; steps: string[] }> = {
+])
+const stageGuides = computed<Record<StageKey, { title: string; steps: string[] }>>(() => ({
   discovery: { title: 'Discovery: menemukan tab Google Sheet', steps: ['Pastikan URL spreadsheet benar dan file sudah dibagikan ke service account backend sebagai Viewer.', 'Pilih sumber di Workspace ETL lalu tekan Temukan tab atau jalankan Hubungkan & profiling untuk sumber baru.', 'Tunggu job selesai. Jika gagal, buka monitor job dan tindak lanjuti pesan/kode error sebelum mencoba lagi.'] },
   profiling: { title: 'Profiling: membaca header dan contoh struktur data', steps: ['Pilih sumber dan tab di Workspace ETL setelah discovery menemukan tab. Edit data/header di Google Sheet; adapter hanya membaca.', 'Pastikan baris header benar, setiap nama kolom terisi, dan tidak ada header yang sama setelah normalisasi.', 'Setelah tambah/rename header, tekan Profiling ulang pada sumber yang sama, bukan daftarkan ulang. Muat ulang tampilan tidak membaca Sheet. Pengaturan header/range/enabled terkunci jika konfigurasi aktif (CONFIGURATION_CONFLICT).'] },
   configuration: { title: 'Konfigurasi atau binding master', steps: ['Konfirmasi klasifikasi tab sebagai MASTER atau NON_MASTER.', 'Untuk NON_MASTER, petakan source_column persis header profil. Clone konfigurasi immutable ke draft; jika header lama sudah hilang, buat draft baru dari profil terbaru. Untuk MASTER, pilih master tujuan lalu lengkapi binding field dan business key.', 'Pada konfigurasi owner-managed, pemilik menjalankan validasi dan deploy tanpa approval konfigurasi kedua. Konfigurasi legacy tetap mengikuti status review yang ditampilkan. Preview schema tetap wajib diperiksa dan blocker keamanan/integritas tidak dapat dilewati.'] },
-  registrationApproval: { title: 'Approval IT sumber: pemeriksaan awal', steps: ['Status ini merujuk pada persetujuan awal registrasi sumber, bukan approval setiap konfigurasi ETL atau setiap deploy.', 'Buka daftar tab yang menunggu dan periksa nama tab serta klasifikasi MASTER/NON_MASTER untuk mencegah sumber/tab tidak valid atau tabel berulang.', 'Setelah persetujuan sumber, pemilik mengelola profiling, konfigurasi, validasi, deploy, dan sync. Perubahan sumber/tab yang material dapat meminta pemeriksaan ulang.'] },
+  registrationApproval: ownerManagedWorkflow.value ? { title: 'Validasi pengelola satu unit', steps: ['Pengelola menjalankan validasi konfigurasi dan data tanpa approver terpisah.', 'VALIDATION_REQUIRED berarti periksa mapping dan dry-run lalu Validasi & siapkan deploy; bukan menunggu akun IT.', 'Sumber lama pending akses dapat dipulihkan lewat Validasi akses unit di Workspace.'] } : { title: 'Approval IT sumber: pemeriksaan awal', steps: ['Status ini merujuk pada persetujuan awal registrasi sumber, bukan approval setiap konfigurasi ETL atau setiap deploy.', 'Buka daftar tab yang menunggu dan periksa nama tab serta klasifikasi MASTER/NON_MASTER untuk mencegah sumber/tab tidak valid atau tabel berulang.', 'Setelah persetujuan sumber, pemilik mengelola profiling, konfigurasi, validasi, deploy, dan sync. Perubahan sumber/tab yang material dapat meminta pemeriksaan ulang.'] },
   database: { title: 'Pemuatan data ke database', steps: ['Periksa status konfigurasi/tab dan pesan blocker. Konfigurasi owner-managed harus lolos validasi dan deploy sebelum sync; binding master saja belum berarti record dimuat.', 'Untuk NON_MASTER aktif, pemilik dapat memakai Sync manual bila statusnya mengizinkan. Batch import digunakan untuk preview dan penanganan temuan; ikuti kontrol yang tersedia untuk batch owner-managed atau legacy.', 'Menunggu tindakan berarti pemuatan berhenti pada temuan, bukan masih berjalan. Buka hasil job atau detail batch untuk melihat error terakhir sebelum mencoba ulang.'] },
-}
+}))
 const stageModal = ref<{ source?: TrackedSource; stage: StageKey } | null>(null)
 const historySource = ref<TrackedSource | null>(null)
 const historyEvents = ref<HistoryEvent[]>([])
@@ -124,6 +124,7 @@ function statusLabel(value: string) {
     ACTIVE: 'Aktif', APPROVED: 'Disetujui', READY_FOR_APPROVAL: 'Menunggu approval',
     NOT_STARTED: 'Belum dimulai', FAILED: 'Gagal', NEEDS_REVIEW: 'Perlu review',
     QUEUED: 'Dalam antrean', RUNNING: 'Sedang berjalan', STARTED: 'Sedang berjalan',
+    VALIDATED: 'Tervalidasi', VALIDATION_REQUIRED: 'Perlu validasi pengelola',
     RECORDED: 'Tercatat',
     NEEDS_INPUT: 'Menunggu tindakan', STALE_REVIEW: 'Perlu validasi ulang',
     VALIDATING: 'Sedang validasi', AI_REVIEWING: 'Sedang diperiksa AI', APPLYING: 'Sedang memuat',
@@ -136,9 +137,9 @@ function statusLabel(value: string) {
 }
 function statusKind(value: unknown): 'success' | 'failure' | 'pending' | 'neutral' {
   const normalized = String(value || '').toUpperCase()
-  if (['SUCCEEDED', 'SUCCEEDED_WITH_WARNINGS', 'ACTIVE', 'APPROVED', 'CONFIRMED', 'BINDING_READY', 'TERHUBUNG'].includes(normalized)) return 'success'
+  if (['SUCCEEDED', 'SUCCEEDED_WITH_WARNINGS', 'ACTIVE', 'APPROVED', 'CONFIRMED', 'BINDING_READY', 'TERHUBUNG', 'VALIDATED'].includes(normalized)) return 'success'
   if (['FAILED', 'PROFILE_FAILED', 'AI_FAILED', 'REJECTED', 'UNLINKED', 'ERROR', 'NEEDS_INPUT', 'STALE_REVIEW'].includes(normalized) || normalized.endsWith('_FAILED')) return 'failure'
-  if (['QUEUED', 'RUNNING', 'STARTED', 'IN_PROGRESS', 'PENDING', 'NEEDS_REVIEW', 'READY_FOR_APPROVAL', 'ACCESS_POLICY_REQUIRED', 'BINDING_REVIEW', 'PENDING_IT_APPROVAL', 'NOT_SUBMITTED', 'NOT_STARTED', ''].includes(normalized)) return 'pending'
+  if (['QUEUED', 'RUNNING', 'STARTED', 'IN_PROGRESS', 'PENDING', 'NEEDS_REVIEW', 'READY_FOR_APPROVAL', 'ACCESS_POLICY_REQUIRED', 'BINDING_REVIEW', 'PENDING_IT_APPROVAL', 'NOT_SUBMITTED', 'NOT_STARTED', 'VALIDATION_REQUIRED', ''].includes(normalized)) return 'pending'
   return 'neutral'
 }
 function showSourceDetail(row: Record<string, unknown>) {
@@ -461,7 +462,7 @@ function restoreRow(row: Record<string, unknown>) {
         <ol v-else-if="detailModal.source?.sheets.length" class="tab-list">
           <li v-for="sheet in detailModal.source.sheets" :key="sheet.id">
             <strong>{{ sheet.name }}</strong><span v-if="!sheet.is_present" class="muted"> · tidak ditemukan di spreadsheet</span><span v-else-if="!sheet.enabled" class="muted"> · nonaktif</span>
-            <small>Profil: {{ statusLabel(sheet.profiling_status) }} | Konfigurasi: {{ statusLabel(sheet.configuration_status) }} | Approval IT: {{ statusLabel(sheet.it_approval_status) }} | Database: {{ statusLabel(sheet.database_status) }}</small>
+            <small>Profil: {{ statusLabel(sheet.profiling_status) }} | Konfigurasi: {{ statusLabel(sheet.configuration_status) }} | {{ ownerManagedWorkflow ? 'Validasi pengelola' : 'Approval IT' }}: {{ statusLabel(sheet.it_approval_status) }} | Database: {{ statusLabel(sheet.database_status) }}</small>
             <ProcessAttentionButton v-if="sheet.attention" :attention="sheet.attention" :label="sheet.name" />
             <p v-for="failure in Object.values(sheet.last_failures || {})" :key="`${failure.stage}-${failure.occurred_at}`" class="stage-failure"><strong>{{ failure.code || 'GAGAL' }}</strong> · {{ failure.message || 'Tidak ada keterangan.' }}</p>
           </li>

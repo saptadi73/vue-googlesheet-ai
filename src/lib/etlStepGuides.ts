@@ -62,7 +62,7 @@ const guides: EtlStepGuide[] = [
     purpose: 'Pilih kolom yang membantu pencarian, pengelompokan, dan perhitungan.',
     instructions: [
       'Pilih dimensi untuk dikelompokkan dan metrik yang memiliki arti bisnis, seperti total penjualan.',
-      'Akses baca/query default mengikuti domain dan unit bisnis yang sama. Batas yurisdiksi atau department khusus perlu policy yang sesuai.',
+      'Akses baca/query default pada owner workflow mengikuti unit bisnis yang sama. Batas yurisdiksi atau department khusus perlu policy yang sesuai.',
       'Role tetap harus memiliki kemampuan baca/query; akses ekspor dan penolakan policy tetap diperiksa terpisah.',
     ],
     example: 'Dimensi: bulan dan cabang; metrik: total penjualan dalam rupiah.',

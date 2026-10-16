@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import FormActionRow from '@/components/ui/FormActionRow.vue'
 import DataTable from '@/components/DataTable.vue'
-import { call, user, editRoles, reviewRoles } from '@/lib/etl'
+import { call, user, editRoles, reviewRoles, ownerManagedWorkflow } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type {
   ForeignKeyDeployment,
@@ -21,7 +21,7 @@ const search = ref(''),
   foreignKeyConfirmed = ref(false)
 const canRead = computed(() => [...editRoles, ...reviewRoles].includes(user.value?.role || ''))
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => ownerManagedWorkflow.value ? user.value?.role === 'PLATFORM_ADMIN' : reviewRoles.includes(user.value?.role || ''))
 const canDeployForeignKeys = computed(
   () =>
     reviewer.value &&

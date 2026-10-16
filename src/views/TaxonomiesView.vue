@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import EtlShell from '@/components/EtlShell.vue'
 import FormActionRow from '@/components/ui/FormActionRow.vue'
-import { call, editRoles, reviewRoles, user } from '@/lib/etl'
+import { call, editRoles, reviewRoles, ownerManagedWorkflow, user } from '@/lib/etl'
 import { useTask } from '@/lib/tasks'
 import type {
   Taxonomy,
@@ -69,7 +69,7 @@ async function refreshSelected() {
   await loadTerms()
 }
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const selected = computed(
   () => taxonomies.value.find((item) => item.id === selectedId.value) || null,
 )

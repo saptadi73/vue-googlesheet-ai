@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EtlShell from '@/components/EtlShell.vue'
-import { call, editRoles, reviewRoles, user, type Profile, type Sheet } from '@/lib/etl'
+import { call, editRoles, reviewRoles, ownerManagedWorkflow, user, type Profile, type Sheet } from '@/lib/etl'
 import type { Taxonomy, TaxonomyColumnBinding } from '@/lib/taxonomies'
 import { useTask } from '@/lib/tasks'
 
@@ -21,7 +21,7 @@ const normalization = ref('TRIM_CASEFOLD')
 const comment = ref('')
 
 const editor = computed(() => editRoles.includes(user.value?.role || ''))
-const reviewer = computed(() => reviewRoles.includes(user.value?.role || ''))
+const reviewer = computed(() => (ownerManagedWorkflow.value ? editRoles : reviewRoles).includes(user.value?.role || ''))
 const headers = computed(
   () => profile.value?.profile_json.columns.map((column) => column.source_column) || [],
 )
@@ -95,7 +95,7 @@ async function save() {
       revision_no: existing.value?.revision_no ?? 0,
     },
   )
-  notice.value = 'Binding taxonomy disimpan sebagai draft dan menunggu keputusan reviewer.'
+  notice.value = ownerManagedWorkflow.value ? 'Binding taxonomy tervalidasi dan aktif.' : 'Binding taxonomy disimpan sebagai draft dan menunggu keputusan reviewer.'
   await load()
 }
 
@@ -130,8 +130,7 @@ watch(
     <h1>Binding kolom taxonomy</h1>
     <p v-if="sheet">Tab {{ sheet.sheet_name }}</p>
     <p class="muted">
-      Binding membatasi nilai kolom pada term taxonomy versi approved. Perubahan selalu kembali
-      menjadi draft untuk ditinjau reviewer.
+      Binding membatasi nilai kolom pada term taxonomy versi approved. Pada owner workflow, binding valid langsung aktif tanpa reviewer terpisah.
     </p>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <p v-if="notice" class="success" role="status">{{ notice }}</p>

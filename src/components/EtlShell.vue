@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { LogOut, Menu, UserCog } from '@lucide/vue'
-import { logout, user } from '@/lib/etl'
+import { logout, user, ownerManagedWorkflow } from '@/lib/etl'
 import { getApiErrorMessage } from '@/lib/api'
 import AppLogo from '@/components/ui/AppLogo.vue'
 import Spinner from '@/components/ui/Spinner.vue'
@@ -23,6 +23,7 @@ const sidebarOpen = ref(false)
 function allowed(item: NavigationItem) {
   return (
     !!user.value &&
+    !(ownerManagedWorkflow.value && item.to === "/release-approvals") &&
     router.resolve(item.to).matched.every((record) => {
       const roles = record.meta.roles
       return !Array.isArray(roles) || roles.includes(user.value!.role)
