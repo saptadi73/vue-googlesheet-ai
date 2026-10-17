@@ -80,8 +80,9 @@ function recommendations(item: ProductInventory) {
   if (!item.description?.trim()) suggestions.push('Tambahkan deskripsi bisnis dataset.')
   const undocumented = item.columns.filter((column) => !column.business_name?.trim())
   if (undocumented.length) suggestions.push(`${undocumented.length} kolom perlu nama bisnis yang jelas.`)
-  const numericColumns = item.columns.filter((column) => ['smallint', 'integer', 'bigint', 'numeric', 'decimal', 'real', 'double precision'].includes(column.target_type))
-  if (numericColumns.length && !item.metrics.length) suggestions.push('Tinjau apakah kolom numerik perlu didefinisikan sebagai metrik.')
+  const numericColumns = item.columns.filter((column) => ['smallint', 'int', 'integer', 'bigint', 'numeric', 'decimal', 'real', 'double precision'].includes(column.target_type))
+  const metricColumns = new Set(item.metrics.map((metric) => metric.column))
+  if (numericColumns.some((column) => !metricColumns.has(column.target_column))) suggestions.push('Ada kolom numerik yang belum tercatat sebagai metrik. Pastikan tab ini NON_MASTER; bila ya, minta operator menjalankan backfill semantic. Master dan kolom sensitif dikecualikan. Tinjau unit dan agregasi setelahnya.')
   if (item.metrics.some((metric) => !metric.description?.trim())) suggestions.push('Lengkapi definisi atau rumus bisnis metrik.')
   if (item.metrics.some((metric) => !metric.synonyms?.length)) suggestions.push('Tambahkan sinonim istilah yang biasa dipakai pengguna.')
   if (!item.dimensions.length) suggestions.push('Tinjau dimensi untuk filter dan pengelompokan analitik.')
@@ -198,8 +199,9 @@ onMounted(load)
       </dialog>
       <div class="catalog-guidance notice">
         Jika tabel dan isi datanya sudah benar, buka detail produk dan gunakan Edit metadata semantik
-        untuk NL2SQL. Perbaiki deskripsi produk/kolom, nama bisnis, sinonim, dimensi, dan definisi
-        metrik di sana tanpa profiling, konfigurasi ETL, atau reload. Jika nilai di Google Sheet berubah,
+        untuk NL2SQL. Perbaiki deskripsi produk/kolom, nama bisnis, sinonim, dimensi, unit, dan definisi
+        metrik di sana tanpa profiling, konfigurasi ETL, atau reload. Kolom numerik publik NON_MASTER
+        semestinya sudah menjadi metrik awal; produk lama yang belum memilikinya perlu backfill semantic oleh operator. Jika nilai di Google Sheet berubah,
         sync untuk memperbarui data target. Jika header/struktur, mapping, tipe, transformasi, atau
         aturan kualitas perlu diubah, lanjutkan di Workspace ETL; perubahan header/struktur perlu
         discovery dan profiling ulang sebelum revisi ETL. Governance mengelola relationship dan policy

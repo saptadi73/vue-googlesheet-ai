@@ -76,7 +76,7 @@ async function create() {
 <template>
   <details open>
     <summary>Buat konfigurasi manual dengan template</summary>
-    <p class="muted">Template mengisi nama, tipe, dan kandidat key dari hasil profiling. Periksa setiap kolom sebelum menyimpan; proses ini tidak memakai AI dan tetap melewati review serta approval.</p>
+    <p class="muted">Template mengisi nama, tipe, dan kandidat key dari hasil profiling. Pada konfigurasi NON_MASTER, kolom numerik publik (int/integer, bigint, numeric/decimal, real, dan double precision) otomatis masuk katalog metrik. Key memakai hitung unik; nama persen/rasio/rate memakai rata-rata; angka lain dijumlahkan sebagai nilai awal. Periksa unit dan agregasi sebelum deploy. Proses ini tidak memakai AI.</p>
     <p class="muted">Nama bisnis dan kode diisi dari {{ profile.profile_json.spreadsheet_title ? 'nama file Google Sheet pada profiling' : 'nama sumber terdaftar (profil lama; profiling ulang untuk nama file asli)' }} + tab. Kode memakai huruf, angka dan underscore, diawali huruf, maksimal 63 karakter. Isian dapat diedit; profil yang dimuat ulang tidak menimpa isian.</p>
     <p v-if="error" role="alert" class="error">{{ error }}</p>
     <p v-if="notice" class="notice">{{ notice }}</p>

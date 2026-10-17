@@ -745,6 +745,10 @@ Aturan penting:
 | `action_on_fail` | `REJECT_ROW`, `WARN`, `STOP_BATCH`, `REQUIRE_REVIEW` |
 | `semantic.dimensions` | Harus kolom mapped non-sensitif |
 | `semantic.metrics` | Kode unik dan berbeda dari nama kolom; agregasi sum/avg hanya numerik |
+
+Konfigurasi baru `NON_MASTER` otomatis mendapat definisi metrik awal untuk kolom numerik publik (`smallint`, `int`/`integer`, `bigint`, `numeric`/`decimal`, `real`, `double precision`). Key numerik memakai `count_distinct`; nama persen/rasio/rate memakai `avg`; kolom lain memakai `sum`. Kolom sensitif/hidden/masked dan `MASTER` dikecualikan. Pemilik meninjau arti, unit, serta agregasi.
+
+Produk aktif lama dapat dilengkapi operator dengan `python -m app.cli semantic-numeric-metric-backfill` (dry-run) dan `--apply`. Backfill idempotent, mempertahankan definisi manual, menaikkan versi semantic dan mencatat audit; tidak menjalankan ETL atau mengubah tabel fisik.
 | Agregasi | `sum`, `count`, `avg`, `min`, `max`, `count_distinct` |
 | `unresolved_questions` | Semua pertanyaan harus diselesaikan sebelum approval/deploy |
 

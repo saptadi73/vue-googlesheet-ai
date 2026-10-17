@@ -1451,6 +1451,9 @@ onBeforeRouteUpdate((to, from) => to.params.id === from.params.id ? true : confi
             >
           </div>
           <h3>Metrik</h3>
+          <p v-if="!isMasterTab" class="muted">
+            Kolom numerik publik pada NON_MASTER otomatis masuk sebagai metrik awal (termasuk int/integer, bigint, numeric/decimal, real, dan double precision). Key memakai hitung unik; nama persen/rasio/rate memakai rata-rata; angka lain dijumlahkan. Periksa unit dan agregasi sesuai arti bisnis, terutama untuk persentase dan saldo.
+          </p>
           <div v-for="(m, i) in draft.semantic.metrics" :key="i" class="card-row">
             <div class="grid">
               <label>Kode metrik<input v-model="m.code" /></label

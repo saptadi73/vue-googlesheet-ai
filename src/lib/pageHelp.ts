@@ -170,8 +170,8 @@ const entries: PageHelpEntry[] = [
       'Cari berdasarkan nama atau kode data product, nama sumber, tab, nama tabel, kolom, dimensi, atau metrik.',
       'Klik ikon mata pada Data product untuk melihat sumber/tab, tabel database, view semantic dan deskripsi di modal. Buka Google Sheet dari kolom Tindakan untuk memeriksa data asal.',
       'Semantic dan versi ETL ditampilkan dalam satu kolom. Status pembaruan, profil terakhir, waktu konfigurasi aktif dan data dimuat juga digabung agar Peluang peningkatan lebih luas.',
-      'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, metrik, deskripsi metrik, sinonim, dan relasi antardataset bila dibutuhkan.',
-      'Jika tabel dan isi data sudah benar, buka detail produk lalu Edit metadata semantik untuk NL2SQL. Perbarui arti/deskripsi produk dan kolom, sinonim, dimensi, atau definisi metrik di sana; simpanan tidak menjalankan ETL atau memuat ulang data.',
+      'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, deskripsi/unit/agregasi metrik, sinonim, dan relasi antardataset bila dibutuhkan. Kolom numerik publik NON_MASTER otomatis menjadi metrik awal.',
+      'Jika tabel dan isi data sudah benar, buka detail produk lalu Edit metadata semantik untuk NL2SQL. Perbarui arti/deskripsi produk dan kolom, sinonim, dimensi, unit, atau agregasi metrik di sana; simpanan tidak menjalankan ETL atau memuat ulang data. Jika produk NON_MASTER lama belum memiliki metrik dari kolom angka, minta operator menjalankan backfill semantic.',
       'Gunakan Workspace ETL hanya jika perlu mengubah struktur atau nilai sumber, mapping kolom, tipe, transformasi, aturan kualitas, atau strategi pemuatan. Perubahan header/tab perlu Temukan tab dan Profiling ulang; perubahan semantic saja tidak memerlukannya.',
     ],
     notes: [

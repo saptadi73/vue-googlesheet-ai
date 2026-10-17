@@ -136,7 +136,7 @@ async function save() {
         </section>
         <section>
           <h3>Metrik untuk perhitungan</h3>
-          <p>SUM/AVG hanya untuk angka. Persentase umumnya tidak dijumlahkan; tentukan rumus bisnis yang tepat.</p>
+          <p>Kolom numerik publik NON_MASTER biasanya sudah memiliki metrik awal otomatis. Tinjau definisi, unit, dan agregasi di sini tanpa menjalankan ulang ETL. SUM/AVG hanya untuk angka; persentase umumnya tidak dijumlahkan tanpa rumus bisnis yang tepat.</p>
           <div v-for="(metric, index) in metricEdits" :key="index" class="metadata-card">
             <div class="metric-grid">
               <label>Kode metrik<input v-model="metric.code" required pattern="[a-z][a-z0-9_]*" maxlength="63" :aria-label="`Kode metrik baris ${index + 1}`" /></label>
