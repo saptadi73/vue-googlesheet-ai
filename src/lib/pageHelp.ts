@@ -87,6 +87,24 @@ const entries: PageHelpEntry[] = [
     ],
   },
   {
+    matches: exact('/saved-queries'),
+    title: 'Perintah NL2SQL tersimpan dan perbandingan',
+    purpose:
+      'Menjalankan ulang pertanyaan yang telah berhasil tanpa memanggil AI, serta membandingkan hasil beberapa data product.',
+    steps: [
+      'Di Chat data, pilih Simpan perintah pada hasil yang berhasil. Perintah tersimpan akan muncul di tabel ini.',
+      'Gunakan pencarian dan pagination. Jalankan satu perintah untuk melihat hasil terbaru, atau ubah nama/deskripsi dan hapus perintah yang tidak diperlukan.',
+      'Pilih 2–4 perintah lalu Jalankan perbandingan. Pilih kategori/periode dan satu metrik dari setiap hasil.',
+      'Gunakan tabel gabungan, Multi bar, atau Bar + line untuk meninjau hasil lintas data product.',
+    ],
+    notes: [
+      'Eksekusi tersimpan tidak memanggil AI, tetapi backend tetap mengompilasi ulang plan tepercaya dan memeriksa akses, row scope, batas biaya, read-only, timeout, dan batas baris.',
+      'SQL yang ditampilkan hanya pratinjau parameterized. Aplikasi tidak menjalankan SQL bebas dari browser atau database.',
+      'Perbandingan menjalankan query terpisah lalu menyatukan hasil berdasarkan nilai kategori; ini bukan join record-level. Samakan rentang, grain waktu, arti metrik, unit, dan format label periode.',
+      'Jika hak akses atau semantic data berubah, eksekusi dapat ditolak. Perbaiki pertanyaan melalui Chat data dan simpan sebagai perintah baru.',
+    ],
+  },
+  {
     matches: exact('/sources'),
     title: 'Sumber dan progres pemrosesan',
     purpose:

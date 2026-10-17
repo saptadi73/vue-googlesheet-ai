@@ -15,7 +15,15 @@ const code = ref('')
 const clarificationId = ref('')
 const savedCode = ref('')
 const messages = ref<
-  { question: string; rows: Row[]; meta: Record<string, unknown>; feedback: string }[]
+  {
+    question: string
+    rows: Row[]
+    meta: Record<string, unknown>
+    feedback: string
+    savedCommandId?: string
+    savingCommand?: boolean
+    commandNotice?: string
+  }[]
 >([])
 const examples = [
   'Tampilkan total penjualan per cabang bulan ini',
@@ -66,6 +74,20 @@ function resetConversation() {
   clarificationId.value = ''
   savedCode.value = ''
   question.value = ''
+}
+async function saveCommand(message: (typeof messages.value)[number]) {
+  if (!message.meta.query_id) throw new Error('ID permintaan NL2SQL tidak tersedia.')
+  message.savingCommand = true
+  try {
+    const response = await api.post<ApiEnvelope<{ id: string }>>(
+      `/nl2sql/requests/${message.meta.query_id}/saved-command`,
+      { name: message.question.slice(0, 200), question: message.question, description: '' },
+    )
+    message.savedCommandId = response.data.data.id
+    message.commandNotice = 'Perintah tersimpan. Anda dapat menjalankannya lagi tanpa memanggil AI.'
+  } finally {
+    message.savingCommand = false
+  }
 }
 async function ask() {
   const epoch = generation
@@ -215,6 +237,17 @@ watch(
           {{ message.meta.cached ? 'ya' : 'tidak' }} · AI
           {{ message.meta.openai_called ? 'dipanggil' : 'tidak dipanggil' }}
         </p>
+        <div v-if="message.meta.query_id" class="toolbar">
+          <button
+            type="button"
+            :disabled="busy || message.savingCommand || !!message.savedCommandId"
+            @click="run(() => saveCommand(message))"
+          >
+            {{ message.savedCommandId ? 'Perintah tersimpan' : message.savingCommand ? 'Menyimpan…' : 'Simpan perintah' }}
+          </button>
+          <RouterLink v-if="message.savedCommandId" to="/saved-queries">Buka perintah tersimpan</RouterLink>
+          <span v-if="message.commandNotice" class="success" role="status">{{ message.commandNotice }}</span>
+        </div>
       </template>
       <details v-if="message.meta.query_id">
         <summary>Detail dan umpan balik</summary>

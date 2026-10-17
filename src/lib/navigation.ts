@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import {
   BookOpen,
+  Bookmark,
   Briefcase,
   Database,
   FileStack,
@@ -39,6 +40,7 @@ export const operationalNavigation: NavigationGroup[] = [
     items: [
       { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
       { label: 'Chat data', to: '/chat', icon: MessageSquare },
+      { label: 'Perintah tersimpan', to: '/saved-queries', icon: Bookmark },
     ],
   },
   {

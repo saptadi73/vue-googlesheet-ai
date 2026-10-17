@@ -1,4 +1,5 @@
 import axios, { AxiosHeaders, CanceledError, type InternalAxiosRequestConfig } from 'axios'
+import { beginApiActivity, endApiActivity, withApiActivity } from './loading'
 
 export interface ApiErrorDetail {
   code: string
@@ -26,7 +27,11 @@ export interface TokenPair {
   access_token: string
   refresh_token: string
 }
-type SessionConfig = InternalAxiosRequestConfig & { sessionEpoch?: number; retried?: boolean }
+type SessionConfig = InternalAxiosRequestConfig & {
+  sessionEpoch?: number
+  retried?: boolean
+  loadingRequestId?: number
+}
 const refreshStorageKey = 'vue-googlesheet-ai.refresh-token'
 let accessToken: string | null = null
 let refreshToken: string | null =
@@ -81,16 +86,25 @@ export async function restoreSessionTokens() {
 api.interceptors.request.use((config: SessionConfig) => {
   config.sessionEpoch ??= epoch
   if (config.sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
+  config.loadingRequestId ??= beginApiActivity(config.method)
   if (accessToken) config.headers.set('Authorization', `Bearer ${accessToken}`)
   return config
 })
 api.interceptors.response.use(
   async (response) => {
+    const config = response.config as SessionConfig
+    endApiActivity(config.loadingRequestId)
+    config.loadingRequestId = undefined
     if ((response.config as SessionConfig).sessionEpoch !== epoch)
       throw new CanceledError('Sesi telah berubah.')
     return response
   },
   async (error: unknown) => {
+    const requestConfig = axios.isAxiosError(error)
+      ? (error.config as SessionConfig | undefined)
+      : undefined
+    endApiActivity(requestConfig?.loadingRequestId)
+    if (requestConfig) requestConfig.loadingRequestId = undefined
     if (!axios.isAxiosError(error)) throw error
     const config = error.config as SessionConfig | undefined
     if (config && config.sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
@@ -158,36 +172,38 @@ export async function streamJsonEvents<T>(
   onEvent: (event: string, data: T) => void | Promise<void>,
   signal?: AbortSignal,
 ) {
-  const sessionEpoch = epoch
-  const response = await fetch(`${origin}${basePath}${path}`, {
-    headers: {
-      Accept: 'text/event-stream',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    signal,
-  })
-  if (!response.ok || !response.body) throw new Error(`SSE tidak tersedia (${response.status}).`)
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  while (true) {
-    const { value, done } = await reader.read()
-    if (sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
-    buffer += decoder.decode(value, { stream: !done })
-    const blocks = buffer.split(/\r?\n\r?\n/)
-    buffer = blocks.pop() || ''
-    for (const block of blocks) {
-      if (!block || block.startsWith(':')) continue
-      let event = 'message'
-      const data: string[] = []
-      for (const line of block.split(/\r?\n/)) {
-        if (line.startsWith('event:')) event = line.slice(6).trim()
-        if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
+  return withApiActivity('GET', async () => {
+    const sessionEpoch = epoch
+    const response = await fetch(`${origin}${basePath}${path}`, {
+      headers: {
+        Accept: 'text/event-stream',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      signal,
+    })
+    if (!response.ok || !response.body) throw new Error(`SSE tidak tersedia (${response.status}).`)
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      if (sessionEpoch !== epoch) throw new CanceledError('Sesi telah berubah.')
+      buffer += decoder.decode(value, { stream: !done })
+      const blocks = buffer.split(/\r?\n\r?\n/)
+      buffer = blocks.pop() || ''
+      for (const block of blocks) {
+        if (!block || block.startsWith(':')) continue
+        let event = 'message'
+        const data: string[] = []
+        for (const line of block.split(/\r?\n/)) {
+          if (line.startsWith('event:')) event = line.slice(6).trim()
+          if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
+        }
+        if (data.length) await onEvent(event, JSON.parse(data.join('\n')) as T)
       }
-      if (data.length) await onEvent(event, JSON.parse(data.join('\n')) as T)
+      if (done) break
     }
-    if (done) break
-  }
+  })
 }
 
 export async function downloadFile(path: string, filename: string, body?: unknown) {

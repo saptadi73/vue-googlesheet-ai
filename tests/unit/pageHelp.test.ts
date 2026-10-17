@@ -7,6 +7,7 @@ const routes = [
   '/',
   '/dashboard',
   '/chat',
+  '/saved-queries',
   '/workspace',
   '/sources',
   '/configurations/config-id/review',
@@ -32,6 +33,13 @@ const routes = [
 ]
 
 describe('page help registry', () => {
+  it('explains replay without AI and limitations of cross-product comparison', () => {
+    const help = getPageHelp('/saved-queries')
+    const content = [...help.steps, ...(help.notes || [])].join(' ')
+    expect(content).toContain('tidak memanggil AI')
+    expect(content).toContain('bukan join record-level')
+    expect(content).toContain('grain waktu')
+  })
   it('explains serial date conversion and schema migration separately from review approval', () => {
     for (const path of ['/workspace', '/configurations/config-id/review']) {
       const help = getPageHelp(path)

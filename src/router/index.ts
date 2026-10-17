@@ -40,6 +40,7 @@ const router = createRouter({
       component: () => import('@/views/EtlReview.vue'),
     },
     { path: '/dashboard', component: () => import('@/views/DashboardView.vue') },
+    { path: '/saved-queries', name: 'saved-nl2sql-commands', component: () => import('@/views/SavedNL2SQLView.vue') },
     { path: '/release-approvals', component: () => import('@/views/ReleaseApprovalsView.vue') },
     {
       path: '/guide',

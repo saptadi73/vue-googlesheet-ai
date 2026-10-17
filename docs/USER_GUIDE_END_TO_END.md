@@ -147,6 +147,13 @@ SUCCEEDED, jalankan sync untuk memuat data. Helper frontend: `/guide#review-ulan
 - `Tampilkan 10 produk dengan penjualan tertinggi.`
 - `Berapa jumlah record gagal berdasarkan jenis masalah kualitas?`
 
+Pertanyaan yang berhasil dapat disimpan lewat tombol **Simpan perintah** di hasil Chat data. Buka
+menu **Analitik > Perintah tersimpan** untuk mencari, menjalankan tanpa AI, mengubah nama/deskripsi,
+atau menghapus perintah. Pilih 2–4 perintah dan **Jalankan perbandingan** untuk menjajarkan hasil
+agregat di satu tabel serta grafik Multi bar atau Bar + line. Perintah dijalankan sebagai query
+terpisah dengan akses terbaru; pastikan periode, grain, satuan, dan makna metrik cocok. Ini bukan
+join per-record antar tabel. Panduan contextual tersedia di halaman Perintah tersimpan.
+
 Sebutkan ukuran, dimensi, periode, lokasi, dan produk data bila pertanyaan masih ambigu. Backend
 menyusun structured plan dan SQL aman berdasarkan semantic catalog; pengguna tidak memasukkan SQL.
 
