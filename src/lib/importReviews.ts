@@ -40,6 +40,8 @@ export interface ImportCheckpoint {
   ai_reviewed_rows?: number[]
   ai_masked_fields?: string[]
   ai_metadata?: Record<string, unknown>[]
+  ai_warning_code?: string
+  ai_warning_message?: string
   last_error_code?: string | null
   approval_mode?: string
 }

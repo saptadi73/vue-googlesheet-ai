@@ -56,6 +56,7 @@ const entries: PageHelpEntry[] = [
     notes: [
       'Hasil hanya memakai produk data dan field yang diizinkan untuk akun Anda.',
       'Filter tanggal memerlukan tanggal eksplisit yang valid. Label w1/w2 atau januari tanpa tahun dan kalender minggu tidak cukup untuk menentukan periode; jangan mengarang tanggal.',
+      'Jika error menyebut AI_PROVIDER_CREDIT_INSUFFICIENT, administrator perlu memeriksa saldo dan billing project penyedia AI. Ini berbeda dari kuota harian aplikasi; retry terus tidak akan memperbaikinya.',
       'Agregat periode tidak otomatis menjadi transaksi harian. Analisis overlap periode dan expression perhitungan bebas belum didukung oleh editor ini.',
     ],
     examples: [
@@ -81,6 +82,7 @@ const entries: PageHelpEntry[] = [
     ],
     notes: [
       'Label w1/w2 atau januari saja bukan tanggal transaksi. Lengkapi tahun dan batas periode sesuai kalender minggu yang disepakati; jangan menebak tanggal dari label.',
+      'Jika error menyebut AI_PROVIDER_CREDIT_INSUFFICIENT, hubungi administrator untuk memeriksa saldo/billing project AI. Menambah kuota aplikasi atau mengulang request tidak menyelesaikan saldo provider.',
       'Join hanya memakai relationship approved yang diizinkan; SQL dan expression bebas tidak tersedia.',
     ],
   },
@@ -169,9 +171,12 @@ const entries: PageHelpEntry[] = [
       'Klik ikon mata pada Data product untuk melihat sumber/tab, tabel database, view semantic dan deskripsi di modal. Buka Google Sheet dari kolom Tindakan untuk memeriksa data asal.',
       'Semantic dan versi ETL ditampilkan dalam satu kolom. Status pembaruan, profil terakhir, waktu konfigurasi aktif dan data dimuat juga digabung agar Peluang peningkatan lebih luas.',
       'Gunakan peluang peningkatan sebagai checklist: deskripsi dataset, nama bisnis kolom, dimensi, metrik, deskripsi metrik, sinonim, dan relasi antardataset bila dibutuhkan.',
-      'Ubah data/header di Google Sheet dan Profiling ulang sumber yang sama. Untuk mapping, dimensi, dan definisi metrik, clone konfigurasi immutable atau buat draft baru bila header lama hilang, lalu review. Nama/deskripsi produk serta unit/sinonim metrik dapat diedit admin/steward di katalog Dashboard; Governance mengelola relationship dan policy AI.',
+      'Jika tabel dan isi data sudah benar, buka detail produk lalu Edit metadata semantik untuk NL2SQL. Perbarui arti/deskripsi produk dan kolom, sinonim, dimensi, atau definisi metrik di sana; simpanan tidak menjalankan ETL atau memuat ulang data.',
+      'Gunakan Workspace ETL hanya jika perlu mengubah struktur atau nilai sumber, mapping kolom, tipe, transformasi, aturan kualitas, atau strategi pemuatan. Perubahan header/tab perlu Temukan tab dan Profiling ulang; perubahan semantic saja tidak memerlukannya.',
     ],
     notes: [
+      'Edit metadata katalog menaikkan versi semantic dan tercatat di audit. Jika versi berubah saat Anda mengedit, muat ulang detail lalu masukkan kembali perubahan yang diperlukan.',
+      'Metadata katalog hanya untuk kolom publik. SUM/AVG hanya untuk kolom angka dan persentase tidak boleh dijumlahkan tanpa definisi bisnis yang sesuai.',
       'Saran metadata bersifat pemeriksaan kelengkapan, bukan AI yang mengubah konfigurasi secara otomatis.',
       'Relasi join bersifat opsional; buat hanya jika ada kebutuhan analitik lintas dataset dan kolom kunci serta kardinalitasnya sudah dipastikan.',
       'Relasi master pada konfigurasi non-master berbeda dari join analitik: relasi menyimpan UUID record master dan memvalidasi referensi saat preview/apply. Field master harus menjadi nilai pencocok yang sesuai sumber.',

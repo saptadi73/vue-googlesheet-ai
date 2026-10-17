@@ -64,6 +64,9 @@ onBeforeUnmount(() => { epoch++ })
   <dialog v-if="opened" ref="dialog" class="attention-dialog" :aria-label="`Detail proses ${label}`" @cancel.prevent="close" @click="(event) => { if (event.target === dialog) close() }">
     <header><h2>Detail proses · {{ label }}</h2><button type="button" aria-label="Tutup detail proses" @click="close">Tutup</button></header>
     <p class="attention-summary" role="status">{{ attention.message }}</p>
+    <p v-if="attention.ai_warning_code === 'AI_PROVIDER_CREDIT_INSUFFICIENT'" class="notice" role="alert">
+      {{ attention.ai_warning_message || 'Saldo/billing project penyedia AI tidak mencukupi. Minta administrator memeriksa credit balance; ini berbeda dari kuota aplikasi.' }}
+    </p>
     <dl>
       <dt>Status</dt><dd>{{ attention.status === 'NEEDS_INPUT' ? 'Menunggu tindakan — bukan sedang berjalan' : attention.status }}</dd>
       <dt v-if="attention.blocking_codes.length">Kode penghambat</dt><dd v-if="attention.blocking_codes.length">{{ attention.blocking_codes.join(', ') }}</dd>

@@ -228,6 +228,8 @@ export interface Column {
   target_column: string
   target_type: string
   business_name: string
+  description?: string
+  synonyms?: string[]
   nullable: boolean
   is_business_key: boolean
   is_primary_key: boolean
@@ -373,6 +375,8 @@ export interface ProcessAttention {
   blocking_codes: string[]
   message: string
   ai_coverage?: string | null
+  ai_warning_code?: string | null
+  ai_warning_message?: string | null
   affected_row_count?: number
   locations?: { source_row: number; target_column: string | null }[]
   has_more_locations?: boolean

@@ -208,6 +208,19 @@ describe('API session contract', () => {
     expect(getApiErrorMessage(failure)).toContain('Workbook expired')
     expect(getApiErrorMessage(failure)).toContain('Unduh workbook')
   })
+  it('explains provider credit exhaustion separately from application quota', async () => {
+    const { getApiErrorMessage } = await import('../../src/lib/api')
+    const config = {} as InternalAxiosRequestConfig
+    const failure = new AxiosError(
+      'Request failed', undefined, config, undefined,
+      response(config, {
+        status: 'error', data: null, meta: {},
+        errors: [{ code: 'AI_PROVIDER_CREDIT_INSUFFICIENT', message: 'Provider credit is insufficient.' }],
+      }, 503),
+    )
+    expect(getApiErrorMessage(failure)).toContain('billing project AI')
+    expect(getApiErrorMessage(failure)).toContain('berbeda dari kuota aplikasi')
+  })
   it('streams authenticated SSE events split across network chunks', async () => {
     const encoder = new TextEncoder()
     const body = new ReadableStream({

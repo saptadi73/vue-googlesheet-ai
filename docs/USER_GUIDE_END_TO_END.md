@@ -45,14 +45,18 @@ Pemisahan editor dan approver diperlukan pada workflow yang dikonfigurasi memaka
    modal sumber/tab, tabel database, view semantic dan deskripsi. Tabel ringkas
    menggabungkan semantic dengan versi ETL, serta pembaruan dengan waktu dimuat;
    kolom Peluang peningkatan mendapat ruang lebih luas. Pencarian tetap mencakup
-   metadata yang dipindahkan ke modal. Membuka detail hanya membaca metadata.
+   metadata yang dipindahkan ke modal. Steward/pemilik yang berwenang dapat membuka detail lalu
+   memakai **Edit metadata semantik untuk NL2SQL** untuk memperbaiki arti dan deskripsi produk/kolom,
+   sinonim, dimensi, dan definisi metrik. Ini pilihan utama bila tabel dan data sudah benar: perubahan
+   tercatat sebagai versi semantic baru tanpa profiling, konfigurasi ETL, atau reload.
    Buka Google Sheet tepat pada tab asal atau
    Buka sumber di Workspace (role operasional saja). Versi aktif terakhir tetap tampil
    selama revisi bila akses masih valid. Sedang diperbarui menandai job/revisi/drift/data
    snapshot/batch yang belum selesai, bukan berarti versi lama sudah dinonaktifkan.
    Timestamp aktif berasal dari audit aktivasi konfigurasi/pemuatan sukses; timestamp
-   masing-masing dan profil terakhir ditampilkan terpisah. Sheet tidak dipantau live:
-   perubahan diketahui setelah profiling/sync. Tidak ada pemuatan sukses berarti
+   masing-masing dan profil terakhir ditampilkan terpisah. Perubahan nilai Sheet baru masuk ke target
+   setelah sync; perubahan header/struktur perlu discovery dan profiling ulang sebelum revisi ETL.
+   Sheet tidak dipantau live. Tidak ada pemuatan sukses berarti
    **Belum dimuat**, walaupun struktur konfigurasi ACTIVE.
 
 Policy baru tetap dibuat dan disetujui admin berbeda. Gate IT/unit tetap berlaku;
@@ -182,6 +186,11 @@ Review AI menggunakan schema `AIImportReviewResult` (issues bertipe, reviewed_ro
 parser konfigurasi ETL tidak boleh dipakai untuk hasil review. Setelah perbaikan backend,
 gunakan **Revalidate** pada batch FAILED melalui workflow resmi agar tidak membuat batch
 duplikat. **Resume** hanya untuk NEEDS_INPUT setelah blocker diselesaikan.
+
+Jika job atau respons menampilkan `AI_PROVIDER_CREDIT_INSUFFICIENT`, kredit/billing pada project
+penyedia AI yang dipakai backend tidak cukup. Minta administrator memeriksa saldo dan billing
+project provider. Ini berbeda dari kuota atau budget aplikasi; menaikkan limit aplikasi atau retry
+berulang tidak akan menambah kredit provider.
 
 Untuk katalog kosong meskipun ETL ACTIVE, ikuti
 [panduan assignment, policy SOURCE, review metadata, dan aktivasi sumber](PANDUAN_AKSES_KATALOG.md).

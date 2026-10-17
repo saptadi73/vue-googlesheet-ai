@@ -79,11 +79,14 @@ Halaman **Katalog data** di sidebar menampilkan Data Product aktif lintas sumber
 dan pagination. Setiap baris menghubungkan nama/deskripsi, tabel fisik, semantic view, versi ETL,
 dimensi/metrik, serta Google Sheet dan tab asal. Gunakan rekomendasi kelengkapan sebagai checklist
 untuk menemukan deskripsi, nama bisnis kolom, dimensi, definisi metrik, atau sinonim yang perlu
-dilengkapi. Perbaiki nilai/header di Google Sheet lalu Profiling ulang pada sumber yang sama;
-ubah mapping, tipe, transformasi, dimensi, atau definisi metrik melalui draft ETL.
-Admin/steward dapat mengubah nama/deskripsi produk serta unit/sinonim metrik melalui
-**Edit metadata bisnis produk** di katalog Dashboard. Governance mengelola relationship dan
-policy AI, bukan editor dimensi/metrik. Buat relasi antardataset hanya
+dirapikan. Buka detail produk dan pilih **Edit metadata semantik untuk NL2SQL** untuk memperbarui
+nama/deskripsi produk, nama bisnis/deskripsi/sinonim kolom publik, dimensi, dan definisi metrik
+tanpa menjalankan ulang ETL atau memuat ulang data. Simpanan menaikkan versi katalog dan tercatat
+di audit; jika versi konflik, muat ulang detail dan terapkan kembali perubahan. Kolom sensitif
+tidak dapat diedit. `SUM`/`AVG` hanya untuk kolom angka; jangan jumlahkan persentase tanpa definisi
+bisnis yang tepat. Perbaiki nilai/header di Google Sheet lalu Profiling ulang pada sumber yang sama;
+ubah mapping, tipe, transformasi, atau struktur output melalui draft ETL. Governance mengelola relationship dan
+policy AI. Buat relasi antardataset hanya
 setelah kunci dan kardinalitas diverifikasi. Saran katalog tidak mengubah data secara otomatis.
 
 Admin juga dapat memilih ikon **Hapus permanen** untuk membersihkan registrasi setup gagal.

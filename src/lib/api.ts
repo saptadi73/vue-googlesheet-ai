@@ -216,6 +216,8 @@ export function getApiErrorMessage(error: unknown): string {
       AI_HELP_QUOTA_EXCEEDED:
         'Kuota harian asisten tercapai. Tunggu kuota tersedia atau hubungi pengelola.',
       AI_BUDGET_EXCEEDED: 'Budget AI tercapai. Tunggu budget tersedia atau hubungi pengelola.',
+      AI_PROVIDER_CREDIT_INSUFFICIENT:
+        'Kredit atau billing akun penyedia AI tidak mencukupi. Minta administrator memeriksa saldo/billing project AI, lalu ulangi setelah diperbaiki. Ini berbeda dari kuota aplikasi.',
       AI_TASK_BUDGET_EXCEEDED:
         'Budget harian policy AI tercapai. Tunggu periode berikutnya atau hubungi pengelola.',
       AI_CONTEXT_LIMIT_EXCEEDED:

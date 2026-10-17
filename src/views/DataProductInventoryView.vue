@@ -3,8 +3,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Eye, FileSpreadsheet, PanelsTopLeft, FilePenLine } from '@lucide/vue'
 import EtlShell from '@/components/EtlShell.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
+import ProductMetadata from '@/components/ProductMetadata.vue'
 import { call, editRoles, reviewRoles, user } from '@/lib/etl'
-import type { ProductInventory } from '@/lib/catalog'
+import type { Product, ProductInventory } from '@/lib/catalog'
 import { getApiErrorMessage } from '@/lib/api'
 import type { JoinRelationship } from '@/lib/governance'
 
@@ -92,6 +93,13 @@ function recommendations(item: ProductInventory) {
   return suggestions
 }
 
+function updateMetadata(product: Product) {
+  const index = rows.value.findIndex((item) => item.id === product.id)
+  if (index < 0) return
+  const updated = { ...rows.value[index]!, ...product }
+  rows.value[index] = updated
+  detail.value = updated
+}
 function openSheet(item: ProductInventory) {
   return `${item.spreadsheet_url}#gid=${item.sheet_id}`
 }
@@ -185,18 +193,17 @@ onMounted(load)
           <dt>View semantic</dt><dd><code>{{ detail.semantic_view }}</code></dd>
           <dt>Deskripsi</dt><dd>{{ detail.description || 'Belum diisi' }}</dd>
         </dl>
-        <p class="muted">Detail ini hanya menampilkan metadata; tidak mengubah data atau menjalankan sync.</p>
+        <p class="muted">Editor di bawah hanya memperbarui metadata katalog; tabel database dan data ETL tidak dimuat ulang.</p>
+        <ProductMetadata v-if="canOpenWorkspace" :product="detail" @saved="updateMetadata" @reload="load" />
       </dialog>
       <div class="catalog-guidance notice">
-        Benahi nilai/header di Google Sheet lalu Profiling ulang sumber yang sama. Clone konfigurasi
-        immutable ke draft untuk mapping/transformasi; jika header lama hilang dan clone gagal, buat
-        draft baru. Perubahan target NON_MASTER diperiksa pada Preview perubahan schema di Validasi &amp; persetujuan.
-        Konfirmasi schema dan approval mengikat revisi mapping serta fingerprint schema/data.
-        Worker menjalankan perubahan yang didukung dalam transaksi saat Deploy; blocker harus diselesaikan sebelum approval. Lengkapi deskripsi, dimensi, metrik,
-        dan sinonim lewat Revisi ETL. Nama/deskripsi produk serta unit/sinonim metrik juga dapat diedit
-        admin/steward di katalog Dashboard. Governance mengelola relationship dan policy AI. Relationship join
-        perlu approval setelah kunci dan kardinality diverifikasi; expression bebas dan analisis
-        overlap periode belum tersedia.
+        Jika tabel dan isi datanya sudah benar, buka detail produk dan gunakan Edit metadata semantik
+        untuk NL2SQL. Perbaiki deskripsi produk/kolom, nama bisnis, sinonim, dimensi, dan definisi
+        metrik di sana tanpa profiling, konfigurasi ETL, atau reload. Jika nilai di Google Sheet berubah,
+        sync untuk memperbarui data target. Jika header/struktur, mapping, tipe, transformasi, atau
+        aturan kualitas perlu diubah, lanjutkan di Workspace ETL; perubahan header/struktur perlu
+        discovery dan profiling ulang sebelum revisi ETL. Governance mengelola relationship dan policy
+        AI. Relationship join hanya dibuat bila dibutuhkan dan kunci serta kardinalitasnya sudah diverifikasi.
       </div>
     </section>
   </EtlShell>

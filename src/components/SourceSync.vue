@@ -15,7 +15,7 @@ interface Batch {
   message?: string
   finding_count?: number
   attention?: ProcessAttention | null
-  checkpoint?: { rows_valid?: number; rows_applied?: number; ai_coverage?: string; blocking_codes?: string[]; auto_load_error?: string }
+  checkpoint?: { rows_valid?: number; rows_applied?: number; ai_coverage?: string; blocking_codes?: string[]; auto_load_error?: string; ai_warning_code?: string; ai_warning_message?: string }
 }
 interface SyncResult { reviews: Batch[] }
 function isSyncResult(value: unknown): value is SyncResult {
@@ -156,6 +156,7 @@ onBeforeUnmount(() => { ++epoch; stop() })
         <span v-if="batch.code"> · {{ batch.code }}: {{ batch.message }}</span>
         <span v-if="batch.checkpoint?.blocking_codes?.length"> · {{ batch.checkpoint.blocking_codes.join(', ') }}</span>
         <span v-if="batch.checkpoint?.auto_load_error"> · {{ batch.checkpoint.auto_load_error }}</span>
+        <span v-if="batch.checkpoint?.ai_warning_code === 'AI_PROVIDER_CREDIT_INSUFFICIENT'"> · {{ batch.checkpoint.ai_warning_message || 'Saldo/billing project penyedia AI tidak mencukupi; hubungi administrator.' }}</span>
         <ProcessAttentionButton v-if="batch.attention || batch.status === 'BLOCKED'" :attention="batch.attention || { status: batch.status, blocking_codes: batch.code ? [batch.code] : [], message: batch.message || 'Tab belum dapat dimuat.' }" :label="batch.sheet_name" />
         <RouterLink v-if="batch.id" :to="`/import-reviews/${batch.id}`"> Buka hasil review</RouterLink>
       </li>

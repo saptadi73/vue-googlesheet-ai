@@ -1009,7 +1009,7 @@ Resolve hanya menandai issue RESOLVED dan menyimpan catatan, **tidak mengubah ni
 | POST | `/data-products/{code}/export` | Auth | QueryPlan | 200 | CSV tanpa envelope |
 | POST | `/saved-queries/{code}/run` | Auth | — | 200 | QueryRow[]; meta query |
 | GET | `/semantic/data-products` | Auth | — | 200 | Alias daftar DataProduct aktif yang diizinkan |
-| PATCH | `/semantic/data-products/{product_id}` | D | ProductUpdate | 200 | DataProduct; name/description/metric_metadata memerlukan expected_version; PRODUCT_VERSION_CONFLICT 409, METRIC_NOT_FOUND/METRIC_SYNONYM_CONFLICT 422; lihat FRONTEND_BE14.md |
+| PATCH | `/semantic/data-products/{product_id}` | D | ProductUpdate | 200 | Metadata katalog aktif; semua perubahan metadata memerlukan expected_version; konflik versi 409 dan metadata/metric/column/dimension tidak valid 422 |
 | GET | `/semantic/metrics` | Auth | — | 200 | `[{data_product: code, ...MetricDefinition}]` |
 | GET | `/semantic/join-relationships` | Auth | — | 200 | Registry relationship tenant-scoped |
 | POST | `/semantic/join-relationships` | D | JoinRelationshipCreate | 201 | Relationship DRAFT; validasi product/column/cardinality |
@@ -1444,7 +1444,7 @@ Pada environment non-production, FastAPI menangani CORS sesuai `CORS_ORIGINS`, m
 | 422 | QUERY_INVALID, QUERY_TOO_EXPENSIVE, NL2SQL_UNSAFE_QUERY | Perbaiki plan, dimensi, atau persempit periode |
 | 422 | DQ_STOP_BATCH, DQ_REQUIRE_REVIEW | Tampilkan batch tertahan; minta perbaikan sumber/aturan |
 | 429 | NL2SQL_QUOTA_EXCEEDED, AI_BUDGET_EXCEEDED, AI_TASK_BUDGET_EXCEEDED | Jangan retry terus; kuota/budget harian tercapai |
-| 503 | OPENAI_NOT_CONFIGURED, AI_UPSTREAM_FAILED, AI_PRICING_REQUIRED | Konfigurasi/layanan AI perlu diperiksa |
+| 503 | OPENAI_NOT_CONFIGURED, AI_UPSTREAM_FAILED, AI_PROVIDER_CREDIT_INSUFFICIENT, AI_PRICING_REQUIRED | Kredit provider tidak mencukupi: admin memeriksa billing/credit balance project AI; kode ini berbeda dari kuota atau budget aplikasi |
 | 503 | NL2SQL_NOT_CONFIGURED, NL2SQL_READER_UNSAFE | Role database query AI perlu diperiksa |
 | 503 | DATABASE_UNAVAILABLE, REDIS_UNAVAILABLE | Tampilkan layanan belum siap |
 | 500 | INTERNAL_ERROR | Simpan request ID dan tampilkan pesan umum |

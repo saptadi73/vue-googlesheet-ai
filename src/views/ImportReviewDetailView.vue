@@ -626,6 +626,9 @@ onBeforeUnmount(() => {
         <p v-if="review.checkpoint.blocking_codes?.length" class="error">
           Blocker: {{ review.checkpoint.blocking_codes.join(', ') }}
         </p>
+        <p v-if="review.checkpoint.ai_warning_code === 'AI_PROVIDER_CREDIT_INSUFFICIENT'" class="notice" role="alert">
+          {{ review.checkpoint.ai_warning_message || 'Saldo/billing project penyedia AI tidak mencukupi. Minta administrator memeriksa credit balance; ini berbeda dari kuota aplikasi.' }}
+        </p>
         <p>
           Baris valid {{ review.checkpoint.rows_valid ?? 'â€”' }} Â· invalid
           {{ review.checkpoint.rows_invalid ?? 'â€”' }} Â· warning
