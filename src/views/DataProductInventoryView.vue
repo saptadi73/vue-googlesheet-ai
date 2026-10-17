@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { Eye, FileSpreadsheet, PanelsTopLeft, FilePenLine } from '@lucide/vue'
+import { Eye, FileSpreadsheet, PanelsTopLeft, FilePenLine, Pencil } from '@lucide/vue'
 import EtlShell from '@/components/EtlShell.vue'
 import PagedDataTable from '@/components/ui/PagedDataTable.vue'
 import ProductMetadata from '@/components/ProductMetadata.vue'
@@ -18,14 +18,28 @@ const busy = ref(false)
 const error = ref('')
 const detail = ref<ProductInventory | null>(null)
 const detailDialog = ref<HTMLDialogElement | null>(null)
-let detailTrigger: HTMLButtonElement | null = null
+let detailTrigger: HTMLElement | null = null
 async function showDetails(row: Record<string, unknown>, event: MouseEvent) {
   const item = rows.value.find((item) => item.id === row.id)
   if (!item) return
-  detailTrigger = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null
+  detailTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   detail.value = item
   await nextTick()
   detailDialog.value?.showModal()
+}
+async function showMetadataEditor(row: Record<string, unknown>, event: MouseEvent) {
+  const item = rows.value.find((item) => item.id === row.id)
+  if (!item || !canEditMetadata.value) return
+  detailTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  detail.value = item
+  await nextTick()
+  detailDialog.value?.showModal()
+  const editor = detailDialog.value?.querySelector<HTMLDetailsElement>('.product-metadata-editor')
+  if (editor) {
+    editor.open = true
+    await nextTick()
+    editor.querySelector<HTMLElement>('summary')?.focus()
+  }
 }
 function closeDetails() {
   detailDialog.value?.close()
@@ -108,6 +122,7 @@ function workspacePath(row: Record<string, unknown>) {
   return { path: '/workspace', query: { source_id: String(row.source_id || '') } }
 }
 const canOpenWorkspace = computed(() => user.value && [...editRoles, ...reviewRoles].includes(user.value.role))
+const canEditMetadata = computed(() => user.value && editRoles.includes(user.value.role))
 function dateLabel(value: unknown) {
   return typeof value === 'string' && value ? new Date(value).toLocaleString('id-ID') : 'Belum tercatat'
 }
@@ -179,6 +194,7 @@ onMounted(load)
               <a class="button catalog-icon-link" :href="openSheet(row as unknown as ProductInventory)" target="_blank" rel="noopener noreferrer" aria-label="Buka Google Sheet" title="Buka Google Sheet"><FileSpreadsheet :size="20" aria-hidden="true" /></a>
               <RouterLink v-if="canOpenWorkspace" class="button catalog-icon-link" :to="workspacePath(row)" aria-label="Buka sumber di Workspace" title="Buka sumber di Workspace"><PanelsTopLeft :size="20" aria-hidden="true" /></RouterLink>
               <RouterLink v-if="canOpenWorkspace" class="button catalog-icon-link" :to="`/configurations/${row.configuration_id}/review`" aria-label="Revisi ETL" title="Revisi ETL"><FilePenLine :size="20" aria-hidden="true" /></RouterLink>
+              <button v-if="canEditMetadata" type="button" class="button catalog-icon-link" :aria-label="`Perbarui metadata katalog ${row.name}`" :title="`Perbarui metadata katalog ${row.name}`" @click="showMetadataEditor(row, $event)"><Pencil :size="20" aria-hidden="true" /></button>
             </div>
             <RouterLink v-if="user?.role === 'PLATFORM_ADMIN'" to="/governance">Atur semantic</RouterLink>
           </div>
@@ -240,7 +256,7 @@ onMounted(load)
 .catalog-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .catalog-actions .button { white-space: normal; max-width: 100%; }
 .catalog-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; }
-.catalog-icon-link { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; padding: 8px; }
+.catalog-icon-link { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; padding: 8px; cursor: pointer; }
 .catalog-guidance { margin-top: 16px; }
 code { overflow-wrap: anywhere; }
 @media (max-width: 700px) { .catalog-summary { grid-template-columns: 1fr; } .catalog-heading { flex-direction: column; } }
